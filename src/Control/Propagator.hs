@@ -35,7 +35,7 @@ link2 ca cb cc f = do
     linkM ca cc $ \ a -> f a <$> readCell cb
     linkM cb cc $ \ b -> flip f b <$> readCell ca
     
-newEmptyCell :: (PropagatorMonad m, LegalCellValue a, BoundedMeet a) => m (Cell m a)
+newEmptyCell :: forall a m. (PropagatorMonad m, LegalCellValue a, BoundedMeet a) => m (Cell m a)
 newEmptyCell = newCell upperBound
 
 data Val m where
@@ -83,3 +83,9 @@ instance PropagatorMonad MyProp where
     watch c w = do
         (a, v) <- getVal c
         putVal c (a, \ x -> v x *> w x)
+
+
+deriving newtype instance Eq (Cell MyProp a)
+deriving newtype instance Ord (Cell MyProp a)
+instance Show (Cell MyProp a) where
+    show (MyCell i) = '#' : show i

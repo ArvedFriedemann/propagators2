@@ -16,6 +16,10 @@ dependencies:
   - mtl
   - bytestring
   - time
+  # macros
+  - template-haskell
+  # parser combinators
+  - parsec
 
 # enable modern Haskell
 default-extensions:
