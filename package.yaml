@@ -33,6 +33,7 @@ default-extensions:
   - TupleSections
   - PatternSynonyms
   - ViewPatterns
+  - InstanceSigs
 
   # deriving
   - StandaloneDeriving

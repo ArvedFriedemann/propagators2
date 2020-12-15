@@ -8,6 +8,8 @@ module Data.Facts
     , OrdFact(..)
     ) where
 
+import "base" Control.Applicative ( liftA2 )
+
 import "base" GHC.Exts ( IsList(..) )
 
 import "this" Data.Lattice
@@ -16,7 +18,7 @@ import "this" Data.Lattice
 data Contradictable a
     = Contradiction
     | Valid a
-  deriving stock (Eq, Ord, Show, Read, Functor)
+  deriving stock (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 
 instance Applicative Contradictable where
     pure = Valid
@@ -71,6 +73,30 @@ introduce a (Facts (Valid bs)) = Facts $ go a bs
 deriving via (Monoidal (Facts a)) instance Unifiable a => Meet (Facts a)
 deriving via (Monoidal (Facts a)) instance Unifiable a => BoundedMeet (Facts a)
 
+factsBinOp :: (Contradictable a -> Contradictable a -> Contradictable a) -> Facts a -> Facts a -> Facts a
+factsBinOp f (Facts (Valid as)) (Facts (Valid bs)) = Facts . Valid . concat $ liftA2 f' as bs
+  where f' a b = case f (Valid a) (Valid b) of
+          Contradiction -> [a, b]
+          Valid c -> [c]
+factsBinOp _ _ _ = Facts Contradiction
+
+
+factsOp :: (Contradictable a -> Contradictable a) -> Facts a -> Facts a
+factsOp f (Facts (Valid as)) = Facts . Valid . fmap f' $ as
+  where f' a = case f (Valid a) of
+          Contradiction -> a
+          Valid c -> c
+factsOp _ _ = Facts Contradiction
+
+instance Num (Contradictable a) => Num (Facts a) where
+    fromInteger = Facts . fmap pure . fromInteger
+    (+) = factsBinOp (+)
+    (*) = factsBinOp (*)
+    (-) = factsBinOp (-)
+    abs = factsOp abs
+    negate = factsOp negate
+    signum = factsOp signum
+
 
 data ValExpr v a
     = RefExpr v
@@ -103,3 +129,24 @@ instance (Ord v, Ord a) => Unifiable (OrdFact v a) where
         _ -> Contradiction
       where uni = pure . pure
     unify _ _ = pure Nothing
+
+ordFactBinOp :: (a -> a -> a) -> Contradictable (OrdFact v a) -> Contradictable (OrdFact v a) -> Contradictable (OrdFact v a)
+ordFactBinOp f (Valid (OrdFact r (ValExpr a))) (Valid (OrdFact r' (ValExpr b)))
+    | r == r' = Valid . OrdFact r . ValExpr $ f a b
+ordFactBinOp _ _ _ = Contradiction
+
+
+ordFactOp :: (a -> a) -> Contradictable (OrdFact v a) -> Contradictable (OrdFact v a)
+ordFactOp f (Valid (OrdFact r (ValExpr a))) = Valid . OrdFact r . ValExpr $ f a
+ordFactOp _ _ = Contradiction
+
+
+instance (Ord v, Ord a, Num a) => Num (Contradictable (OrdFact v a)) where
+  fromInteger = Valid . OrdFact EQ . ValExpr . fromInteger
+  (+) = ordFactBinOp (+)
+  (*) = ordFactBinOp (*)
+  (-) = ordFactBinOp (-)
+  abs = ordFactOp abs
+  signum = ordFactOp signum
+  negate = ordFactOp negate
+  
