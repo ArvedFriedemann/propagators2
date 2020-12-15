@@ -1,2 +1,2 @@
 #! /bin/sh
-nix-build && ./result/bin/docs && ./result/bin/server
+nix-build && ./result/bin/my-propagators

@@ -2,6 +2,7 @@ module Main where
 
 import "this" Control.Propagator
 import "this" Data.Domain
+-- import "this" Data.Facts
 
 
 main :: IO ()

@@ -1,4 +1,4 @@
-name: my-matrix
+name: my-propagators
 version: 0.1.0
 
 ghc-options: -fprint-potential-instances -Wall -Werror -Wno-unused-do-bind
