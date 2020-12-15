@@ -1,0 +1,59 @@
+name: my-matrix
+version: 0.1.0
+
+ghc-options: -fprint-potential-instances -Wall -Werror -Wno-unused-do-bind
+
+executable:
+  source-dirs: src
+  main: Main.hs
+
+dependencies:
+  # essentially standard library
+  - base
+  - text
+  - containers
+  - transformers
+  - mtl
+  - bytestring
+  - time
+
+# enable modern Haskell
+default-extensions:
+  # quality of live
+  - PackageImports
+  - ImportQualifiedPost
+  - LambdaCase
+  - OverloadedStrings
+  - OverloadedLists
+  - TypeApplications
+  - TupleSections
+  - PatternSynonyms
+  - ViewPatterns
+
+  # deriving
+  - StandaloneDeriving
+  - DerivingStrategies
+  - GeneralizedNewtypeDeriving
+  - DerivingVia
+  - DeriveGeneric
+  - DeriveFunctor
+  - DeriveTraversable
+  - DeriveFoldable
+  - DeriveDataTypeable
+  - DeriveLift
+
+  # typesysteme
+  - QuantifiedConstraints
+  - PolyKinds
+  - ExistentialQuantification
+  - GADTs
+  - DataKinds
+  - RankNTypes
+  - MultiParamTypeClasses
+  - FunctionalDependencies
+  - ConstraintKinds
+  - TypeFamilies
+  - TypeOperators
+  - ScopedTypeVariables
+  - FlexibleInstances
+  - FlexibleContexts
