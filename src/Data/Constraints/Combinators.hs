@@ -10,3 +10,6 @@ add a b c = do
     unsub1 <- link2 c a b (-)
     unsub2 <- link2 c b a (-)
     pure (unsub0 <> unsub1 <> unsub2)
+
+conjunct :: (Meet a, PropagatorMonad m) => Cell m a -> Cell m a -> Cell m a -> m (m ())
+conjunct = undefined --TODO: There should be an arbitrary link that just makes a table lookup
