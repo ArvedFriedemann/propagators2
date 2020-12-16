@@ -22,10 +22,10 @@ class Meet l where
 
 Instances of 'BoundedMeet' should satisfy the following:
 
-[Identity] @x /\ upperBound = x@
+[Identity] @x /\ top = x@
 -}
 class Meet l => BoundedMeet l where
-    upperBound :: l
+    top :: l
 
 
 {- | A join-semilattice
@@ -44,10 +44,10 @@ class Join l where
 
 Instances of 'BoundedJoin' should satisfy the following:
 
-[Identity] @x \/ lowerBound = x@
+[Identity] @x \/ bot = x@
 -}
 class Join l => BoundedJoin l where
-    lowerBound :: l
+    bot :: l
 
 class (Meet l, Join l) => Lattice l
 class (BoundedMeet l, BoundedJoin l, Lattice l) => BoundedLattice l
@@ -55,21 +55,21 @@ class (BoundedMeet l, BoundedJoin l, Lattice l) => BoundedLattice l
 -- combinators
 
 meetAll :: (Foldable f, BoundedMeet l) => f l -> l
-meetAll = foldr (/\) upperBound
+meetAll = foldr (/\) top
 
 joinAll :: (Foldable f, BoundedJoin l) => f l -> l
-joinAll = foldr (\/) lowerBound
+joinAll = foldr (\/) bot
 
 -- instances
 
 instance Meet l => Join (Dual l) where
     (\/) = liftA2 (/\)
 instance BoundedMeet l => BoundedJoin (Dual l) where
-    lowerBound = pure upperBound
+    bot = pure top
 instance Join l => Meet (Dual l) where
     (/\) = liftA2 (\/)
 instance BoundedJoin l => BoundedMeet (Dual l) where
-    upperBound = pure lowerBound
+    top = pure bot
 instance Lattice l => Lattice (Dual l)
 instance BoundedLattice l => BoundedLattice (Dual l)
 
@@ -84,22 +84,22 @@ newtype Monoidal a = Monoidal
 instance Semigroup a => Meet (Monoidal a) where
     (/\) = liftA2 (<>)
 instance Monoid a => BoundedMeet (Monoidal a) where
-    upperBound = pure mempty
+    top = pure mempty
 
 instance Meet l => Semigroup (Monoidal l) where
     (<>) = liftA2 (/\)
 instance BoundedMeet l => Monoid (Monoidal l) where
-    mempty = pure upperBound
+    mempty = pure top
 
 
 instance Ord a => Meet (Set a) where
     (/\) = Set.intersection
 instance (Ord a, Bounded a, Enum a) => BoundedMeet (Set a) where
-    upperBound = [minBound .. maxBound]
+    top = [minBound .. maxBound]
 instance Ord a => Join (Set a) where
     (\/) = Set.union
 instance Ord a => BoundedJoin (Set a) where
-    lowerBound = Set.empty
+    bot = Set.empty
 instance Ord a => Lattice (Set a)
 
 
@@ -113,11 +113,11 @@ newtype Ordered a = Ordered
 instance Ord a => Meet (Ordered a) where
     (/\) = max
 instance (Ord a, Bounded a) => BoundedMeet (Ordered a) where
-    upperBound = maxBound
+    top = maxBound
 instance Ord a => Join (Ordered a) where
     (\/) = min
 instance (Ord a, Bounded a) => BoundedJoin (Ordered a) where
-    lowerBound = minBound
+    bot = minBound
 instance Ord a => Lattice (Ordered a)
 instance (Ord a, Bounded a) => BoundedLattice (Ordered a)
 
@@ -132,22 +132,22 @@ instance BoundedLattice ()
 instance (Meet a, Meet b) => Meet (a, b) where
     (a, b) /\ (a', b') = (a /\ a', b /\ b')
 instance (BoundedMeet a, BoundedMeet b) => BoundedMeet (a, b) where
-    upperBound = (upperBound, upperBound)
+    top = (top, top)
 instance (Join a, Join b) => Join (a, b) where
     (a, b) \/ (a', b') = (a \/ a', b \/ b')
 instance (BoundedJoin a, BoundedJoin b) => BoundedJoin (a, b) where
-    lowerBound = (lowerBound, lowerBound)
+    bot = (bot, bot)
 instance (Lattice a, Lattice b) => Lattice (a, b)
 instance (BoundedLattice a, BoundedLattice b) => BoundedLattice (a, b)
 
 instance (Meet a, Meet b, Meet c) => Meet (a, b, c) where
     (a, b, c) /\ (a', b', c') = (a /\ a', b /\ b', c /\ c')
 instance (BoundedMeet a, BoundedMeet b, BoundedMeet c) => BoundedMeet (a, b, c) where
-    upperBound = (upperBound, upperBound, upperBound)
+    top = (top, top, top)
 instance (Join a, Join b, Join c) => Join (a, b, c) where
     (a, b, c) \/ (a', b', c') = (a \/ a', b \/ b', c \/ c')
 instance (BoundedJoin a, BoundedJoin b, BoundedJoin c) => BoundedJoin (a, b, c) where
-    lowerBound = (lowerBound, lowerBound, lowerBound)
+    bot = (bot, bot, bot)
 instance (Lattice a, Lattice b, Lattice c) => Lattice (a, b, c)
 instance (BoundedLattice a, BoundedLattice b, BoundedLattice c) => BoundedLattice (a, b, c)
 
@@ -169,11 +169,11 @@ newtype Applied f a = Applied
 instance (Applicative f, Meet a) => Meet (Applied f a) where
     (/\) = liftA2 (/\)
 instance (Applicative f, BoundedMeet a) => BoundedMeet (Applied f a) where
-    upperBound = pure upperBound
+    top = pure top
 instance (Applicative f, Join a) => Join (Applied f a) where
     (\/) = liftA2 (\/)
 instance (Applicative f, BoundedJoin a) => BoundedJoin (Applied f a) where
-    lowerBound = pure lowerBound
+    bot = pure bot
 instance (Applicative f, Lattice a) => Lattice (Applied f a)
 instance (Applicative f, BoundedLattice a) => BoundedLattice (Applied f a)
 

@@ -9,10 +9,9 @@ import "template-haskell" Language.Haskell.TH.Quote
 
 import "parsec" Text.Parsec
 
-import "this" Control.Propagator
-
 import "this" Data.Constraints.Types
 import "this" Data.Constraints.Parser
+import "this" Data.Constraints.Combinators
 
 
 con :: QuasiQuoter
@@ -57,10 +56,3 @@ constraintToExpQ _ = fail "unsupported"
 
 var :: String -> ExpQ
 var = varE . mkName
-
-add :: (Num a, LegalCellValue a, PropagatorMonad m) => Cell m a -> Cell m a -> Cell m a -> m ()
-add a b c = do
-    link2 a b c (+)
-    link2 c a b (-)
-    link2 c b a (-)
-  

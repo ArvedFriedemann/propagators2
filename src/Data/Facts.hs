@@ -103,6 +103,24 @@ data ValExpr v a
     | ValExpr a
   deriving stock (Eq, Ord)
 
+
+valExprBinOp :: (a -> a -> a) -> ValExpr v a -> ValExpr v a -> ValExpr v a
+valExprBinOp f (ValExpr a) (ValExpr b) = ValExpr $ f a b
+valExprBinOp _ _ _ = error "can not perform bin op on RefExpr"
+
+valExprOp :: (a -> a) -> ValExpr v a -> ValExpr v a
+valExprOp f (ValExpr a) = ValExpr . f $ a
+valExprOp _ _ = error "can not perform op on RefExpr"
+
+instance Num a => Num (ValExpr v a) where
+    fromInteger = ValExpr . fromInteger
+    (+) = valExprBinOp (+)
+    (*) = valExprBinOp (*)
+    (-) = valExprBinOp (-)
+    negate = valExprOp negate
+    abs = valExprOp abs
+    signum = valExprOp signum
+
 instance (Show v, Show a) => Show (ValExpr v a) where
     show (RefExpr v) = '#' : show v
     show (ValExpr a) = show a
