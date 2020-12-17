@@ -20,6 +20,7 @@ dependencies:
   - template-haskell
   # parser combinators
   - parsec
+  # others
 
 # enable modern Haskell
 default-extensions:

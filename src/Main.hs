@@ -6,13 +6,13 @@ import "this" Data.Facts
 import "this" Data.Constraints ( con )
 
 
-type NumFacts m n = Facts (OrdFact (Cell m n) n)
+type IntFacts = Facts (OrdFact (Cell SimplePropagator Int) Int)
 
 main :: IO ()
-main = print . runMyProp $ do
-    a <- newEmptyCell @(NumFacts MyProp Int)
-    b <- newEmptyCell @(NumFacts MyProp Int)
-    c <- newEmptyCell @(NumFacts MyProp Int)
+main = print . runSimplePropagator $ do
+    a <- newEmptyCell @IntFacts
+    b <- newEmptyCell @IntFacts
+    c <- newEmptyCell @IntFacts
     [con| c = a + b |]
     write a 2
     write b 3

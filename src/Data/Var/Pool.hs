@@ -6,6 +6,7 @@ module Data.Var.Pool
     , PoolIdF
     ) where
 
+import "base" Data.Typeable
 import "base" Data.Bifunctor
 import "base" Unsafe.Coerce
 
@@ -15,7 +16,7 @@ import "containers" Data.Map qualified as Map
 import "this" Data.Var.Class
 
 data Pool a = Pool
-    { _vars :: {-# UNPACK #-} !(Map Int a)
+    { _vars :: !(Map Int a)
     , _nextId :: {-# UNPACK #-} !Int
     }
 
@@ -25,7 +26,7 @@ pool = Pool Map.empty 0
 instance Vars (Pool a) a where
     newtype Id (Pool a) a = PoolId Int
       deriving newtype (Eq, Ord)
-    
+
     vars = Map.elems . _vars
     getVar (PoolId i) (Pool v _) = v ! i
 
@@ -39,7 +40,7 @@ instance MutableVars (Pool a) a where
 
 
 data Hidden f where
-    Hidden :: {-# UNPACK #-} !(f a) -> Hidden f
+    Hidden :: !(f a) -> Hidden f
 
 unsafeFromHidden :: Hidden f -> f a
 unsafeFromHidden (Hidden a) = unsafeCoerce a
@@ -56,8 +57,11 @@ type PoolIdF f = IdF (PoolF f) f
 instance VarsF (PoolF f) f where
     newtype IdF (PoolF f) f a = PoolIdF (Id (Pool (Hidden f)) (Hidden f))
       deriving newtype (Eq, Ord, Show)
+    
+    PoolIdF a =~= PoolIdF b = if a == b
+        then Just (unsafeCoerce Refl)
+        else Nothing
     getVarF (PoolIdF i) = unsafeFromHidden . getVar i . unPoolF
-
 
 instance MutableVarsF (PoolF f) f where
     newVarF a = bimap PoolIdF PoolF . newVar (Hidden a) . unPoolF

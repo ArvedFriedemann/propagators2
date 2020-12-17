@@ -1,5 +1,7 @@
 module Data.Var.Class where
 
+import "base" Data.Typeable
+
 
 class (Ord (Id v a), Show (Id v a)) => Vars v a | v -> a where
     data Id v a
@@ -14,8 +16,10 @@ class Vars v a => MutableVars v a | v -> a where
     updateVar i f v = flip (setVar i) v <$> (f . getVar i $ v)
     
 
-class (forall a. Ord (IdF v f a), forall a. Show (IdF v f a)) => VarsF v f | v -> f where
+class (forall a. Ord (IdF v f a), forall a. Show (IdF v f a))
+        => VarsF v f | v -> f where
     data IdF v f a
+    (=~=) :: IdF v f a -> IdF v f b -> Maybe (a :~: b)
     getVarF :: IdF v f a -> v -> f a
 
 class VarsF v f => MutableVarsF v f | v -> f where
