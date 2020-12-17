@@ -1,12 +1,15 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 module Control.Propagator.Simple
     ( SimplePropagator(..)
     , runSimplePropagator
     , (=~~=)
     ) where
 
+import "base" Prelude hiding ( (.), id )
 import "base" Data.Bifunctor
-import "base" Data.Function
+import "base" Data.Function ( on )
 import "base" Data.Typeable
+import "base" Control.Category
 
 import "transformers" Control.Monad.Trans.State ( State, evalState )
 import "transformers" Control.Monad.Trans.Except
@@ -34,7 +37,7 @@ type Listener a = Id (Pool (a -> SimplePropagator ())) (a -> SimplePropagator ()
 data CellVal a where
     Val :: !a -> !(Listeners a) -> ![Mapping a] -> CellVal a
     Ref :: (Meet b, Ord b)
-        => !(Cell SimplePropagator b) -> !(a <-> b) -> CellVal a
+        => !(Cell SimplePropagator b) -> !(b <-> a) -> CellVal a
 
 data Mapping a where
     Mapping :: !(Cell SimplePropagator b) -> !(b <-> a) -> !(Listeners b) -> Mapping a
@@ -80,7 +83,8 @@ instance PropagatorMonad SimplePropagator where
     readCell = (readCell' =<<) . getVal'
       where
         readCell' (Val v _ _) = pure v
-        readCell' (Ref c i)   = from i <$> readCell c
+        readCell' (Ref c i)   = to i <$> readCell c
+
     write c setVal = getVal' c >>= write'
       where
         write' (Val oldVal ls ms) = do
@@ -90,14 +94,16 @@ instance PropagatorMonad SimplePropagator where
                 setVal' c $ Val newVal ls ms
                 mapM_ ($ newVal) . vars $ ls
             else pure ()
-        write' (Ref c' (f :<-> _)) = write c' $ f setVal
+        write' (Ref c' i) = write c' . from i $ setVal
+
     watch c w = getVal' c >>= watch'
       where
         watch' (Val a v m) = do
             let (i, v') = newVar w v
             setVal' c $ Val a v' m
             pure . SPSubs . pure $ Sub c i
-        watch' (Ref c' m) = watch c' $ w . from m
+        watch' (Ref c' m) = watch c' $ w . to m
+
     cancel = mapM_ cancel' . unsSPSubs
       where
         cancel' (Sub c l) = getVal' c >>= cancelCell
@@ -115,7 +121,20 @@ instance PropagatorMonad SimplePropagator where
                 Just Refl -> pure . Mapping c' i $ delVar l lx
                 Nothing   -> pure m
 
-{-
+
 instance PropagatorEqMonad SimplePropagator where
-    iso a b (f :<-> t) = _
--}
+    iso :: forall a b. (Ord a, Meet a, Ord b, Meet b)
+        => Cell SimplePropagator a -> Cell SimplePropagator b -> (a <-> b) -> SimplePropagator ()
+    iso a b i = do
+        va <- getVal' a
+        vb <- getVal' b
+        iso' va vb
+      where
+        iso' :: CellVal a -> CellVal b -> SimplePropagator ()
+        iso' (Ref refA i') _ = iso refA b $ i . i'
+        iso' _ (Ref refB i') = iso a refB $ co i' . i
+        iso' (Val av alx am) (Val bv blx bm) = case a =~~= b of
+            Just Refl -> pure () -- already equal. we assume that i = id
+            Nothing   -> setVal' a $ Val (av /\ from i bv) alx (am <> [Mapping b (co i) blx] <> fmap moveMapping bm)
+
+        moveMapping (Mapping ref i' lx) = Mapping ref (co i . i') lx

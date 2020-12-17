@@ -17,6 +17,8 @@ Instances of 'Meet' should satisfy the following:
 -}
 class Meet l where
     (/\) :: l -> l -> l
+    (⋀) :: l -> l -> l
+    (⋀) = (/\)
 
 {- | A Bounded meet-semilattice
 
@@ -38,6 +40,8 @@ Instances of 'Join' should satisfy the following:
 -}
 class Join l where
     (\/) :: l -> l -> l
+    (⋁) :: l -> l -> l
+    (⋁) = (\/)
 
 
 {- | A Bounded join-semilattice
@@ -49,7 +53,21 @@ Instances of 'BoundedJoin' should satisfy the following:
 class Join l => BoundedJoin l where
     bot :: l
 
+{- | A Lattice
+
+Instances of 'Lattice' should satisfy the following:
+
+[Absorption] @a \/ (a /\ b) = a = a /\ (a \/ b)@
+-}
 class (Meet l, Join l) => Lattice l
+
+{- | A bounded Lattice
+
+Instances of 'BoundedLattice' should satisfy the following:
+
+[MeetIdentity] @bot /\ b = bot@
+[JoinIdentity] @top \/ b = top@
+-}
 class (BoundedMeet l, BoundedJoin l, Lattice l) => BoundedLattice l
 
 -- combinators

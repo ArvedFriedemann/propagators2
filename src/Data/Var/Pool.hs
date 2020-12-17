@@ -38,6 +38,9 @@ instance MutableVars (Pool a) a where
     setVar (PoolId i) a (Pool v n) = Pool (Map.insert i a v) n
     delVar (PoolId i) (Pool v n) = Pool (Map.delete i v) n
 
+instance Foldable Pool where
+    foldMap f = foldMap f . _vars
+
 
 data Hidden f where
     Hidden :: !(f a) -> Hidden f

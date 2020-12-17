@@ -18,7 +18,7 @@ class Vars v a => MutableVars v a | v -> a where
 
 class (forall a. Ord (IdF v f a), forall a. Show (IdF v f a))
         => VarsF v f | v -> f where
-    data IdF v f a
+    data IdF v f :: * -> *
     (=~=) :: IdF v f a -> IdF v f b -> Maybe (a :~: b)
     getVarF :: IdF v f a -> v -> f a
 
