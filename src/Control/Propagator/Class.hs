@@ -42,7 +42,7 @@ linkM2 :: PropagatorMonad m
       => (Meet a, Ord a)
       => (Meet b, Ord b)
       => (Meet c, Ord c)
-      => Cell m a -> Cell m b -> Cell m c -> (a -> b -> m c) -> m (m ())
+      => Cell m a -> Cell m b -> Cell m c -> (a -> b -> m c) -> m (Subscription m)
 linkM2 ca cb cc f = do
     unsubCa <- linkM ca cc $ \ a -> f a =<< readCell cb
     unsubCb <- linkM cb cc $ \ b -> flip f b =<< readCell ca
