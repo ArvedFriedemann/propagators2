@@ -3,9 +3,6 @@
 module Data.Terms where
 
 import "this" Control.Propagator
-import "this" Data.Facts
-import "this" Data.Constraints.Combinators
-import "base" Control.Monad
 
 data TermConst = TOP | BOT | AND | OR | IMPL | CUST String | ID Int
   deriving (Show, Eq, Ord)
@@ -18,7 +15,7 @@ data VarTerm m t = VVar (Cell m (VarTerm m t))
 
 
 type OpenVarTerm m = VarTerm m Term
-
+{-
 unifyM :: (PropagatorMonad m) => Cell m Bool -> OpenVarTerm m -> OpenVarTerm m -> m ()
 unifyM out (VTerm (CON c1)) (VTerm (CON c2)) = write out $ c1 == c2
 unifyM out (VVar v1) (VVar v2)
@@ -44,3 +41,4 @@ unifyM out (VTerm (APPL a1 b1)) (VTerm (APPL a2 b2)) = do
 
 unifyTerms :: (PropagatorMonad m) => Cell m (OpenVarTerm m) -> Cell m (OpenVarTerm m) -> Cell m Bool -> m (m ())
 unifyTerms t1 t2 out = linkM2 t1 t2 (unifyM out)
+-}
