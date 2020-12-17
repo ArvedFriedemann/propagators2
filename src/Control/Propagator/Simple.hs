@@ -10,6 +10,9 @@ import "base" Data.Bifunctor
 import "base" Data.Function ( on )
 import "base" Data.Typeable
 import "base" Control.Category
+import "base" Control.Applicative
+import "base" Control.Monad.Fix
+import "base" Control.Monad
 
 import "transformers" Control.Monad.Trans.State ( State, evalState )
 import "transformers" Control.Monad.Trans.Except
@@ -25,7 +28,12 @@ import "this" Control.Propagator.Class
 newtype SimplePropagator a = MkSP
     { runSP :: ExceptT String (State (PoolF CellVal)) a
     }
-  deriving newtype (Functor, Applicative, Monad, MonadState (PoolF CellVal))
+  deriving newtype 
+    ( Functor, Applicative, Monad
+    , MonadState (PoolF CellVal)
+    , MonadFix
+    , Alternative, MonadPlus
+    )
 instance MonadFail SimplePropagator where
     fail = MkSP . throwE
 

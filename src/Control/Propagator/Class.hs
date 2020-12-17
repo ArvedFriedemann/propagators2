@@ -10,6 +10,8 @@ module Control.Propagator.Class
     ) where
 
 import "base" Prelude hiding ( (.), id )
+import "base" Control.Monad.Fix
+import "base" Control.Monad
 import "base" Control.Category
 
 import "this" Data.Iso
@@ -21,7 +23,8 @@ class ( forall a. Ord (Cell m a)
       , Ord (Subscription m)
       , Show (Subscription m)
       , Monoid (Subscription m)
-      , Monad m
+      , MonadFix m
+      , MonadPlus m
       ) => PropagatorMonad m where
 
     data Cell m :: * -> *
@@ -31,6 +34,7 @@ class ( forall a. Ord (Cell m a)
     write :: (Meet a, Ord a) => Cell m a -> a -> m ()
     watch :: (Meet a, Ord a) => Cell m a -> (a -> m ()) -> m (Subscription m)
     cancel :: Subscription m -> m ()
+
 
 class PropagatorMonad m => PropagatorEqMonad m where
     iso :: (Meet a, Ord a, Meet b, Ord b) => Cell m a -> Cell m b -> (a <-> b) -> m ()
