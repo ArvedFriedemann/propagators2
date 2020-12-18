@@ -46,6 +46,7 @@ cleanTermSet :: (PropagatorMonad m) => TermSet m -> TermSet m
 cleanTermSet TSBot = TSBot
 cleanTermSet (TS ts)
   | length (filter S.null [vars, apls, cnst]) > 1 = TSBot
+  | length cnst > 1 = TSBot
   | otherwise = TS ts
   where vars = S.filter ovtIsVar ts
         apls = S.filter ovtIsApl ts
