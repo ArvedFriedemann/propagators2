@@ -2,13 +2,8 @@
 {-# LANGUAGE NoImplicitPrelude    #-}
 module Data.HList where
 
-import "base" Prelude ( error )
+import "base" Prelude hiding ( concat )
 import "base" Data.Proxy
-import "base" Data.Bool
-import "base" Data.Functor
-import "base" Data.Function ( ($), (.) )
-import "base" Data.Semigroup ( Semigroup(..) )
-import "base" Data.Monoid ( Monoid(..) )
 import "base" Control.Applicative
 import "base" Data.Functor.Identity
 import "base" Data.Kind
@@ -27,6 +22,32 @@ data HListT f (l :: [Type]) where
     HConsT :: f a -> HListT f as -> HListT f (a ': as)
 infixr 5 `HConsT`
 
+instance Eq (HListT f '[]) where
+    _ == _ = True
+instance (Eq (f a), Eq (HListT f as)) => Eq (HListT f (a ': as)) where
+    HConsT a as == HConsT b bs = a == b && as == bs
+
+instance Ord (HListT f '[]) where
+    _ `compare` _ = EQ
+instance (Ord (f a), Ord (HListT f as)) => Ord (HListT f (a ': as)) where
+    HConsT a as `compare` HConsT b bs = a `compare` b <> as `compare` bs
+
+instance ShowHListT f l => Show (HListT f l) where
+    showsPrec d l 
+        = showParen (d >= 10)
+        $ showString "HListT ["
+        . (drop 2 . showsHListT l)
+        . showString "]"
+class ShowHListT f l where
+    showsHListT :: HListT f l -> ShowS
+instance ShowHListT f '[] where
+    showsHListT _ = id
+instance (Show (f a), ShowHListT f as) => ShowHListT f (a ': as) where
+    showsHListT (HConsT a as)
+        = showString ", "
+        . shows a
+        . showsHListT as
+
 {-# COMPLETE HListT :: HListT #-}
 pattern HListT :: IsTuple (HListT f l) => Tuple (Components (HListT f l)) -> HListT f l
 pattern HListT a = AsTuple a
@@ -37,8 +58,35 @@ newtype HList l = MkHList
 {-# COMPLETE HNil :: HList #-}
 {-# COMPLETE HCons :: HList #-}
 
+
+instance Eq (HList '[]) where
+    _ == _ = True
+instance (Eq a, Eq (HList as)) => Eq (HList (a ': as)) where
+    HCons a as == HCons b bs = a == b && as == bs
+
+instance Ord (HList '[]) where
+    _ `compare` _ = EQ
+instance (Ord a, Ord (HList as)) => Ord (HList (a ': as)) where
+    HCons a as `compare` HCons b bs = a `compare` b <> as `compare` bs
+
+instance ShowHList l => Show (HList l) where
+    showsPrec d l 
+        = showParen (d >= 10)
+        $ showString "HListT ["
+        . (drop 2 . showsHList l)
+        . showString "]"
+class ShowHList l where
+    showsHList :: HList l -> ShowS
+instance ShowHList '[] where
+    showsHList _ = id
+instance (Show a, ShowHList as) => ShowHList (a ': as) where
+    showsHList (HCons a as)
+        = showString ", "
+        . shows a
+        . showsHList as
+
 {-# COMPLETE HList :: HList #-}
-pattern HList :: IsTuple (HList l) => Tuple (Components (HList l)) -> HList l
+pattern HList :: (IsTuple (HList l), l ~ (Components (HList l))) => Tuple l -> HList l
 pattern HList a = AsTuple a
 
 pattern HNil :: HList '[]

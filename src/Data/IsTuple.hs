@@ -168,6 +168,9 @@ class MkTuple a (ax :: [Type]) where
     consTuple :: a -> Tuple ax -> Tuple (a : ax)
     consTuple = undefined
 
+instance MkTuple a '[] where
+    unconsTuple (Identity a) = (a, ())
+    consTuple a () = Identity a
 instance MkTuple a '[b] where
     unconsTuple (a, b) = (a, Identity b)
     consTuple a (Identity b) = (a, b)
