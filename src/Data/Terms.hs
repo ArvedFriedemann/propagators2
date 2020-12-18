@@ -5,6 +5,7 @@ module Data.Terms where
 import "this" Data.Lattice
 import "this" Control.Propagator
 import "containers" Data.Set ( Set )
+import "transformers" Control.Monad.Trans.Writer.Lazy
 import qualified "containers" Data.Set as S
 
 data TermConst = TOP | BOT | AND | OR | IMPL | CUST String | ID Int | CUSTOM String
@@ -34,6 +35,14 @@ ovtIsCon t = ovtToConstructor t == OVTCon
 ovtIsApl ::  (PropagatorMonad m) => OpenVarTerm m -> Bool
 ovtIsApl t = ovtToConstructor t == OVTAppl
 
+variableContent :: (PropagatorMonad m) => OpenVarTerm m -> [Cell m (TermSet m)]
+variableContent (VVar v) = [v]
+variableContent _ = []
+
+variableContents :: (PropagatorMonad m) => [OpenVarTerm m] -> [Cell m (TermSet m)]
+variableContents ts = concatMap variableContent ts
+
+
 
 data TermSet m =   TSBot
                  | TS (Set (OpenVarTerm m))
@@ -45,11 +54,12 @@ deriving instance (PropagatorMonad m) => Ord (TermSet m)
 cleanTermSet :: (PropagatorMonad m) => TermSet m -> TermSet m
 cleanTermSet TSBot = TSBot
 cleanTermSet (TS ts)
-  | length (filter S.null [vars, apls, cnst]) > 1 = TSBot
+  --the value cannot be application and constant atst.
+  | length (filter S.null [apls, cnst]) > 1 = TSBot
+  --no more than one constant allowed
   | length cnst > 1 = TSBot
   | otherwise = TS ts
-  where vars = S.filter ovtIsVar ts
-        apls = S.filter ovtIsApl ts
+  where apls = S.filter ovtIsApl ts
         cnst = S.filter ovtIsCon ts
 
 instance (PropagatorMonad m) => Meet (TermSet m) where
@@ -69,7 +79,24 @@ instance (PropagatorMonad m) => BoundedLattice (TermSet m)
 
 
 
---termListener :: FactSet
+termListener :: (PropagatorEqMonad m) => TermSet m -> m ()
+termListener TSBot = return ()
+termListener (TS ts) = do
+  --equality for variables
+  sequence $ [eq a b | (a,b) <- zip varconts (drop 1 varconts)]
+  --do the writes from the equivalences (actual equivalence constraints follow from previous step)
+  sequence [write c val | (c,val) <- getVarCorrespondencies (S.toList ts)]
+  return ()
+  where varconts = variableContents (S.toList ts)
+
+getVarCorrespondencies :: (PropagatorMonad m) => [OpenVarTerm m] -> [ (Cell m (TermSet m), TermSet m ) ]
+getVarCorrespondencies ts = execWriter $ sequence [(w t1 t2) | (t1, t2) <- zip ts (drop 1 ts)]
+  where
+    w (VVar v1) (VVar v2) = tell [(v1, TS $ S.singleton $ VVar v2)]
+    w (VVar v1) t = tell [(v1, TS $ S.singleton t)]
+    w t (VVar v2) = tell [(v2, TS $ S.singleton t)]
+    w (VTerm (APPL a1 b1)) (VTerm (APPL a2 b2)) = (w a1 a2) >> (w b1 b2)
+    w _ _ = return ()
 
 {-
 unifyM :: (PropagatorMonad m) =>
