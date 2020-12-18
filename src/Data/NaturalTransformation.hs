@@ -15,33 +15,34 @@ instance Category (:~>) where
     id = NT id
     NT f . NT g = NT $ f . g
 
-class FFunctor ff where
-    ntMap :: (Functor g, Functor h) => g ~> h -> ff g -> ff h
-    ntMap = (<$$>)
-    (<$$>) :: (Functor g, Functor h) => g ~> h -> ff g -> ff h
-    (<$$>) = ntMap
-    {-# MINIMAL ( ntMap | (<$$>) ) #-}
+class Unconstrained a
+instance Unconstrained a
 
-(<$$) :: ( FFunctor ff
-         , Functor g, Functor h
-         )
-      => (forall a. h a) -> ff g -> ff h
-(<$$) f = ntMap $  \ _ -> f
+class FFunctor c ff where
+    ntMap :: (Functor g, Functor h) => proxy c -> (forall a. c a => g a -> h a) -> ff g -> ff h
 
-instance FFunctor ((:~>) f) where
-    ntMap f g = NT f . g
+instance FFunctor Unconstrained ((:~>) f) where
+    ntMap _ f g = NT f . g
 
 newtype Struct a f = Struct
     { getStruct :: f a
     }
 
-instance FFunctor (Struct a) where
-    ntMap f = Struct . f . getStruct
+instance c a => FFunctor c (Struct a) where
+    ntMap _ f = Struct . f . getStruct
 
 
 newtype Fix f = Fix
     { unFix :: f (Fix f)
     }
 
-instance FFunctor Fix where
-    ntMap f = Fix . fmap (ntMap f) . f . unFix
+instance FFunctor Unconstrained Fix where
+    ntMap pc f = Fix . fmap (ntMap pc f) . f . unFix
+
+class FTraversable c ff where
+    traverseF :: (Functor f, Applicative g, Functor h) 
+              => proxy c
+              -> (forall a. c a => f a -> g (h a)) -> ff f -> g (ff h)
+
+instance c a => FTraversable c (Struct a) where
+    traverseF _ f (Struct a) = Struct <$> f a

@@ -160,6 +160,7 @@ instance HasComponent (a, b, c, d, e, f, g, h) 7 where
 pattern ConsTuple :: MkTuple a ax => a -> Tuple ax -> Tuple (a ': ax)
 pattern ConsTuple a ax <- (unconsTuple -> (a, ax))
     where ConsTuple a ax = consTuple a ax
+{-# COMPLETE ConsTuple #-}
 
 class MkTuple a (ax :: [Type]) where
     unconsTuple :: Tuple (a : ax) -> (a, Tuple ax)
@@ -168,6 +169,9 @@ class MkTuple a (ax :: [Type]) where
     consTuple :: a -> Tuple ax -> Tuple (a : ax)
     consTuple = undefined
 
+instance MkTuple a '[] where
+    unconsTuple (Identity a) = (a, ())
+    consTuple a () = Identity a
 instance MkTuple a '[b] where
     unconsTuple (a, b) = (a, Identity b)
     consTuple a (Identity b) = (a, b)
