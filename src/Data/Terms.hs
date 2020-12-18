@@ -7,6 +7,7 @@ import "this" Control.Propagator
 import "containers" Data.Set ( Set )
 import qualified "containers" Data.Set as S
 import "transformers" Control.Monad.Trans.Writer.Lazy
+import "base" Debug.Trace
 
 data TermConst = TOP | BOT | AND | OR | IMPL | CUST String | ID Int | CUSTOM String
   deriving (Show, Eq, Ord)
@@ -55,7 +56,7 @@ cleanTermSet :: (PropagatorMonad m) => TermSet m -> TermSet m
 cleanTermSet TSBot = TSBot
 cleanTermSet (TS ts)
   --the value cannot be application and constant atst.
-  | length (filter S.null [apls, cnst]) > 1 = TSBot
+  | (not $ S.null apls) && (not $ S.null cnst) = TSBot
   --no more than one constant allowed
   | length cnst > 1 = TSBot
   | otherwise = TS ts
@@ -65,13 +66,13 @@ cleanTermSet (TS ts)
 instance (PropagatorMonad m) => Meet (TermSet m) where
   TSBot /\ _ = TSBot
   _ /\ TSBot = TSBot
-  (TS a) /\ (TS b) = TS $ S.union a b
+  (TS a) /\ (TS b) = cleanTermSet $ TS $ S.union a b
 instance (PropagatorMonad m) => BoundedMeet (TermSet m) where
     top = TS $ S.empty
 instance (PropagatorMonad m) => Join (TermSet m) where
   TSBot \/ a = a
   a \/ TSBot = a
-  (TS a) \/ (TS b) = TS $ S.intersection a b
+  (TS a) \/ (TS b) = cleanTermSet $ TS $ S.intersection a b
 instance (PropagatorMonad m) => BoundedJoin (TermSet m) where
     bot = TSBot
 instance (PropagatorMonad m) => Lattice (TermSet m)
@@ -82,10 +83,11 @@ instance (PropagatorMonad m) => BoundedLattice (TermSet m)
 termListener :: (PropagatorEqMonad m) => TermSet m -> m ()
 termListener TSBot = return ()
 termListener (TS ts) = do
+  traceM "I'm Alive!"
   --equality for variables
   sequence $ [eq a b | (a,b) <- zip varconts (drop 1 varconts)]
   --do the writes from the equivalences (actual equivalence constraints follow from previous step)
-  sequence [write c val | (c,val) <- getVarCorrespondencies (S.toList ts)]
+  sequence [traceShowM (c,val) >> write c val | (c,val) <- getVarCorrespondencies (S.toList ts)]
   return ()
   where varconts = variableContents (S.toList ts)
 
