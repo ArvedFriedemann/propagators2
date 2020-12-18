@@ -5,8 +5,8 @@ module Data.Terms where
 import "this" Data.Lattice
 import "this" Control.Propagator
 import "containers" Data.Set ( Set )
-import "transformers" Control.Monad.Trans.Writer.Lazy
 import qualified "containers" Data.Set as S
+import "transformers" Control.Monad.Trans.Writer.Lazy
 
 data TermConst = TOP | BOT | AND | OR | IMPL | CUST String | ID Int | CUSTOM String
   deriving (Show, Eq, Ord)
