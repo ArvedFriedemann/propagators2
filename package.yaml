@@ -59,6 +59,7 @@ default-extensions:
   - FunctionalDependencies
   - ConstraintKinds
   - TypeFamilies
+  - TypeFamilyDependencies
   - TypeOperators
   - ScopedTypeVariables
   - FlexibleInstances

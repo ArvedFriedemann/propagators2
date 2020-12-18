@@ -41,7 +41,9 @@ class PropagatorMonad m => PropagatorEqMonad m where
     eq :: (Meet a, Ord a) => Cell m a -> Cell m a -> m ()
     eq a b = iso a b id
 
+-------------------------------------------------------------------------------
 -- combinators
+-------------------------------------------------------------------------------
 
 linkM :: ( PropagatorMonad m
          , Meet a, Ord a

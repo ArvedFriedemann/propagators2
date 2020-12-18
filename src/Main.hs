@@ -4,17 +4,17 @@ module Main where
 import "containers" Data.Set ( Set )
 
 import "this" Control.Propagator
-import "this" Data.Facts
 import "this" Data.Constraints ( con )
+import "this" Data.Num1 () -- Num (Set a)
 
 
 type IntFacts = Set Int
 
 main :: IO ()
 main = print . runSimplePropagator $ do
-    a <- newCell @IntFacts [0 .. 24]
-    b <- newCell @IntFacts [0 .. 24]
-    c <- newCell @IntFacts [0 .. 24]
+    a <- newCell @_ @IntFacts [0 .. 24]
+    b <- newCell @_ @IntFacts [0 .. 24]
+    c <- newCell @_ @IntFacts [0 .. 24]
     [con| c = a + b |]
     write a 2
     write b 3

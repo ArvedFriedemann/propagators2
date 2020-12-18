@@ -1,7 +1,17 @@
-module Data.Lattice where
+module Data.Lattice
+    {-( Meet(..), BoundedMeet(..)
+    , Join(..), BoundedJoin(..)
+    , Lattice, BoundedLattice
+    , meetAll, joinAll
+    , Monoidal(..)
+    , Ordered(..)
+    , Applied(..)
+    , WithTop( NotTop ), pattern Top
+    , WithBot( NotBot ), pattern Bot
+    )-} where
 
 import "base" Data.Functor.Identity
-import "base" Data.Monoid ( Dual(..), First(..), Last(..) )
+import "base" Data.Monoid ( Dual(..) )
 import "base" Control.Applicative
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
@@ -210,16 +220,46 @@ deriving via (Applied IO a) instance BoundedJoin a => BoundedJoin (IO a)
 instance Lattice a => Lattice (IO a)
 instance BoundedLattice a => BoundedLattice (IO a)
 
-newtype Uncertain a = Uncertain
-    { getUncertain :: First a
-    }
-  deriving stock (Show, Read)
-  deriving newtype (Eq, Ord)
-  deriving (Functor, Applicative, Monad) via First
+{-
+data WithTop a
+    = SynthTop
+    | NotTop a
+  deriving (Eq, Ord, Show, Read, Functor)
+{-# COMPLETE Top, NotTop #-}
 
-newtype Disprovable a = Disprovable
-    { getDisprovable :: Last a
-    }
-  deriving stock (Show, Read)
-  deriving newtype (Eq, Ord)
-  deriving (Functor, Applicative, Monad) via Last
+instance Applicative WithTop where
+    pure = NotTop
+    NotTop f <*> NotTop a = NotTop $ f a
+    _ <*> _ = SynthTop
+
+instance Meet a => Meet (WithTop a) where
+    (/\) = liftA2 (/\)
+instance Meet a => BoundedMeet (WithTop a) where
+    top = SynthTop
+
+
+data WithBot a
+    = SynthBot
+    | NotBot a
+  deriving (Eq, Ord, Show, Read, Functor)
+{-# COMPLETE Bot, NotBot #-}
+
+instance Applicative WithBot where
+    pure = NotBot
+    NotBot f <*> NotBot a = NotBot $ f a
+    _ <*> _ = SynthBot
+
+pattern Bot :: (Eq a, BoundedJoin a) => a
+pattern Bot <- ((\x -> x == bot) -> True)
+  where Bot = bot
+
+instance Join a => Join (WithBot a) where
+    (\/) = liftA2 (\/)
+instance Join a => BoundedJoin (WithBot a) where
+    bot = SynthBot
+
+pattern Top :: (Eq a, BoundedMeet a) => a
+pattern Top <- ((\x -> x == top) -> True)
+    where Top = top
+
+-}
