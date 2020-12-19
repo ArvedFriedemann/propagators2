@@ -1,24 +1,18 @@
 module Tests.UnificationTest where
 
-import "this" Data.Terms.Terms
+--import "this" Data.Terms.Terms
+import "this" Data.Terms.TermFunctions
 import "this" Control.Propagator
 import "base" Data.Either
 --import "containers" Data.Set ( Set )
-import qualified "containers" Data.Set as S
+--import qualified "containers" Data.Set as S
 
 
 test1 :: IO ()
 test1 = putStrLn $ fromRight "Error" $ runSimplePropagator $ do
   sv <- newEmptyCell "sv"
-  a <- newCell "a" $ TS $ S.singleton (VTerm (CON $ CUSTOM "a"))
-  b <- newCell "b" $ TS $ S.singleton (VTerm (CON $ CUSTOM "b"))
-  sv_a <- newCell "sv_a" $ TS $ S.singleton (VTerm (APPL sv a))
-  b_sv <- newCell "b_sv" $ TS $ S.singleton (VTerm (APPL b sv))
-  watch sv $ termListener sv
-  watch a  $ termListener a
-  watch b  $ termListener b
-  watch sv_a $ termListener sv_a
-  watch b_sv $ termListener b_sv
+  sv_a <- fromVarsAsCells (ls [var sv, ccon "a"])
+  b_sv <- fromVarsAsCells (ls [ccon "b", var sv])
   eq sv_a b_sv
   rsv_a <- readCell sv_a
   rb_sv <- readCell b_sv

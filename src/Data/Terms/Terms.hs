@@ -98,6 +98,9 @@ propBot cout cin = do
     then write cout bot
     else return ()
 
+watchTerm :: (PropagatorEqMonad m) => Cell m (TermSet m) -> m (Subscription m)
+watchTerm ct = watch ct $ termListener ct
+
 termListener :: (PropagatorEqMonad m) => Cell m (TermSet m) -> TermSet m -> m ()
 termListener _ TSBot = return ()
 termListener this (TS ts) = do
