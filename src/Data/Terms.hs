@@ -99,8 +99,8 @@ termListener this (TS ts) = do
   --equality for variables
   mapM_ (eq this) varconts
   --equality for applications
-  eqF $ applLefts apls
-  eqF $ aplRights apls
+  eqAll $ applLefts apls
+  eqAll $ aplRights apls
   return ()
   where varconts = variableContents (S.toList ts)
         apls = S.toList $ S.filter ovtIsApl ts
