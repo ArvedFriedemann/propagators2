@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Data.Terms where
 
@@ -6,20 +6,21 @@ import "this" Data.Lattice
 import "this" Control.Propagator
 import "containers" Data.Set ( Set )
 import qualified "containers" Data.Set as S
-import "transformers" Control.Monad.Trans.Writer.Lazy
-import "base" Debug.Trace
+--import "transformers" Control.Monad.Trans.Writer.Lazy
+--import "base" Debug.Trace
 
 data TermConst = TOP | BOT | AND | OR | IMPL | CUST String | ID Int | CUSTOM String
   deriving (Show, Eq, Ord)
 data Term a = CON TermConst
             | APPL a a
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Functor, Foldable)
 
 data OpenVarTerm m = VVar (Cell m (TermSet m))
-                  | VTerm (Term (OpenVarTerm m))
+                  | VTerm (Term (Cell m (TermSet m)))
 deriving instance (Show (Cell m (TermSet m)), Show (Term (OpenVarTerm m)) ) => Show (OpenVarTerm m)
 deriving instance (Eq (Cell m (TermSet m)), Eq (Term (OpenVarTerm m)) ) => Eq (OpenVarTerm m)
 deriving instance (Ord (Cell m (TermSet m)), Ord (Term (OpenVarTerm m)) ) => Ord (OpenVarTerm m)
+
 
 data OVTConstructor = OVTVar | OVTCon | OVTAppl
   deriving (Show, Eq, Ord)
@@ -43,6 +44,18 @@ variableContent _ = []
 variableContents :: (PropagatorMonad m) => [OpenVarTerm m] -> [Cell m (TermSet m)]
 variableContents ts = concatMap variableContent ts
 
+applContent :: (PropagatorMonad m) => OpenVarTerm m -> [(Cell m (TermSet m),Cell m (TermSet m))]
+applContent (VTerm (APPL a b)) = [(a,b)]
+applContent _ = []
+
+applContents :: (PropagatorMonad m) => [OpenVarTerm m] -> [(Cell m (TermSet m),Cell m (TermSet m))]
+applContents ts = concatMap applContent ts
+
+applLefts :: (PropagatorMonad m) => [OpenVarTerm m] -> [Cell m (TermSet m)]
+applLefts ts = fst <$> applContents ts
+
+aplRights :: (PropagatorMonad m) => [OpenVarTerm m] -> [Cell m (TermSet m)]
+aplRights ts = snd <$> applContents ts
 
 
 data TermSet m =   TSBot
@@ -80,25 +93,17 @@ instance (PropagatorMonad m) => BoundedLattice (TermSet m)
 
 
 
-termListener :: (PropagatorEqMonad m) => TermSet m -> m ()
-termListener TSBot = return ()
-termListener (TS ts) = do
-  traceM "I'm Alive!"
+termListener :: (PropagatorEqMonad m) => Cell m (TermSet m) -> TermSet m -> m ()
+termListener _ TSBot = return ()
+termListener this (TS ts) = do
   --equality for variables
-  sequence $ [eq a b | (a,b) <- zip varconts (drop 1 varconts)]
-  --do the writes from the equivalences (actual equivalence constraints follow from previous step)
-  sequence [traceShowM (c,val) >> write c val | (c,val) <- getVarCorrespondencies (S.toList ts)]
+  mapM_ (eq this) varconts
+  --equality for applications
+  eqF $ applLefts apls
+  eqF $ aplRights apls
   return ()
   where varconts = variableContents (S.toList ts)
-
-getVarCorrespondencies :: (PropagatorMonad m) => [OpenVarTerm m] -> [ (Cell m (TermSet m), TermSet m ) ]
-getVarCorrespondencies ts = execWriter $ sequence [(w t1 t2) | (t1, t2) <- zip ts (drop 1 ts)]
-  where
-    w (VVar v1) (VVar v2) = tell [(v1, TS $ S.singleton $ VVar v2)]
-    w (VVar v1) t = tell [(v1, TS $ S.singleton t)]
-    w t (VVar v2) = tell [(v2, TS $ S.singleton t)]
-    w (VTerm (APPL a1 b1)) (VTerm (APPL a2 b2)) = (w a1 a2) >> (w b1 b2)
-    w _ _ = return ()
+        apls = S.toList $ S.filter ovtIsApl ts
 
 {-
 unifyM :: (PropagatorMonad m) =>
