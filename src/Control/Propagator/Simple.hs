@@ -162,6 +162,9 @@ instance PropagatorEqMonad SimplePropagator where
         iso' _ (Ref refB i') = iso a refB $ co i' . i
         iso' (Val av alx am) (Val bv blx bm) = case a =~~= b of
             Just Refl -> pure () -- already equal. we assume that i = id
-            Nothing   -> setVal' a $ Val (av /\ from i bv) alx (am <> [Mapping b (co i) blx] <> fmap moveMapping bm)
+            Nothing   -> do
+                let v = av /\ from i bv
+                setVal' a $ Val v alx (am <> [Mapping b (co i) blx] <> fmap moveMapping bm)
+                callListeners a v
 
         moveMapping (Mapping ref i' lx) = Mapping ref (co i . i') lx
