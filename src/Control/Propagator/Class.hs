@@ -7,7 +7,7 @@ module Control.Propagator.Class
     , linkM2
     , link
     , link2
-    , eqF
+    , eqAll
     ) where
 
 import "base" Prelude hiding ( (.), id )
@@ -44,9 +44,9 @@ class PropagatorMonad m => PropagatorEqMonad m where
     eq :: (Meet a, Ord a) => Cell m a -> Cell m a -> m ()
     eq a b = iso a b id
 
-eqF :: (PropagatorEqMonad m, Meet a, Ord a) => [Cell m a] -> m ()
-eqF (a : b : as) = eq a b >> eqF (b : as)
-eqF _ = pure ()
+eqAll :: (PropagatorEqMonad m, Meet a, Ord a) => [Cell m a] -> m ()
+eqAll [] = pure ()
+eqAll (a : as) = mapM_ (eq a) as
 
 -------------------------------------------------------------------------------
 -- combinators
