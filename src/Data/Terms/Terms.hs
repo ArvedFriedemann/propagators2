@@ -37,6 +37,13 @@ ovtIsCon t = ovtToConstructor t == OVTCon
 ovtIsApl ::  (PropagatorMonad m) => OpenVarTerm m -> Bool
 ovtIsApl t = ovtToConstructor t == OVTAppl
 
+constantContent :: (PropagatorMonad m) => OpenVarTerm m -> [TermConst]
+constantContent (VTerm (CON c)) = [c]
+constantContent _ = []
+
+constantContents :: (PropagatorMonad m) => [OpenVarTerm m] -> [TermConst]
+constantContents ts = concatMap constantContent ts
+
 variableContent :: (PropagatorMonad m) => OpenVarTerm m -> [Cell m (TermSet m)]
 variableContent (VVar v) = [v]
 variableContent _ = []
