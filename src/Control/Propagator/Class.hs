@@ -29,7 +29,9 @@ class ( forall a. Ord (Cell m a)
 
     data Cell m :: * -> *
     data Subscription m
-    newCell :: (Meet a, Ord a) => a -> m (Cell m a)
+    newCell :: (Meet a, Ord a) => String -> a -> m (Cell m a)
+    newCell' :: (Meet a, Ord a) => a -> m (Cell m a)
+    newCell' = newCell ""
     readCell :: (Meet a, Ord a) => Cell m a -> m a
     write :: (Meet a, Ord a) => Cell m a -> a -> m ()
     watch :: (Meet a, Ord a) => Cell m a -> (a -> m ()) -> m (Subscription m)
@@ -81,5 +83,5 @@ link2 ca cb cc f = do
     unsubCb <- linkM cb cc $ \ b -> flip f b <$> readCell ca
     pure (unsubCa <> unsubCb)
 
-newEmptyCell :: forall a m. (PropagatorMonad m, BoundedMeet a, Ord a) => m (Cell m a)
-newEmptyCell = newCell top
+newEmptyCell :: forall a m. (PropagatorMonad m, BoundedMeet a, Ord a) => String -> m (Cell m a)
+newEmptyCell = flip newCell top

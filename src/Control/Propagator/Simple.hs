@@ -54,7 +54,7 @@ getVal' :: Cell SimplePropagator a -> SimplePropagator (CellVal a)
 getVal' = gets . getVarF . unSPC
 
 setVal' :: Cell SimplePropagator a -> CellVal a -> SimplePropagator ()
-setVal' (MkSPC i) v = state $ ((),) . setVarF i v
+setVal' (MkSPC _ i) v = state $ ((),) . setVarF i v
 
 callListeners :: (Ord a, Meet a) => Cell SimplePropagator a -> a -> SimplePropagator ()
 callListeners c a = getVal' c >>= flip callListeners' a
@@ -75,7 +75,7 @@ data Sub where
 
 instance Show Sub where
     showsPrec d (Sub c l)
-        = showParen (d >= 10)
+        = showParen (d > 10)
         $ shows c
         . showString " -> "
         . shows l
@@ -85,21 +85,27 @@ instance Eq Sub where
 instance Ord Sub where
     compare = compare `on` show
 
+instance Show (Cell SimplePropagator a) where
+    showsPrec _ c
+        = showString (cellName c)
+        . shows (unSPC c)
+
 (=~~=) :: Cell SimplePropagator a -> Cell SimplePropagator b -> Maybe (a :~: b)
-MkSPC a =~~= MkSPC b = a =~= b
+MkSPC _ a =~~= MkSPC _ b = a =~= b
 
 instance PropagatorMonad SimplePropagator where
-    newtype Cell SimplePropagator a = MkSPC
-        { unSPC :: IdF (PoolF CellVal) CellVal a
+    data Cell SimplePropagator a = MkSPC
+        { cellName :: String
+        , unSPC :: IdF (PoolF CellVal) CellVal a
         }
-      deriving newtype (Eq, Ord, Show)
+      deriving (Eq, Ord)
 
     newtype Subscription SimplePropagator = SPSubs
         { unsSPSubs :: [Sub]
         }
       deriving newtype (Eq, Ord, Show, Semigroup, Monoid)
 
-    newCell a = state $ first MkSPC . newVarF (Val a pool [])
+    newCell n a = state $ first (MkSPC n) . newVarF (Val a pool [])
     readCell = (readCell' =<<) . getVal'
       where
         readCell' (Val v _ _) = pure v

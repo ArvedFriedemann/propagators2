@@ -12,9 +12,9 @@ type IntFacts = Set Int
 
 main :: IO ()
 main = print . runSimplePropagator $ do
-    a <- newCell @_ @IntFacts [0 .. 24]
-    b <- newCell @_ @IntFacts [0 .. 24]
-    c <- newCell @_ @IntFacts [0 .. 24]
+    a <- newCell @_ @IntFacts "a" [0 .. 24]
+    b <- newCell @_ @IntFacts "b" [0 .. 24]
+    c <- newCell @_ @IntFacts "c" [0 .. 24]
     [con| c = a + b |]
     write a 2
     write b 3

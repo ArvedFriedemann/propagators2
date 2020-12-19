@@ -9,10 +9,10 @@ import qualified "containers" Data.Set as S
 
 test1 :: IO ()
 test1 = putStrLn $ fromRight "Error" $ runSimplePropagator $ do
-  sv <- newEmptyCell @(TermSet SimplePropagator)
-  t1 <- newCell $ TS $ S.singleton
+  sv <- newEmptyCell @(TermSet SimplePropagator) "sv"
+  t1 <- newCell "t1" $ TS $ S.singleton
     (VTerm (APPL (VVar sv) (VTerm (CON $ CUSTOM "a"))))
-  t2 <- newCell $ TS $ S.singleton
+  t2 <- newCell "t2" $ TS $ S.singleton
     (VTerm (APPL (VTerm (CON $ CUSTOM "b")) (VVar sv) ))
   watch t1 termListener
   watch t2 termListener
@@ -25,10 +25,10 @@ test1 = putStrLn $ fromRight "Error" $ runSimplePropagator $ do
 
 test2 :: IO ()
 test2 = putStrLn $ fromRight "Error" $ runSimplePropagator $ do
-  sv1 <- newEmptyCell @(TermSet SimplePropagator)
-  sv2 <- newEmptyCell @(TermSet SimplePropagator)
-  t1 <- newEmptyCell @(TermSet SimplePropagator)
-  t2 <- newEmptyCell @(TermSet SimplePropagator)
+  sv1 <- newEmptyCell @(TermSet SimplePropagator) "sv1"
+  sv2 <- newEmptyCell @(TermSet SimplePropagator) "sv2"
+  t1 <- newEmptyCell @(TermSet SimplePropagator) "t1"
+  t2 <- newEmptyCell @(TermSet SimplePropagator) "t2"
 
   write t1 $ TS $ S.singleton
     (VTerm (APPL (VVar sv1) (VTerm $ APPL
