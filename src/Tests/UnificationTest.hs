@@ -1,6 +1,6 @@
 module Tests.UnificationTest where
 
-import "this" Data.Terms
+import "this" Data.Terms.Terms
 import "this" Control.Propagator
 import "base" Data.Either
 --import "containers" Data.Set ( Set )
