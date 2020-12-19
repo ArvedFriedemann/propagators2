@@ -4,6 +4,7 @@ module Data.HList.HListT
     , pattern HListT
     , concatT
     , type (++)
+    , All
     ) where
 
 import "base" GHC.TypeLits
@@ -17,6 +18,10 @@ import "this" Data.NaturalTransformation
 type family (++) as bs where
     (++) '[] bs = bs
     (++) (a ': as) bs = a ': (as ++ bs)
+
+type family All c l :: Constraint where
+    All c '[] = ()
+    All c (a ': as) = (c a, All c as)
 
 data HListT (l :: [Type]) f where
     HNilT  :: HListT '[] f
@@ -58,6 +63,13 @@ instance FTraversable c (HListT '[]) where
     traverseF _ _ _ = pure HNilT
 instance (c a, FTraversable c (HListT as)) => FTraversable c (HListT (a ': as)) where
     traverseF pc f (HConsT a as) = HConsT <$> f a <*> traverseF pc f as
+
+instance FApplicative c (HListT '[]) where
+    pureF _ _ = HNilT
+    liftAF2 _ _ _ _ = HNilT
+instance (c a, FApplicative c (HListT as)) => FApplicative c (HListT (a ': as)) where
+    pureF pc a = HConsT a $ pureF pc a
+    liftAF2 pc f (HConsT a as) (HConsT b bs) = HConsT (f a b) (liftAF2 pc f as bs)
 
 {-# COMPLETE HListT :: HListT #-}
 pattern HListT :: IsTuple (HListT l f) => Tuple (Components (HListT l f)) -> HListT l f

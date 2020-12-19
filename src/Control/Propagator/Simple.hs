@@ -56,6 +56,18 @@ getVal' = gets . getVarF . unSPC
 setVal' :: Cell SimplePropagator a -> CellVal a -> SimplePropagator ()
 setVal' (MkSPC i) v = state $ ((),) . setVarF i v
 
+callListeners :: (Ord a, Meet a) => Cell SimplePropagator a -> a -> SimplePropagator ()
+callListeners c a = getVal' c >>= flip callListeners' a
+
+callListeners' :: (Ord a, Meet a) => CellVal a -> a -> SimplePropagator ()
+callListeners' (Ref c i) a = callListeners c $ from i a
+callListeners' (Val _ ls ms) a = do
+    execListeners a ls
+    mapM_ (callMapping a) ms
+  where
+    execListeners newVal = mapM_ ($ newVal) . vars
+    callMapping newVal (Mapping _ i mls) = execListeners (from i newVal) mls
+
 data Sub where
     Sub :: forall a
         . ( Show (Cell SimplePropagator a), Show (Listener a))
@@ -100,7 +112,7 @@ instance PropagatorMonad SimplePropagator where
             if oldVal /= newVal
             then do 
                 setVal' c $ Val newVal ls ms
-                mapM_ ($ newVal) . vars $ ls
+                callListeners c newVal
             else pure ()
         write' (Ref c' i) = write c' . from i $ setVal
 
@@ -109,6 +121,7 @@ instance PropagatorMonad SimplePropagator where
         watch' (Val a v m) = do
             let (i, v') = newVar w v
             setVal' c $ Val a v' m
+            callListeners c a
             pure . SPSubs . pure $ Sub c i
         watch' (Ref c' m) = watch c' $ w . to m
 

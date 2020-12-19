@@ -5,6 +5,7 @@ import "containers" Data.Set qualified as Set
 
 import "this" Control.Propagator.Class
 
+
 table3 :: ( PropagatorMonad m
           , Ord a
           , Ord b
