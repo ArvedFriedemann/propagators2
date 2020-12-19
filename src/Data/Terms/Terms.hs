@@ -1,6 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 
-module Data.Terms where
+module Data.Terms.Terms where
 
 import "this" Data.Lattice
 import "this" Control.Propagator
