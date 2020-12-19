@@ -14,7 +14,7 @@ import "base" Control.Applicative
 import "base" Control.Monad.Fix
 import "base" Control.Monad
 
-import "transformers" Control.Monad.Trans.State ( State, evalState )
+import "transformers" Control.Monad.Trans.State.Strict ( State, evalState )
 import "transformers" Control.Monad.Trans.Except
 import "mtl" Control.Monad.State.Class ( MonadState, state, gets )
 
@@ -56,12 +56,12 @@ getVal' = gets . getVarF . unSPC
 setVal' :: Cell SimplePropagator a -> CellVal a -> SimplePropagator ()
 setVal' (MkSPC _ i) v = state $ ((),) . setVarF i v
 
-callListeners :: (Ord a, Meet a) => Cell SimplePropagator a -> a -> SimplePropagator ()
-callListeners c a = getVal' c >>= flip callListeners' a
+callListeners :: (Ord a, Meet a) => Cell SimplePropagator a -> SimplePropagator ()
+callListeners c = getVal' c >>= callListeners'
 
-callListeners' :: (Ord a, Meet a) => CellVal a -> a -> SimplePropagator ()
-callListeners' (Ref c i) a = callListeners c $ from i a
-callListeners' (Val _ ls ms) a = do
+callListeners' :: (Ord a, Meet a) => CellVal a -> SimplePropagator ()
+callListeners' (Ref c _) = callListeners c
+callListeners' (Val a ls ms) = do
     execListeners a ls
     mapM_ (callMapping a) ms
   where
@@ -118,7 +118,7 @@ instance PropagatorMonad SimplePropagator where
             if oldVal /= newVal
             then do 
                 setVal' c $ Val newVal ls ms
-                callListeners c newVal
+                callListeners c
             else pure ()
         write' (Ref c' i) = write c' . from i $ setVal
 
@@ -127,7 +127,7 @@ instance PropagatorMonad SimplePropagator where
         watch' (Val a v m) = do
             let (i, v') = newVar w v
             setVal' c $ Val a v' m
-            callListeners c a
+            callListeners c
             pure . SPSubs . pure $ Sub c i
         watch' (Ref c' m) = watch c' $ w . to m
 
@@ -163,8 +163,8 @@ instance PropagatorEqMonad SimplePropagator where
         iso' (Val av alx am) (Val bv blx bm) = case a =~~= b of
             Just Refl -> pure () -- already equal. we assume that i = id
             Nothing   -> do
-                let v = av /\ from i bv
-                setVal' a $ Val v alx (am <> [Mapping b (co i) blx] <> fmap moveMapping bm)
-                callListeners a v
+                setVal' a $ Val av alx (am <> [Mapping b (co i) blx] <> fmap moveMapping bm)
+                setVal' b $ Ref a i
+                write a (from i bv)
 
         moveMapping (Mapping ref i' lx) = Mapping ref (co i . i') lx
