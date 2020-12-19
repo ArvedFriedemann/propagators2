@@ -91,7 +91,12 @@ instance (PropagatorMonad m) => BoundedJoin (TermSet m) where
 instance (PropagatorMonad m) => Lattice (TermSet m)
 instance (PropagatorMonad m) => BoundedLattice (TermSet m)
 
-
+propBot :: (PropagatorEqMonad m, Meet a, Ord a, BoundedJoin a, Meet b, Ord b, BoundedJoin b) =>
+            Cell m b -> a -> m ()
+propBot cout cin = do
+  if cin == bot
+    then write cout bot
+    else return ()
 
 termListener :: (PropagatorEqMonad m) => Cell m (TermSet m) -> TermSet m -> m ()
 termListener _ TSBot = return ()
@@ -101,6 +106,9 @@ termListener this (TS ts) = do
   --equality for applications
   eqAll $ applLefts apls
   eqAll $ aplRights apls
+  --as subvalues are not equivalent to this value, their bots have to be propagated as well
+  mapM_ (\x -> watch x (propBot this)) $ applLefts apls
+  mapM_ (\x -> watch x (propBot this)) $ aplRights apls
   return ()
   where varconts = variableContents (S.toList ts)
         apls = S.toList $ S.filter ovtIsApl ts

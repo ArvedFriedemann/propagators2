@@ -20,7 +20,6 @@ test1 = putStrLn $ fromRight "Error" $ runSimplePropagator $ do
   watch sv_a $ termListener sv_a
   watch b_sv $ termListener b_sv
   eq sv_a b_sv
-  eq b_sv sv_a
   rsv_a <- readCell sv_a
   rb_sv <- readCell b_sv
   rsv <- readCell sv
