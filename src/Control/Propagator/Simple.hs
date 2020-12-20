@@ -7,7 +7,6 @@ module Control.Propagator.Simple
 
 import "base" Prelude hiding ( (.), id )
 import "base" Data.Bifunctor
-import "base" Data.Function ( on )
 import "base" Data.Typeable
 import "base" Control.Category
 import "base" Control.Applicative
@@ -23,14 +22,15 @@ import "this" Data.Var
 import "this" Data.Iso
 
 import "this" Control.Propagator.Class
+import "this" Control.Propagator.CellVal
 
 
 newtype SimplePropagator a = MkSP
-    { runSP :: ExceptT String (State (PoolF CellVal)) a
+    { runSP :: ExceptT String (State (PoolF (CellVal SimplePropagator))) a
     }
   deriving newtype 
     ( Functor, Applicative, Monad
-    , MonadState (PoolF CellVal)
+    , MonadState (PoolF (CellVal SimplePropagator))
     , MonadFix
     , Alternative, MonadPlus
     )
@@ -40,51 +40,6 @@ instance MonadFail SimplePropagator where
 runSimplePropagator :: SimplePropagator a -> Either String a
 runSimplePropagator = flip evalState poolF . runExceptT . runSP
 
-type Listeners a = Pool (a -> SimplePropagator ())
-type Listener a = Id (Pool (a -> SimplePropagator ())) (a -> SimplePropagator ())
-data CellVal a where
-    Val :: !a -> !(Listeners a) -> ![Mapping a] -> CellVal a
-    Ref :: (Meet b, Ord b)
-        => !(Cell SimplePropagator b) -> !(b <-> a) -> CellVal a
-
-data Mapping a where
-    Mapping :: !(Cell SimplePropagator b) -> !(b <-> a) -> !(Listeners b) -> Mapping a
-
-getVal' :: Cell SimplePropagator a -> SimplePropagator (CellVal a)
-getVal' = gets . getVarF . unSPC
-
-setVal' :: Cell SimplePropagator a -> CellVal a -> SimplePropagator ()
-setVal' (MkSPC _ i) v = state $ ((),) . setVarF i v
-
-callListeners :: (Ord a, Meet a) => Cell SimplePropagator a -> SimplePropagator ()
-callListeners c = getVal' c >>= callListeners'
-
-callListeners' :: (Ord a, Meet a) => CellVal a -> SimplePropagator ()
-callListeners' (Ref c _) = callListeners c
-callListeners' (Val a ls ms) = do
-    execListeners a ls
-    mapM_ (callMapping a) ms
-  where
-    execListeners newVal = mapM_ ($ newVal) . vars
-    callMapping newVal (Mapping _ i mls) = execListeners (from i newVal) mls
-
-data Sub where
-    Sub :: forall a
-        . ( Show (Cell SimplePropagator a), Show (Listener a))
-        => !(Cell SimplePropagator a) -> !(Listener a) -> Sub
-
-instance Show Sub where
-    showsPrec d (Sub c l)
-        = showParen (d > 10)
-        $ shows c
-        . showString " -> "
-        . shows l
-
-instance Eq Sub where
-    (==) = (==) `on` show
-instance Ord Sub where
-    compare = compare `on` show
-
 instance Show (Cell SimplePropagator a) where
     showsPrec _ c
         = showString (cellName c)
@@ -93,15 +48,34 @@ instance Show (Cell SimplePropagator a) where
 (=~~=) :: Cell SimplePropagator a -> Cell SimplePropagator b -> Maybe (a :~: b)
 MkSPC _ a =~~= MkSPC _ b = a =~= b
 
+getVal' :: Cell SimplePropagator a -> SimplePropagator (CellVal SimplePropagator a)
+getVal' = gets . getVarF . unSPC
+
+setVal' :: Cell SimplePropagator a -> CellVal SimplePropagator a -> SimplePropagator ()
+setVal' (MkSPC _ i) v = state $ ((),) . setVarF i v
+
+callListeners :: (Ord a, Meet a) => Cell SimplePropagator a -> SimplePropagator ()
+callListeners c = getVal' c >>= callListeners'
+
+callListeners' :: (Ord a, Meet a) => CellVal SimplePropagator a -> SimplePropagator ()
+callListeners' (Ref c _) = callListeners c
+callListeners' (Val a ls ms) = do
+    execListeners a ls
+    mapM_ (callMapping a) ms
+  where
+    execListeners newVal = mapM_ ($ newVal) . vars
+    callMapping newVal (Mapping _ i mls) = execListeners (from i newVal) mls
+
+
 instance PropagatorMonad SimplePropagator where
     data Cell SimplePropagator a = MkSPC
         { cellName :: String
-        , unSPC :: IdF (PoolF CellVal) CellVal a
+        , unSPC :: IdF (PoolF (CellVal SimplePropagator)) (CellVal SimplePropagator) a
         }
       deriving (Eq, Ord)
 
     newtype Subscription SimplePropagator = SPSubs
-        { unsSPSubs :: [Sub]
+        { unsSPSubs :: [Sub SimplePropagator]
         }
       deriving newtype (Eq, Ord, Show, Semigroup, Monoid)
 
@@ -138,12 +112,12 @@ instance PropagatorMonad SimplePropagator where
             cancelCell (Val a lx m) = setVal' c $ Val a (delVar l lx) m
             cancelCell (Ref refC _) = getVal' refC >>= cancelRef refC
            
-            cancelRef :: Cell SimplePropagator a -> CellVal a -> SimplePropagator ()
+            cancelRef :: Cell SimplePropagator a -> CellVal SimplePropagator a -> SimplePropagator ()
             cancelRef _ (Ref refC _) = getVal' refC >>= cancelRef refC
             -- ^ should not happen, since references should only point to Vals
             cancelRef c' (Val a lx m) = setVal' c' $ Val a lx $ cancelMapping =<< m
            
-            cancelMapping :: Mapping a -> [Mapping a]
+            cancelMapping :: Mapping SimplePropagator a -> [Mapping SimplePropagator a]
             cancelMapping m@(Mapping c' i lx) = case c =~~= c' of
                 Just Refl -> pure . Mapping c' i $ delVar l lx
                 Nothing   -> pure m
@@ -157,7 +131,7 @@ instance PropagatorEqMonad SimplePropagator where
         vb <- getVal' b
         iso' va vb
       where
-        iso' :: CellVal a -> CellVal b -> SimplePropagator ()
+        iso' :: CellVal SimplePropagator a -> CellVal SimplePropagator b -> SimplePropagator ()
         iso' (Ref refA i') _ = iso refA b $ i . i'
         iso' _ (Ref refB i') = iso a refB $ co i' . i
         iso' (Val av alx am) (Val bv blx bm) = case a =~~= b of
