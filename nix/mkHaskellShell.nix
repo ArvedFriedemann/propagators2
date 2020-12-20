@@ -1,7 +1,7 @@
 { pkgs ? import ./nixpkgs.pinned.nix
 }: drv: with drv.hPkgs; let
   name = drv.name;
-  ghc = ghcWithPackages (pkgs: drv.propagatedBuildInputs);
+  ghc = ghcWithPackages (pkgs: (drv.propagatedBuildInputs ++ drv.buildInputs));
   cabalShim = pkgs.writeScriptBin "cabal" ''
     trap cleanup SIGINT
     cleanup() {
