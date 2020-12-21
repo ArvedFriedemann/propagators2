@@ -12,6 +12,8 @@ data CellVal m a where
     Ref :: (Meet b, Ord b)
         => !(Cell m b) -> !(b <-> a) -> CellVal m a
 
+val :: a -> CellVal m a
+val a = Val a pool []
 
 type Listeners m a = Pool (a -> m ())
 type Listener m a = Id (Pool (a -> m ())) (a -> m ())
