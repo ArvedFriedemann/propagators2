@@ -34,3 +34,12 @@ test2 = putStrLn $ fromRight "Error" $ runSimplePropagator $ do
   rv2 <- fromCell' sv2
   return $ (show rt1) ++ "\n\n" ++ (show rt2) ++ "\n\n" ++
           (show rv1) ++ "\n\n" ++ (show rv2)
+
+test3 :: IO ()
+test3 = putStrLn $ fromRight "Error" $ runSimplePropagator $ do
+  sv1 <- newEmptyCell "sv1"
+  t1 <- fromVarsAsCells (var sv1)
+  t2 <- fromVarsAsCells (ls [ccon "a", var sv1])
+  eq t1 t2
+  u <- fromCellSize' 100 t1
+  return $ show u

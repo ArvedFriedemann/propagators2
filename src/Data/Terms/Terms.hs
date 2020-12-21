@@ -7,7 +7,7 @@ import "this" Control.Propagator
 import "containers" Data.Set ( Set )
 import qualified "containers" Data.Set as S
 --import "transformers" Control.Monad.Trans.Writer.Lazy
---import "base" Debug.Trace
+import "base" Debug.Trace
 
 data TermConst = TOP | BOT | AND | OR | IMPL | CUST String | ID Int | CUSTOM String
   deriving (Show, Eq, Ord)
@@ -111,6 +111,7 @@ watchTerm ct = watch ct $ termListener ct
 termListener :: (PropagatorEqMonad m) => Cell m (TermSet m) -> TermSet m -> m ()
 termListener _ TSBot = return ()
 termListener this (TS ts) = do
+  traceM "I'm Alive"
   --equality for variables
   mapM_ (eq this) varconts
   --equality for applications
