@@ -50,24 +50,37 @@ fromVarsAsCells (SAPPL a b) = do
   cb <- fromVarsAsCells b
   newCell "appl" (TS $ S.singleton (VTerm $ APPL ca cb)) <**< watchTerm
 
+
 fromCell :: (PropagatorMonad m) => Cell m (TermSet m) -> m (TermStruc a)
 fromCell c = readCell c >>= fromTermSet
 
+fromCellSize :: (PropagatorMonad m) => Int -> Cell m (TermSet m) -> m (TermStruc a)
+fromCellSize s c = readCell c >>= fromTermSet' s
+
+--Just for the type, so casting can be ommitted
+fromCellSize' :: (PropagatorMonad m) => Int -> Cell m (TermSet m) -> m (TermStruc String)
+fromCellSize' = fromCellSize
+
+--Just for the type, so casting can be ommitted
 fromCell' :: (PropagatorMonad m) => Cell m (TermSet m) -> m (TermStruc String)
 fromCell' = fromCell
 
 fromTermSet :: (PropagatorMonad m) => TermSet m -> m (TermStruc a)
-fromTermSet TSBot = return SBOT
-fromTermSet (TS s)
+fromTermSet = fromTermSet' (-1)
+
+fromTermSet' :: (PropagatorMonad m) => Int -> TermSet m -> m (TermStruc a)
+fromTermSet' 0 _ = return STOP
+fromTermSet' _ TSBot = return SBOT
+fromTermSet' n (TS s)
   | S.null s = return STOP
   | not $ null cnst = do
     return $ con $ head $ constantContents cnst
   | not $ null apls = do
     (a,b) <- return $ head $ applContents apls
-    a' <- fromCell a
-    b' <- fromCell b
+    a' <- fromCellSize (n-1) a
+    b' <- fromCellSize (n-1) b
     return $ applts a' b'
-  | otherwise = fromCell $ head $ variableContents vars --TODO: This will recurse if there are cyclic equalities
+  | otherwise = fromCellSize (n-1) $ head $ variableContents vars --TODO: This will recurse if there are cyclic equalities
   where apls = S.toList $ S.filter ovtIsApl s
         cnst = S.toList $ S.filter ovtIsCon s
         vars = S.toList $ S.filter ovtIsVar s
