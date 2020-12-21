@@ -9,20 +9,14 @@ import "base" Data.Type.Equality
 import "base" Unsafe.Coerce
 import "base" Control.Applicative
 import "base" Control.Monad
-import "base" Control.Concurrent.Chan
+import "base" Control.Concurrent
 import "base" Control.Monad.IO.Class
-
-import "transformers" Control.Monad.Trans.Reader ( ReaderT )
-import "mtl" Control.Monad.Reader.Class
 
 import "this" Control.Propagator.Class
 import "this" Data.Lattice
 import "this" Data.Iso
 import "this" Data.Var
 
-
-data Op m where
-    CallListener :: !(Cell m a) -> !(Listener m a) -> Op m
 
 data CellVal m a where
     Val :: !a -> !(Listeners m a) -> ![Mapping m a] -> CellVal m a
@@ -57,7 +51,7 @@ instance Ord (Sub m) where
 
 
 newtype ConcPropagator a = ConcP
-    { runConcP :: ReaderT (Chan (Op ConcPropagator)) IO a
+    { runConcP :: IO a
     }
   deriving newtype (Functor, Applicative, Alternative, Monad, MonadPlus)
 
@@ -71,6 +65,13 @@ instance Show (Cell ConcPropagator a) where
 a =~~= b
     | cellId a == cellId b = pure $ unsafeCoerce Refl
     | otherwise            = Nothing
+
+readCellIO :: Cell ConcPropagator a -> IO a
+readCellIO = (readCell' =<<) . readIORef . cellVar
+  where
+    readCell' (Val v _ _) = pure v
+    readCell' (Ref c i)   = to i <$> readCellIO c
+
 
 instance PropagatorMonad ConcPropagator where
     data Cell ConcPropagator a = ConcPCell
@@ -87,10 +88,7 @@ instance PropagatorMonad ConcPropagator where
     
     newCell n a = ConcPCell n (unsafePerformIO newUnique) <$> (ConcP . liftIO . newIORef . val $ a)
 
-    readCell = (readCell' =<<) . ConcP . liftIO . readIORef . cellVar
-      where
-        readCell' (Val v _ _) = pure v
-        readCell' (Ref c i)   = to i <$> readCell c
+    readCell = ConcP . readCellIO
 
     write c a' = mapCell write' c
       where
@@ -99,7 +97,7 @@ instance PropagatorMonad ConcPropagator where
             if a == a''
             then (v, pure ())
             else let v' = Val a'' ls ms in
-                (v', mapM_  (ConcP . scheduleListener c) ls)
+                (v', mapM_  (ConcP . forkListener c) ls)
     
     watch rootC rootL = do
         dirty <- ConcP . liftIO . newIORef $ True
@@ -111,7 +109,7 @@ instance PropagatorMonad ConcPropagator where
         watch' dirty c l (Val a ls ms)
             = let li = Listener dirty l; (i, ls') = newVar li ls
               in (Val a ls' ms,) . ConcP $ do
-                  scheduleListener' c li
+                  forkIO $ execListener c li
                   pure . ConcPSub . pure $ Sub c i
     
     cancel = mapM_ cancel' . getSubs
@@ -137,17 +135,15 @@ mapCell :: (CellVal ConcPropagator a -> (CellVal ConcPropagator a, ConcPropagato
         -> Cell ConcPropagator a -> ConcPropagator b
 mapCell f = join . ConcP . liftIO . flip atomicModifyIORef f . cellVar
 
-scheduleListener :: (MonadIO m, MonadReader (Chan (Op ConcPropagator)) m)
-                 => Cell ConcPropagator a -> Listener ConcPropagator a -> m ()
-scheduleListener c l@(Listener dirty _) = do
-    liftIO . writeIORef dirty $ True
-    scheduleListener' c l
+forkListener :: Cell ConcPropagator a -> Listener ConcPropagator a -> IO ()
+forkListener c l@(Listener dirty _) = do
+    writeIORef dirty True
+    void . forkIO $ do
+        d <- readIORef dirty
+        when d $ execListener c l
 
-scheduleListener' :: (MonadIO m, MonadReader (Chan (Op ConcPropagator)) m)
-                  => Cell ConcPropagator a -> Listener ConcPropagator a -> m ()
-scheduleListener' c l = do
-    chan <- ask
-    liftIO . writeChan chan $ CallListener c l
-          
-
-
+execListener :: Cell ConcPropagator a -> Listener ConcPropagator a -> IO ()
+execListener c (Listener dirty l) = do
+    writeIORef dirty False
+    a <- readCellIO c
+    runConcP $ l a
