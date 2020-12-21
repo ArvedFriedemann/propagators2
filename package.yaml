@@ -21,6 +21,7 @@ dependencies:
   # parser combinators
   - parsec
   # others
+  - primitive
 
 # enable modern Haskell
 default-extensions:
@@ -40,6 +41,7 @@ default-extensions:
   - StandaloneDeriving
   - DerivingStrategies
   - GeneralizedNewtypeDeriving
+  - EmptyDataDeriving
   - DerivingVia
   - DeriveGeneric
   - DeriveFunctor
