@@ -43,12 +43,12 @@ ls lst = foldl applts STOP lst
 fromVarsAsCells :: (PropagatorEqMonad m) => TermStruc (Cell m (TermSet m)) -> m (Cell m (TermSet m))
 fromVarsAsCells SBOT =  newEmptyCell "mpt_trm" <**< watchTerm <**< (flip write) TSBot
 fromVarsAsCells STOP =  newEmptyCell "mpt_trm" <**< watchTerm
-fromVarsAsCells (SCON c) = newCell "cnst" (TS $ S.singleton (VTerm $ CON c)) <**< watchTerm
+fromVarsAsCells (SCON c) = newCell "cnst" (termSetWithConstants $ S.singleton (VTerm $ CON c)) <**< watchTerm
 fromVarsAsCells (SVAR v) = return v
 fromVarsAsCells (SAPPL a b) = do
   ca <- fromVarsAsCells a
   cb <- fromVarsAsCells b
-  newCell "appl" (TS $ S.singleton (VTerm $ APPL ca cb)) <**< watchTerm
+  newCell "appl" (termSetWithApls $ S.singleton (VTerm $ APPL ca cb)) <**< watchTerm
 
 
 fromCell :: (PropagatorMonad m) => Cell m (TermSet m) -> m (TermStruc a)
@@ -71,16 +71,13 @@ fromTermSet = fromTermSet' (-1)
 fromTermSet' :: (PropagatorMonad m) => Int -> TermSet m -> m (TermStruc a)
 fromTermSet' 0 _ = return STOP
 fromTermSet' _ TSBot = return SBOT
-fromTermSet' n (TS s)
-  | S.null s = return STOP
-  | not $ null cnst = do
-    return $ con $ head $ constantContents cnst
-  | not $ null apls = do
-    (a,b) <- return $ head $ applContents apls
+fromTermSet' n ts
+  | ts == emptyTermSet = return STOP
+  | not $ null (constants ts) = do
+    return $ con $ head $ constantContents (S.toList $ constants ts)
+  | not $ null (constrainedApls ts) = do
+    (a,b) <- return $ head $ applContents (S.toList $ constrainedApls ts)
     a' <- fromCellSize (n-1) a
     b' <- fromCellSize (n-1) b
     return $ applts a' b'
-  | otherwise = fromCellSize (n-1) $ head $ variableContents vars --TODO: This will recurse if there are cyclic equalities
-  where apls = S.toList $ S.filter ovtIsApl s
-        cnst = S.toList $ S.filter ovtIsCon s
-        vars = S.toList $ S.filter ovtIsVar s
+  | otherwise = fromCellSize (n-1) $ head $ variableContents (S.toList $ constrainedVars ts) --TODO: This will recurse if there are cyclic equalities
