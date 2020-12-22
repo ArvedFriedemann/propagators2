@@ -1,5 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE NoImplicitPrelude    #-}
 module Control.Propagator.Conc where
 
 import "base" Prelude hiding ( (.), id )
@@ -191,19 +191,7 @@ newJob = do
 instance PropagatorEqMonad ConcPropagator where
   iso :: forall a b. (Ord a, Meet a, Ord b, Meet b)
       => Cell ConcPropagator a -> Cell ConcPropagator b -> (a <-> b) -> ConcPropagator ()
-  iso a b i = do
-      va <- readCellValIO a
-      vb <- readCellValIO b
-      iso' va vb
-    where
-      iso' :: CellVal ConcPropagator a -> CellVal ConcPropagator b -> ConcPropagator ()
-      iso' (Ref refA i') _ = iso refA b $ i . i'
-      iso' _ (Ref refB i') = iso a refB $ co i' . i
-      iso' (Val av alx am) (Val bv blx bm) = case a =~~= b of
-          Just Refl -> pure () -- already equal. we assume that i = id
-          Nothing   -> do
-              changeCell a $ Val av alx (am <> [Mapping b (co i) blx] <> fmap moveMapping bm)
-              changeCell b $ Ref a i
-              write a (from i bv)
-
-      moveMapping (Mapping ref i' lx) = Mapping ref (co i . i') lx
+  iso ca cb i = do
+    watch ca $ \ a -> write cb $ to i a
+    watch cb $ \ b -> write ca $ from i b
+    pure ()
