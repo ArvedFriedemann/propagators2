@@ -11,17 +11,18 @@ import "base" Data.Either
 
 
 test1 :: IO ()
-test1 = (putStrLn =<<) $ (flip execConcProp) return $ do
-  sv <- newEmptyCell "sv"
-  sv_a <- fromVarsAsCells (ls [var sv, ccon "a"])
-  b_sv <- fromVarsAsCells (ls [ccon "b", var sv])
-  eq sv_a b_sv
-  rsv_a <- fromCell' sv_a
-  rb_sv <- fromCell' b_sv
-  rsv <- fromCell' sv
-  return $ (show rsv_a) ++ "\n\n"
-        ++ (show rb_sv) ++ "\n\n"
-        ++ (show rsv)
+test1 = (putStrLn =<<) $ (flip execConcProp) printMyStuff $ do
+    sv <- newEmptyCell "sv"
+    sv_a <- fromVarsAsCells (ls [var sv, ccon "a"])
+    b_sv <- fromVarsAsCells (ls [ccon "b", var sv])
+    eq sv_a b_sv
+    return (sv_a, b_sv, sv)
+  where
+    printMyStuff (sv_a, b_sv, sv) = do
+        rsv_a <- fromCell' sv_a
+        rb_sv <- fromCell' b_sv
+        rsv <- fromCell' sv
+        pure $ (show rsv_a) ++ "\n\n" ++ (show rb_sv) ++ "\n\n" ++ (show rsv)
 
 
 test2 :: IO ()
