@@ -27,12 +27,10 @@ import "this" Data.Var
 
 
 data CellVal m a where
-    Val :: !a -> !(Listeners m a) -> ![Mapping m a] -> CellVal m a
-    Ref :: (Meet b, Ord b)
-        => !(Cell m b) -> !(b <-> a) -> CellVal m a
+    Val :: !a -> !(Listeners m a) -> CellVal m a
 
 val :: a -> CellVal m a
-val a = Val a pool []
+val a = Val a pool
 
 data Listener m a = Listener !(IORef Bool) !(a -> m ())
 type Listeners m a = Pool (Listener m a)
@@ -91,11 +89,7 @@ readCellValIO :: Cell ConcPropagator a -> ConcPropagator (CellVal ConcPropagator
 readCellValIO  c = ConcP $ lift $ readIORef $ cellVar c
 
 readCellIO :: Cell ConcPropagator a -> IO a
-readCellIO = (readCell' =<<) . readIORef . cellVar
-  where
-    readCell' (Val v _ _) = pure v
-    readCell' (Ref c i)   = to i <$> readCellIO c
-
+readCellIO = fmap (\ (Val v _) -> v) . readIORef . cellVar
 
 instance PropagatorMonad ConcPropagator where
     data Cell ConcPropagator a = ConcPCell
@@ -116,11 +110,10 @@ instance PropagatorMonad ConcPropagator where
 
     write c a' = mapCell write' c
       where
-        write' r@(Ref c' i) = (r, write c' $ from i a')
-        write' v@(Val a ls ms) = let a'' = a /\ a' in
+        write' v@(Val a ls) = let a'' = a /\ a' in
             if a == a''
             then (v, pure ())
-            else let v' = Val a'' ls ms in
+            else let v' = Val a'' ls in
                 (v', mapM_  (ConcP . forkListener c) ls)
 
     watch rootC rootL = do
@@ -129,10 +122,9 @@ instance PropagatorMonad ConcPropagator where
       where
         watch' :: IORef Bool -> Cell ConcPropagator a -> (a -> ConcPropagator ())
                -> CellVal ConcPropagator a -> (CellVal ConcPropagator a, ConcPropagator (Subscription ConcPropagator))
-        watch' dirty _ l r@(Ref c i) = (r, mapCell (watch' dirty c $ l . to i) c)
-        watch' dirty c l (Val a ls ms)
+        watch' dirty c l (Val a ls)
             = let li = Listener dirty l; (i, ls') = newVar li ls
-              in (Val a ls' ms,) . ConcP $ do
+              in (Val a ls',) . ConcP $ do
                     done <- newJob
                     jobCount <- ask
                     liftIO $ do
@@ -143,18 +135,7 @@ instance PropagatorMonad ConcPropagator where
       where
         cancel' (Sub c l) = mapCell cancelCell c
           where
-            cancelCell (Val a ls ms) = (Val a (delVar l ls) ms, clean $ getVar l ls)
-            cancelCell r@(Ref refC _) = (r, mapCell cancelRef refC)
-
-            cancelRef :: CellVal ConcPropagator a
-                      -> (CellVal ConcPropagator a, ConcPropagator ())
-            cancelRef r@(Ref refC _) = (r, mapCell cancelRef refC)
-            cancelRef (Val a ls ms) = (Val a ls $ cancelMapping =<< ms, pure ())
-
-            cancelMapping :: Mapping ConcPropagator a -> [Mapping ConcPropagator a]
-            cancelMapping m@(Mapping c' i lx) = case c =~~= c' of
-                Just Refl -> pure . Mapping c' i $ delVar l lx
-                Nothing   -> pure m
+            cancelCell (Val a ls) = (Val a (delVar l ls), clean $ getVar l ls)
 
             clean (Listener dirty _) = ConcP . liftIO . writeIORef dirty $ False
 
