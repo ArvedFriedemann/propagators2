@@ -12,6 +12,10 @@ import "base" Control.Monad
 import "base" Control.Concurrent
 import "base" Control.Monad.IO.Class
 
+import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
+
+import "mtl" Control.Monad.Reader.Class
+
 import "this" Control.Propagator.Class
 import "this" Data.Lattice
 import "this" Data.Iso
@@ -51,9 +55,20 @@ instance Ord (Sub m) where
 
 
 newtype ConcPropagator a = ConcP
-    { runConcP :: IO a
+    { runConcP :: ReaderT (IORef Int) IO a
     }
   deriving newtype (Functor, Applicative, Alternative, Monad, MonadPlus)
+
+execConcProp :: ConcPropagator a -> IO a
+execConcProp (ConcP r) = do
+    jobCount <- newIORef 0
+    a <- runReaderT r $ jobCount
+    waitForDone jobCount
+    pure a
+  where
+    waitForDone jobCount = do
+        jobs <- readIORef jobCount
+        unless (jobs == 0) $ waitForDone jobCount
 
 instance Ord (Cell ConcPropagator a) where
     compare = compare `on` cellName
@@ -88,7 +103,7 @@ instance PropagatorMonad ConcPropagator where
     
     newCell n a = ConcPCell n (unsafePerformIO newUnique) <$> (ConcP . liftIO . newIORef . val $ a)
 
-    readCell = ConcP . readCellIO
+    readCell = ConcP . liftIO . readCellIO
 
     write c a' = mapCell write' c
       where
@@ -109,8 +124,11 @@ instance PropagatorMonad ConcPropagator where
         watch' dirty c l (Val a ls ms)
             = let li = Listener dirty l; (i, ls') = newVar li ls
               in (Val a ls' ms,) . ConcP $ do
-                  forkIO $ execListener c li
-                  pure . ConcPSub . pure $ Sub c i
+                    done <- newJob
+                    jobCount <- ask
+                    liftIO $ do
+                        forkIO $ (execListener jobCount c li >> done)
+                        pure . ConcPSub . pure $ Sub c i
     
     cancel = mapM_ cancel' . getSubs
       where
@@ -135,15 +153,24 @@ mapCell :: (CellVal ConcPropagator a -> (CellVal ConcPropagator a, ConcPropagato
         -> Cell ConcPropagator a -> ConcPropagator b
 mapCell f = join . ConcP . liftIO . flip atomicModifyIORef f . cellVar
 
-forkListener :: Cell ConcPropagator a -> Listener ConcPropagator a -> IO ()
+forkListener :: Cell ConcPropagator a -> Listener ConcPropagator a -> ReaderT (IORef Int) IO ()
 forkListener c l@(Listener dirty _) = do
-    writeIORef dirty True
-    void . forkIO $ do
+    done <- newJob
+    jobCount <- ask
+    liftIO $ writeIORef dirty True
+    void . liftIO . forkIO $ do
         d <- readIORef dirty
-        when d $ execListener c l
+        when d $ execListener jobCount c l
+        done
 
-execListener :: Cell ConcPropagator a -> Listener ConcPropagator a -> IO ()
-execListener c (Listener dirty l) = do
+execListener :: IORef Int -> Cell ConcPropagator a -> Listener ConcPropagator a -> IO ()
+execListener jobCount c (Listener dirty l) = do
     writeIORef dirty False
     a <- readCellIO c
-    runConcP $ l a
+    flip runReaderT jobCount . runConcP $ l a
+
+newJob :: (MonadReader (IORef Int) m, MonadIO m) => m (IO ())
+newJob = do
+    jobCount <- ask
+    liftIO . atomicModifyIORef' jobCount $ (,()) . succ
+    pure . atomicModifyIORef' jobCount $ (,()) . pred
