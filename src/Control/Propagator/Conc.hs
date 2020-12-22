@@ -59,14 +59,15 @@ newtype ConcPropagator a = ConcP
     }
   deriving newtype (Functor, Applicative, Alternative, Monad, MonadPlus)
 
-execConcProp :: ConcPropagator a -> IO a
-execConcProp (ConcP r) = do
+execConcProp :: ConcPropagator () -> ConcPropagator a -> IO a
+execConcProp (ConcP setup) (ConcP done) = do
     jobCount <- newIORef 0
-    a <- runReaderT r $ jobCount
+    runReaderT setup jobCount
     waitForDone jobCount
-    pure a
+    runReaderT done jobCount
   where
     waitForDone jobCount = do
+        threadDelay 1000000 -- one second
         jobs <- readIORef jobCount
         unless (jobs == 0) $ waitForDone jobCount
 
