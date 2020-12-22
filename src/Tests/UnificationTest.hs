@@ -19,7 +19,9 @@ test1 = (putStrLn =<<) $ (flip execConcProp) return $ do
   rsv_a <- fromCell' sv_a
   rb_sv <- fromCell' b_sv
   rsv <- fromCell' sv
-  return $ (show rsv_a) ++ "\n\n" ++ (show rb_sv) ++ "\n\n" ++ (show rsv)
+  return $ (show rsv_a) ++ "\n\n"
+        ++ (show rb_sv) ++ "\n\n"
+        ++ (show rsv)
 
 
 test2 :: IO ()
