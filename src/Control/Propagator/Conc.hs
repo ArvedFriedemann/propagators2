@@ -1,6 +1,8 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 module Control.Propagator.Conc where
 
+import "base" Prelude hiding ( (.), id )
 import "base" System.IO.Unsafe
 import "base" Data.Function ( on )
 import "base" Data.Unique
@@ -11,9 +13,11 @@ import "base" Control.Applicative
 import "base" Control.Monad
 import "base" Control.Concurrent
 import "base" Control.Monad.IO.Class
+import "base" Control.Category
 
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
 
+import "mtl" Control.Monad.Trans (lift)
 import "mtl" Control.Monad.Reader.Class
 
 import "this" Control.Propagator.Class
@@ -26,7 +30,7 @@ data CellVal m a where
     Val :: !a -> !(Listeners m a) -> ![Mapping m a] -> CellVal m a
     Ref :: (Meet b, Ord b)
         => !(Cell m b) -> !(b <-> a) -> CellVal m a
-  
+
 val :: a -> CellVal m a
 val a = Val a pool []
 
@@ -60,11 +64,12 @@ newtype ConcPropagator a = ConcP
   deriving newtype (Functor, Applicative, Alternative, Monad, MonadPlus)
 
 execConcProp :: ConcPropagator a -> (a -> ConcPropagator b) -> IO b
-execConcProp (ConcP setup) (ConcP done) = do
+execConcProp (ConcP setup)  doneP {-(ConcP done)-} = do
     jobCount <- newIORef 0
     a <- runReaderT setup jobCount
     waitForDone jobCount
-    runReaderT (done a) jobCount
+    (ConcP done) <- return $ doneP a
+    runReaderT done jobCount
   where
     waitForDone jobCount = do
         threadDelay 1000000 -- one second
@@ -73,7 +78,7 @@ execConcProp (ConcP setup) (ConcP done) = do
 
 instance Ord (Cell ConcPropagator a) where
     compare = compare `on` cellName
-  
+
 instance Show (Cell ConcPropagator a) where
     show = liftA2 (\ n i -> n ++ '@' : (show . hashUnique $ i)) cellName cellId
 
@@ -81,6 +86,9 @@ instance Show (Cell ConcPropagator a) where
 a =~~= b
     | cellId a == cellId b = pure $ unsafeCoerce Refl
     | otherwise            = Nothing
+
+readCellValIO :: Cell ConcPropagator a -> ConcPropagator (CellVal ConcPropagator a)
+readCellValIO  c = ConcP $ lift $ readIORef $ cellVar c
 
 readCellIO :: Cell ConcPropagator a -> IO a
 readCellIO = (readCell' =<<) . readIORef . cellVar
@@ -96,12 +104,12 @@ instance PropagatorMonad ConcPropagator where
         , cellVar :: IORef (CellVal ConcPropagator a)
         }
       deriving Eq
-    
+
     newtype Subscription ConcPropagator = ConcPSub
         { getSubs :: [Sub ConcPropagator]
         }
       deriving newtype (Eq, Ord, Show, Semigroup, Monoid)
-    
+
     newCell n a = ConcPCell n (unsafePerformIO newUnique) <$> (ConcP . liftIO . newIORef . val $ a)
 
     readCell = ConcP . liftIO . readCellIO
@@ -114,7 +122,7 @@ instance PropagatorMonad ConcPropagator where
             then (v, pure ())
             else let v' = Val a'' ls ms in
                 (v', mapM_  (ConcP . forkListener c) ls)
-    
+
     watch rootC rootL = do
         dirty <- ConcP . liftIO . newIORef $ True
         mapCell (watch' dirty rootC rootL) rootC
@@ -130,7 +138,7 @@ instance PropagatorMonad ConcPropagator where
                     liftIO $ do
                         forkIO $ (execListener jobCount c li >> done)
                         pure . ConcPSub . pure $ Sub c i
-    
+
     cancel = mapM_ cancel' . getSubs
       where
         cancel' (Sub c l) = mapCell cancelCell c
@@ -154,6 +162,9 @@ mapCell :: (CellVal ConcPropagator a -> (CellVal ConcPropagator a, ConcPropagato
         -> Cell ConcPropagator a -> ConcPropagator b
 mapCell f = join . ConcP . liftIO . flip atomicModifyIORef f . cellVar
 
+changeCell :: Cell ConcPropagator a -> CellVal ConcPropagator a ->  ConcPropagator ()
+changeCell cell v = mapCell (\_ -> (v, pure ())) cell
+
 forkListener :: Cell ConcPropagator a -> Listener ConcPropagator a -> ReaderT (IORef Int) IO ()
 forkListener c l@(Listener dirty _) = do
     done <- newJob
@@ -175,3 +186,24 @@ newJob = do
     jobCount <- ask
     liftIO . atomicModifyIORef' jobCount $ (,()) . succ
     pure . atomicModifyIORef' jobCount $ (,()) . pred
+
+
+instance PropagatorEqMonad ConcPropagator where
+  iso :: forall a b. (Ord a, Meet a, Ord b, Meet b)
+      => Cell ConcPropagator a -> Cell ConcPropagator b -> (a <-> b) -> ConcPropagator ()
+  iso a b i = do
+      va <- readCellValIO a
+      vb <- readCellValIO b
+      iso' va vb
+    where
+      iso' :: CellVal ConcPropagator a -> CellVal ConcPropagator b -> ConcPropagator ()
+      iso' (Ref refA i') _ = iso refA b $ i . i'
+      iso' _ (Ref refB i') = iso a refB $ co i' . i
+      iso' (Val av alx am) (Val bv blx bm) = case a =~~= b of
+          Just Refl -> pure () -- already equal. we assume that i = id
+          Nothing   -> do
+              changeCell a $ Val av alx (am <> [Mapping b (co i) blx] <> fmap moveMapping bm)
+              changeCell b $ Ref a i
+              write a (from i bv)
+
+      moveMapping (Mapping ref i' lx) = Mapping ref (co i . i') lx

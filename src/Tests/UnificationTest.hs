@@ -3,13 +3,15 @@ module Tests.UnificationTest where
 --import "this" Data.Terms.Terms
 import "this" Data.Terms.TermFunctions
 import "this" Control.Propagator
+import "this" Control.Propagator.Conc
 import "base" Data.Either
 --import "containers" Data.Set ( Set )
 --import qualified "containers" Data.Set as S
 
 
+
 test1 :: IO ()
-test1 = putStrLn $ fromRight "Error" $ runSimplePropagator $ do
+test1 = (putStrLn =<<) $ (flip execConcProp) return $ do
   sv <- newEmptyCell "sv"
   sv_a <- fromVarsAsCells (ls [var sv, ccon "a"])
   b_sv <- fromVarsAsCells (ls [ccon "b", var sv])
