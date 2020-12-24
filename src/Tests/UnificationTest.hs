@@ -19,9 +19,9 @@ test1 = (putStrLn =<<) $ (flip execConcProp) printMyStuff $ do
     return (sv_a, b_sv, sv)
   where
     printMyStuff (sv_a, b_sv, sv) = do
-        rsv_a <- fromCell' sv_a
-        rb_sv <- fromCell' b_sv
-        rsv <- fromCell' sv
+        rsv_a <- readCell sv_a--fromCell' sv_a
+        rb_sv <- readCell b_sv--fromCell' b_sv
+        rsv <- readCell sv--fromCell' sv
         pure $ (show rsv_a) ++ "\n\n" ++ (show rb_sv) ++ "\n\n" ++ (show rsv)
 
 test2 :: IO ()
