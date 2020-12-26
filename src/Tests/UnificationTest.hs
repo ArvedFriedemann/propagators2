@@ -25,7 +25,7 @@ test1 = (putStrLn =<<) $ flip execPar printMyStuff $ do
         pure $ (show rsv_a) ++ "\n\n" ++ (show rb_sv) ++ "\n\n" ++ (show rsv)
 
 test2 :: IO ()
-test2 = (putStrLn =<<) $ flip execConcProp printMyStuff $ do
+test2 = (putStrLn =<<) $ flip execPar printMyStuff $ do
     sv1 <- newEmptyCell "sv1"
     sv2 <- newEmptyCell "sv2"
 
@@ -45,7 +45,7 @@ test2 = (putStrLn =<<) $ flip execConcProp printMyStuff $ do
             ++ (show rsv2)
 
 test3 :: IO ()
-test3 = (putStrLn =<<) $ flip execConcProp printMyStuff $ do
+test3 = (putStrLn =<<) $ flip execPar printMyStuff $ do
     sv <- newEmptyCell "sv"
     t1 <- fromVarsAsCells (var sv)
     t2 <- fromVarsAsCells (ls [ccon "a", var sv])
