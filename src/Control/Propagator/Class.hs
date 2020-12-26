@@ -41,6 +41,13 @@ class PropagatorMonad m => PropagatorEqMonad m where
     eq :: (Meet a, Ord a) => Cell m a -> Cell m a -> m ()
     eq a b = iso a b id
 
+
+type LiftParent m = forall a. m a -> m a
+
+class Applicative m => Forkable m where
+  fork :: (LiftParent m -> m ()) -> m ()
+
+
 eqAll :: (PropagatorEqMonad m, Meet a, Ord a) => [Cell m a] -> m ()
 eqAll [] = pure ()
 eqAll (a : as) = mapM_ (eq a) as
