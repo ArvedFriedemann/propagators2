@@ -1,7 +1,7 @@
 name: my-propagators
 version: 0.1.0
 
-ghc-options: -fprint-potential-instances -Wall -Werror -Wno-unused-do-bind
+ghc-options: -fprint-potential-instances -Wall -Werror -Wno-unused-do-bind -rtsopts -threaded
 
 executable:
   source-dirs: src
@@ -22,6 +22,10 @@ dependencies:
   - parsec
   # others
   - primitive
+  - hashable
+  - unordered-containers
+  - vector
+  - constraints
 
 # enable modern Haskell
 default-extensions:
@@ -66,3 +70,4 @@ default-extensions:
   - ScopedTypeVariables
   - FlexibleInstances
   - FlexibleContexts
+  - UndecidableInstances

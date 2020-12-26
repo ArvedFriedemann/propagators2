@@ -1,3 +1,4 @@
+{-# LANGUAGE DefaultSignatures #-}
 module Data.Lattice
     {-( Meet(..), BoundedMeet(..)
     , Join(..), BoundedJoin(..)
@@ -13,6 +14,7 @@ module Data.Lattice
 import "base" Data.Functor.Identity
 import "base" Data.Monoid ( Dual(..) )
 import "base" Control.Applicative
+import "base" Data.Coerce
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
 
@@ -29,6 +31,9 @@ class Meet l where
     (/\) :: l -> l -> l
     (⋀) :: l -> l -> l
     (⋀) = (/\)
+    meetEq :: l -> l -> (l, Bool)
+    default meetEq :: Eq l => l -> l -> (l, Bool)
+    meetEq a b = (a /\ b, a == b)
 
 {- | A Bounded meet-semilattice
 
@@ -52,6 +57,9 @@ class Join l where
     (\/) :: l -> l -> l
     (⋁) :: l -> l -> l
     (⋁) = (\/)
+    joinEq :: l -> l -> (l, Bool)
+    default joinEq :: Eq l => l -> l -> (l, Bool)
+    joinEq a b = (a \/ b, a == b)
 
 
 {- | A Bounded join-semilattice
@@ -91,13 +99,15 @@ joinAll = foldr (\/) bot
 -- instances
 
 instance Meet l => Join (Dual l) where
-    (\/) = liftA2 (/\)
+    (\/) = coerce @(l -> l -> l) (/\)
+    joinEq = coerce @(l -> l -> (l, Bool)) meetEq
 instance BoundedMeet l => BoundedJoin (Dual l) where
-    bot = pure top
+    bot = coerce @l top
 instance Join l => Meet (Dual l) where
-    (/\) = liftA2 (\/)
+    (/\) = coerce @(l -> l -> l)  (\/)
+    meetEq = coerce @(l -> l -> (l, Bool)) joinEq
 instance BoundedJoin l => BoundedMeet (Dual l) where
-    top = pure bot
+    top = coerce @l bot
 instance Lattice l => Lattice (Dual l)
 instance BoundedLattice l => BoundedLattice (Dual l)
 
@@ -109,15 +119,15 @@ newtype Monoidal a = Monoidal
   deriving newtype (Eq, Ord, Bounded, Enum)
   deriving (Functor, Applicative, Monad) via Identity
 
-instance Semigroup a => Meet (Monoidal a) where
-    (/\) = liftA2 (<>)
-instance Monoid a => BoundedMeet (Monoidal a) where
-    top = pure mempty
+instance (Eq a, Semigroup a) => Meet (Monoidal a) where
+    (/\) = coerce @(a -> a -> a) (<>)
+instance (Eq a, Monoid a) => BoundedMeet (Monoidal a) where
+    top = coerce @a mempty
 
 instance Meet l => Semigroup (Monoidal l) where
-    (<>) = liftA2 (/\)
+    (<>) = coerce @(l -> l -> l) (/\)
 instance BoundedMeet l => Monoid (Monoidal l) where
-    mempty = pure top
+    mempty = coerce @l top
 
 
 instance Ord a => Meet (Set a) where
@@ -159,10 +169,18 @@ instance BoundedLattice ()
 
 instance (Meet a, Meet b) => Meet (a, b) where
     (a, b) /\ (a', b') = (a /\ a', b /\ b')
+    meetEq (a, b) (a', b') = ((a'', b''), eqA && eqB)
+      where
+        (a'', eqA) = meetEq a a'
+        (b'', eqB) = meetEq b b'
 instance (BoundedMeet a, BoundedMeet b) => BoundedMeet (a, b) where
     top = (top, top)
 instance (Join a, Join b) => Join (a, b) where
     (a, b) \/ (a', b') = (a \/ a', b \/ b')
+    joinEq (a, b) (a', b') = ((a'', b''), eqA && eqB)
+      where
+        (a'', eqA) = joinEq a a'
+        (b'', eqB) = joinEq b b'
 instance (BoundedJoin a, BoundedJoin b) => BoundedJoin (a, b) where
     bot = (bot, bot)
 instance (Lattice a, Lattice b) => Lattice (a, b)
@@ -170,10 +188,20 @@ instance (BoundedLattice a, BoundedLattice b) => BoundedLattice (a, b)
 
 instance (Meet a, Meet b, Meet c) => Meet (a, b, c) where
     (a, b, c) /\ (a', b', c') = (a /\ a', b /\ b', c /\ c')
+    meetEq (a, b, c) (a', b', c') = ((a'', b'', c''), eqA && eqB && eqC)
+      where
+        (a'', eqA) = meetEq a a'
+        (b'', eqB) = meetEq b b'
+        (c'', eqC) = meetEq c c'
 instance (BoundedMeet a, BoundedMeet b, BoundedMeet c) => BoundedMeet (a, b, c) where
     top = (top, top, top)
 instance (Join a, Join b, Join c) => Join (a, b, c) where
     (a, b, c) \/ (a', b', c') = (a \/ a', b \/ b', c \/ c')
+    joinEq (a, b, c) (a', b', c') = ((a'', b'', c''), eqA && eqB && eqC)
+      where
+        (a'', eqA) = joinEq a a'
+        (b'', eqB) = joinEq b b'
+        (c'', eqC) = joinEq c c'
 instance (BoundedJoin a, BoundedJoin b, BoundedJoin c) => BoundedJoin (a, b, c) where
     bot = (bot, bot, bot)
 instance (Lattice a, Lattice b, Lattice c) => Lattice (a, b, c)
@@ -196,10 +224,12 @@ newtype Applied f a = Applied
 
 instance (Applicative f, Meet a) => Meet (Applied f a) where
     (/\) = liftA2 (/\)
+    meetEq a b = (a /\ b, False)
 instance (Applicative f, BoundedMeet a) => BoundedMeet (Applied f a) where
     top = pure top
 instance (Applicative f, Join a) => Join (Applied f a) where
     (\/) = liftA2 (\/)
+    joinEq a b = (a \/ b, False)
 instance (Applicative f, BoundedJoin a) => BoundedJoin (Applied f a) where
     bot = pure bot
 instance (Applicative f, Lattice a) => Lattice (Applied f a)

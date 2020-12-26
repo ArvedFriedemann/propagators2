@@ -1,12 +1,14 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude    #-}
+{-# LANGUAGE StrictData           #-}
+{-# LANGUAGE StaticPointers       #-}
 module Control.Propagator.Conc where
 
 import "base" Prelude hiding ( (.), id )
-import "base" System.IO.Unsafe
+import "base" GHC.Generics ( Generic )
 import "base" Data.Function ( on )
-import "base" Data.Unique
 import "base" Data.IORef
+import "base" Data.Typeable
 import "base" Data.Type.Equality
 import "base" Unsafe.Coerce
 import "base" Control.Applicative
@@ -15,164 +17,248 @@ import "base" Control.Concurrent
 import "base" Control.Monad.IO.Class
 import "base" Control.Category
 
+import "containers" Data.Set ( Set )
+import "containers" Data.Set qualified as Set
+
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
 
-import "mtl" Control.Monad.Trans (lift)
 import "mtl" Control.Monad.Reader.Class
 
+import "this" Data.ShowM
 import "this" Control.Propagator.Class
 import "this" Data.Lattice
 import "this" Data.Iso
-import "this" Data.Var
+import "this" Data.Ref
+import "this" Data.MutList ( MutList )
+import "this" Data.MutList qualified as MutList
 
+-------------------------------------------------------------------------------
+-- CellVal
+-------------------------------------------------------------------------------
 
-data CellVal m a where
-    Val :: !a -> !(Listeners m a) -> CellVal m a
-
-val :: a -> CellVal m a
-val a = Val a pool
-
-data Listener m a = Listener !(IORef Bool) !(a -> m ())
-type Listeners m a = Pool (Listener m a)
-type ListenerId m a = Id (Pool (Listener m a)) (Listener m a)
-
-data Mapping m a where
-    Mapping :: !(Cell m b) -> !(b <-> a) -> !(Listeners m b) -> Mapping m a
-
-data Sub m where
-    Sub :: forall a m. Show (Cell m a)
-        => !(Cell m a) -> !(ListenerId m a) -> Sub m
-
-instance Show (Sub m) where
-    showsPrec d (Sub c l)
-        = showParen (d > 10)
-        $ shows c
-        . showString " -> "
-        . shows l
-
-instance Eq (Sub m) where
-    (==) = (==) `on` show
-instance Ord (Sub m) where
-    compare = compare `on` show
-
-
-newtype ConcPropagator a = ConcP
-    { runConcP :: ReaderT (IORef Int) IO a
+data CellVal a = CellVal
+    { cellId     :: Cell Par a
+    , getCellVal :: IORef a
+    , listeners  :: IORef (Set (Listener a))
     }
-  deriving newtype (Functor, Applicative, Alternative, Monad, MonadPlus)
 
-execConcProp :: ConcPropagator a -> (a -> ConcPropagator b) -> IO b
-execConcProp (ConcP setup)  doneP {-(ConcP done)-} = do
-    jobCount <- newIORef 0
-    a <- runReaderT setup jobCount
-    waitForDone jobCount
-    (ConcP done) <- return $ doneP a
-    runReaderT done jobCount
+newCellVal :: Cell Par a -> a -> IO (CellVal a)
+newCellVal idA a = CellVal idA
+                <$> newIORef a
+                <*> newIORef Set.empty
+
+copyCellVal :: Value a => CellVal a -> IO (CellVal a)
+copyCellVal cv = CellVal (cellId cv)
+              <$> copyIORef (getCellVal cv)
+              <*> copyIORef (listeners cv)
+
+copyIORef :: IORef a -> IO (IORef a)
+copyIORef r = newIORef =<< readIORef r
+
+instance Show a => Show (CellVal a) where
+    showsPrec d = showsPrec d . cellId
+
+instance Show a => ShowM IO (CellVal a) where
+    showsPrecM d cv = do
+        let idA = cellId cv
+        a <- readIORef . getCellVal $ cv
+        ls <- readIORef . listeners $ cv
+        pure . showParen (d >= 10)
+            $ shows idA
+            . showString " = " . showsPrec 0 a
+            . showString " listeners=" . (shows . Set.toList $ ls)
+
+instance Eq a => Eq (CellVal a) where
+    a == b = on (==) cellId a b && on (==) getCellVal a b
+
+instance Ord a => Ord (CellVal a) where
+    compare = compare `on` cellId
+
+data AnyCellVal where
+    AnyCellVal :: Value a => CellVal a -> AnyCellVal
+
+toCellVal :: (Value a, MonadFail m) => AnyCellVal -> m (CellVal a)
+toCellVal (AnyCellVal ref) = castM ref
+
+copyAnyCellVal :: AnyCellVal -> IO AnyCellVal
+copyAnyCellVal (AnyCellVal v) = AnyCellVal <$> copyCellVal v
+
+castM :: (Typeable a, Typeable b, MonadFail m) => a -> m b
+castM a = do
+    let Just b = cast a
+    pure b
+
+-------------------------------------------------------------------------------
+-- Listener
+-------------------------------------------------------------------------------
+
+data Listener a = Listener
+    { listenerDirty  :: IORef Bool
+    , listenerAction :: Ref (a -> Par ())
+    }
+
+newListener :: Ref (a -> Par ()) -> IO (Listener a)
+newListener l = flip Listener l <$> newIORef False
+
+instance Eq (Listener a) where
+    a == b = compare a b == EQ
+instance Ord (Listener a) where
+    compare = compare `on` listenerAction
+
+instance Show (Listener a) where
+    showsPrec d (Listener _ ref) = showParen (d >= 10) $ showString "Listener " . shows ref
+
+-------------------------------------------------------------------------------
+-- ParState
+-------------------------------------------------------------------------------
+
+data ParState = ParState
+    { jobCount :: IORef Int
+    , cells    :: MutList AnyCellVal
+    }
+
+newParState :: IO ParState
+newParState = ParState <$> newIORef 0 <*> MutList.new
+
+newCellIO :: forall a. Value a => String -> a -> ParState -> IO (Cell Par a)
+newCellIO name a s = do
+    i <- MutList.add undefined . cells $ s
+    let idA = PID name i
+    cv <- newCellVal idA a
+    MutList.write i (AnyCellVal cv) . cells $ s
+    pure idA
+
+readCellVal :: Value a => Cell Par a -> Par (CellVal a)
+readCellVal idA = MkPar $ toCellVal =<< liftIO . MutList.read (cellIndex idA) =<< cells <$> ask
+
+copyParState :: ParState -> IO ParState
+copyParState s = ParState
+             <$> newIORef 0
+             <*> (MutList.map copyAnyCellVal . cells $ s)
+
+-------------------------------------------------------------------------------
+-- Sub
+-------------------------------------------------------------------------------
+
+data Sub where
+    Sub :: Value a => Cell Par a -> Listener a -> Sub
+
+instance Eq Sub where
+    Sub cA lA == Sub cB lB = case testEquality cA cB of
+        Just Refl -> cA == cB && lA == lB
+        Nothing   -> False
+
+instance Show Sub where
+    showsPrec d (Sub c l)
+        = showParen (d >= 10)
+        $ showString "Sub "
+        . showsPrec 10 c
+        . showString " "
+        . showsPrec 10 l
+
+-------------------------------------------------------------------------------
+-- Par
+-------------------------------------------------------------------------------
+
+newtype Par a = MkPar
+    { runPar :: ReaderT ParState IO a
+    }
+  deriving newtype (Functor, Applicative, Alternative, Monad, MonadIO)
+
+execPar :: Par a -> (a -> Par b) -> IO b
+execPar = execPar' 100000 -- 100 millsec
+
+execPar' :: Int -> Par a -> (a -> Par b) -> IO b
+execPar' tick setup doneP = do
+    s <- newParState
+    a <- run s setup
+    waitForDone s
+    run s . doneP $ a
   where
-    waitForDone jobCount = do
-        threadDelay 1000000 -- one second
-        jobs <- readIORef jobCount
-        unless (jobs == 0) $ waitForDone jobCount
+    run s = flip runReaderT s . runPar
+    waitForDone s = do
+        threadDelay tick
+        jobs <- readIORef . jobCount $ s
+        unless (jobs == 0) . waitForDone $ s
 
-instance Ord (Cell ConcPropagator a) where
-    compare = compare `on` cellName
+-- Cell
 
-instance Show (Cell ConcPropagator a) where
-    show = liftA2 (\ n i -> n ++ '@' : (show . hashUnique $ i)) cellName cellId
+instance Show (Cell Par a) where
+    show (PID n i) = n ++ '@' : show i
 
-(=~~=) :: Cell ConcPropagator a -> Cell ConcPropagator b -> Maybe (a :~: b)
-a =~~= b
-    | cellId a == cellId b = pure $ unsafeCoerce Refl
-    | otherwise            = Nothing
+instance TestEquality (Cell Par) where
+    testEquality a b 
+        = if cellIndex a == cellIndex b
+          then unsafeCoerce $ Just Refl
+          else Nothing
 
-readCellValIO :: Cell ConcPropagator a -> ConcPropagator (CellVal ConcPropagator a)
-readCellValIO  c = ConcP $ lift $ readIORef $ cellVar c
+-- PropagatorMonad
 
-readCellIO :: Cell ConcPropagator a -> IO a
-readCellIO = fmap (\ (Val v _) -> v) . readIORef . cellVar
+instance PropagatorMonad Par where
 
-instance PropagatorMonad ConcPropagator where
-    data Cell ConcPropagator a = ConcPCell
-        { cellName :: String
-        , cellId :: Unique
-        , cellVar :: IORef (CellVal ConcPropagator a)
+    data Cell Par a = PID
+        { cellName  :: String
+        , cellIndex :: Int
         }
-      deriving Eq
+      deriving (Eq, Ord, Generic)
 
-    newtype Subscription ConcPropagator = ConcPSub
-        { getSubs :: [Sub ConcPropagator]
+    newtype Subscription Par = ConcPSub
+        { getSubs :: [Sub]
         }
-      deriving newtype (Eq, Ord, Show, Semigroup, Monoid)
+      deriving newtype (Eq, Show, Semigroup, Monoid)
+        
+    newCell n a = MkPar $ liftIO . newCellIO n a =<< ask
 
-    newCell n a = ConcPCell n (unsafePerformIO newUnique) <$> (ConcP . liftIO . newIORef . val $ a)
+    readCell = (liftIO . readIORef . getCellVal =<<) . readCellVal
 
-    readCell = ConcP . liftIO . readCellIO
-
-    write c a' = mapCell write' c
-      where
-        write' v@(Val a ls) = let a'' = a /\ a' in
-            if a == a''
-            then (v, pure ())
-            else let v' = Val a'' ls in
-                (v', mapM_  (ConcP . forkListener c) ls)
-
-    watch rootC rootL = do
-        dirty <- ConcP . liftIO . newIORef $ True
-        mapCell (watch' dirty rootC rootL) rootC
-      where
-        watch' :: IORef Bool -> Cell ConcPropagator a -> (a -> ConcPropagator ())
-               -> CellVal ConcPropagator a -> (CellVal ConcPropagator a, ConcPropagator (Subscription ConcPropagator))
-        watch' dirty c l (Val a ls)
-            = let li = Listener dirty l; (i, ls') = newVar li ls
-              in (Val a ls',) . ConcP $ do
-                    done <- newJob
-                    jobCount <- ask
-                    liftIO $ do
-                        forkIO $ (execListener jobCount c li >> done)
-                        pure . ConcPSub . pure $ Sub c i
-
+    write c a = do
+        cv <- readCellVal c
+        changed <- liftIO $ atomicModifyIORef' (getCellVal cv) (meetEq a)
+        when changed $ do
+            ls <- fmap Set.toList . liftIO . readIORef . listeners $ cv
+            mapM_ (forkListener c) ls
+    
+    watch c l = do
+        l' <- liftIO . newListener $ l
+        ls <- fmap listeners . readCellVal $ c
+        liftIO . atomicModifyIORef' ls $ (,()) . Set.insert l'
+        forkListener c l'
+        pure . ConcPSub . pure $ Sub c l'
+    
     cancel = mapM_ cancel' . getSubs
       where
-        cancel' (Sub c l) = mapCell cancelCell c
-          where
-            cancelCell (Val a ls) = (Val a (delVar l ls), clean $ getVar l ls)
+        cancel' (Sub c l) = do
+            liftIO $ writeIORef (listenerDirty l) False
+            ls <- fmap listeners . readCellVal $ c
+            liftIO . atomicModifyIORef' ls $ (,()) . Set.delete l
 
-            clean (Listener dirty _) = ConcP . liftIO . writeIORef dirty $ False
+instance PropagatorEqMonad Par where
+    iso :: forall a b. (Value a, Value b) => Cell Par a -> Cell Par b -> Ref (a <-> b) -> Par ()
+    iso ca cb i = do
+        watch ca $ (staticWrite $# liftRef cb) .# (staticTo $## i)
+        watch cb $ (staticWrite $# liftRef ca) .# (staticFrom $## i)
+        pure ()
 
-mapCell :: (CellVal ConcPropagator a -> (CellVal ConcPropagator a, ConcPropagator b))
-        -> Cell ConcPropagator a -> ConcPropagator b
-mapCell f = join . ConcP . liftIO . flip atomicModifyIORef f . cellVar
-
-changeCell :: Cell ConcPropagator a -> CellVal ConcPropagator a ->  ConcPropagator ()
-changeCell cell v = mapCell (\_ -> (v, pure ())) cell
-
-forkListener :: Cell ConcPropagator a -> Listener ConcPropagator a -> ReaderT (IORef Int) IO ()
-forkListener c l@(Listener dirty _) = do
-    done <- newJob
-    jobCount <- ask
+forkListener :: Value a => Cell Par a -> Listener a -> Par ()
+forkListener c (Listener dirty l) = do
+    jobs <- jobCount <$> MkPar ask
     liftIO $ writeIORef dirty True
-    void . liftIO . forkIO $ do
-        d <- readIORef dirty
-        when d $ execListener jobCount c l
-        done
+    liftIO . atomicModifyIORef' jobs $ (,()) . succ
+    void . MkPar . ReaderT $ \ s -> forkIO $ do
+        d <- atomicModifyIORef' dirty (False,)
+        when d $ do
+            flip runReaderT s . runPar $ deRef l =<< readCell c
+        atomicModifyIORef' jobs $ (,()) . pred
 
-execListener :: IORef Int -> Cell ConcPropagator a -> Listener ConcPropagator a -> IO ()
-execListener jobCount c (Listener dirty l) = do
-    writeIORef dirty False
-    a <- readCellIO c
-    flip runReaderT jobCount . runConcP $ l a
-
-newJob :: (MonadReader (IORef Int) m, MonadIO m) => m (IO ())
-newJob = do
-    jobCount <- ask
-    liftIO . atomicModifyIORef' jobCount $ (,()) . succ
-    pure . atomicModifyIORef' jobCount $ (,()) . pred
-
-
-instance PropagatorEqMonad ConcPropagator where
-  iso :: forall a b. (Ord a, Meet a, Ord b, Meet b)
-      => Cell ConcPropagator a -> Cell ConcPropagator b -> (a <-> b) -> ConcPropagator ()
-  iso ca cb i = do
-    watch ca $ \ a -> write cb $ to i a
-    watch cb $ \ b -> write ca $ from i b
-    pure ()
+instance Forkable Par where
+    fork m = do
+        jobs <- jobCount <$> MkPar ask
+        liftIO . atomicModifyIORef' jobs $ (,()) . succ
+        void . MkPar . ReaderT $ \ s -> do
+            s' <- liftIO $ copyParState s
+            forkIO $ do
+                flip runReaderT s' . runPar $ m (liftParent s)
+                atomicModifyIORef' jobs $ (,()) . pred
+      where
+        liftParent :: ParState -> (forall a. Par a -> Par a)
+        liftParent s = liftIO . flip runReaderT s . runPar
