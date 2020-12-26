@@ -48,7 +48,7 @@ queuePropagation p = do
   put (s, []) --clear the queue for new listeners
   if null q
     then return res
-    --TODO: does this do what it should? The output of the action kinda depends on the state. If that one is not changed accordingly, the monad should be reevaluated...nope, tried it. Does not do what it should. 
+    --TODO: does this do what it should? The output of the action kinda depends on the state. If that one is not changed accordingly, the monad should be reevaluated...nope, tried it. Does not do what it should.
     else sequence q >> return res
 
 instance Show (Cell SimplePropagator a) where
@@ -110,11 +110,7 @@ instance PropagatorMonad SimplePropagator where
         }
       deriving newtype (Eq, Ord, Show, Semigroup, Monoid)
 
-<<<<<<< HEAD
     newCell n a = poolAct $ first (MkSPC n) . newVarF (Val a pool [])
-=======
-    newCell n a = state $ first (MkSPC n) . newVarF (val a)
->>>>>>> master
     readCell = (readCell' =<<) . getVal'
       where
         readCell' (Val v _ _) = pure v
