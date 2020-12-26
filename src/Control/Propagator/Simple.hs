@@ -1,10 +1,10 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 module Control.Propagator.Simple
-    ( SimplePropagator(..)
+    {-( SimplePropagator(..)
     , runSimplePropagator
     , (=~~=)
-    ) where
-
+    )-} where
+{-
 import "base" Prelude hiding ( (.), id )
 import "base" Data.Bifunctor
 import "base" Data.Typeable
@@ -142,3 +142,4 @@ instance PropagatorEqMonad SimplePropagator where
                 write a (from i bv)
 
         moveMapping (Mapping ref i' lx) = Mapping ref (co i . i') lx
+-}

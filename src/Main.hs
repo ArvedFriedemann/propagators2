@@ -1,16 +1,23 @@
 {-# LANGUAGE QuasiQuotes #-}
 module Main where
 
-import "base" Debug.Trace
+--import "base" Debug.Trace
 
-import "containers" Data.Set ( Set )
+--import "containers" Data.Set ( Set )
 
-import "this" Control.Propagator
+--import "this" Control.Propagator
 -- import "this" Data.Constraints ( con )
-import "this" Data.Num1 () -- Num (Set a)
+--import "this" Data.Num1 () -- Num (Set a)
+
+import "this" Tests.UnificationTest
 
 
+main :: IO ()
+main = test1
+
+{-
 type IntFacts = Set Int
+
 
 main :: IO ()
 main = print . runSimplePropagator $ do
@@ -23,3 +30,4 @@ main = print . runSimplePropagator $ do
     eq a b
     
     traverse @[] readCell [a, b]
+-}

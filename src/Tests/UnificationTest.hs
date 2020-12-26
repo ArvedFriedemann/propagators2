@@ -4,14 +4,14 @@ module Tests.UnificationTest where
 import "this" Data.Terms.TermFunctions
 import "this" Control.Propagator
 import "this" Control.Propagator.Conc
-import "base" Data.Either
+--import "base" Data.Either
 --import "containers" Data.Set ( Set )
 --import qualified "containers" Data.Set as S
 
 
 
 test1 :: IO ()
-test1 = (putStrLn =<<) $ (flip execConcProp) printMyStuff $ do
+test1 = (putStrLn =<<) $ flip execPar printMyStuff $ do
     sv <- newEmptyCell "sv"
     sv_a <- fromVarsAsCells (ls [var sv, ccon "a"])
     b_sv <- fromVarsAsCells (ls [ccon "b", var sv])
@@ -24,7 +24,7 @@ test1 = (putStrLn =<<) $ (flip execConcProp) printMyStuff $ do
         rsv <- fromCell' sv
         pure $ (show rsv_a) ++ "\n\n" ++ (show rb_sv) ++ "\n\n" ++ (show rsv)
 
-
+{-
 test2 :: IO ()
 test2 = putStrLn $ fromRight "Error" $ runSimplePropagator $ do
   sv1 <- newEmptyCell "sv1"
@@ -48,3 +48,4 @@ test3 = putStrLn $ fromRight "Error" $ runSimplePropagator $ do
   eq t1 t2
   u <- fromCellSize' 100 t1
   return $ show u
+-}

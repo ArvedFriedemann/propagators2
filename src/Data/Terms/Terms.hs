@@ -1,11 +1,12 @@
 {-# LANGUAGE UndecidableInstances #-}
-
+{-# LANGUAGE StaticPointers       #-}
 module Data.Terms.Terms where
 
 import "this" Data.Lattice
 import "this" Control.Propagator
+import "this" Data.Ref
 import "containers" Data.Set ( Set )
-import qualified "containers" Data.Set as S
+import "containers" Data.Set qualified as S
 --import "transformers" Control.Monad.Trans.Writer.Lazy
 import "base" Debug.Trace
 
@@ -98,17 +99,25 @@ instance (PropagatorMonad m) => BoundedJoin (TermSet m) where
 instance (PropagatorMonad m) => Lattice (TermSet m)
 instance (PropagatorMonad m) => BoundedLattice (TermSet m)
 
-propBot :: (PropagatorEqMonad m, Meet a, Ord a, BoundedJoin a, Meet b, Ord b, BoundedJoin b) =>
+propBot :: (Value b, Value a, PropagatorEqMonad m, BoundedJoin a, BoundedJoin b) =>
             Cell m b -> a -> m ()
 propBot cout cin = do
   if cin == bot
     then write cout bot
     else return ()
 
-watchTerm :: (PropagatorEqMonad m) => Cell m (TermSet m) -> m (Subscription m)
-watchTerm ct = watch ct $ termListener ct
+staticPropBot :: forall m a b.
+               (Value b, Value a, PropagatorEqMonad m, BoundedJoin a, BoundedJoin b)
+              => Ref (Cell m b -> a -> m ())
+staticPropBot = defere @(Value b, Value a, PropagatorEqMonad m, BoundedJoin a, BoundedJoin b) $ static \Dict -> propBot
 
-termListener :: (PropagatorEqMonad m) => Cell m (TermSet m) -> TermSet m -> m ()
+watchTerm :: PropagatorEqMonad m => Cell m (TermSet m) -> m (Subscription m)
+watchTerm ct = watch ct $ (staticTermListener $# liftRef ct)
+
+staticTermListener :: forall m. PropagatorEqMonad m => Ref (Cell m (TermSet m) -> TermSet m -> m ())
+staticTermListener = defere @(PropagatorEqMonad m) $ static \Dict -> termListener
+
+termListener :: forall m. PropagatorEqMonad m => Cell m (TermSet m) -> TermSet m -> m ()
 termListener _ TSBot = return ()
 termListener this (TS ts) = do
   traceM "I'm Alive"
@@ -118,8 +127,8 @@ termListener this (TS ts) = do
   eqAll $ applLefts apls
   eqAll $ aplRights apls
   --as subvalues are not equivalent to this value, their bots have to be propagated as well
-  mapM_ (\x -> watch x (propBot this)) $ applLefts apls
-  mapM_ (\x -> watch x (propBot this)) $ aplRights apls
+  mapM_ (\x -> watch x (staticPropBot $# liftRef this)) $ applLefts apls
+  mapM_ (\x -> watch x (staticPropBot $# liftRef this)) $ aplRights apls
   return ()
   where varconts = variableContents (S.toList ts)
         apls = S.toList $ S.filter ovtIsApl ts
