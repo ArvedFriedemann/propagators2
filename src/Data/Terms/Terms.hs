@@ -2,13 +2,14 @@
 {-# LANGUAGE StaticPointers       #-}
 module Data.Terms.Terms where
 
+import "this" Control.Util
 import "this" Data.Lattice
 import "this" Control.Propagator
 import "this" Data.Ref
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as S
 --import "transformers" Control.Monad.Trans.Writer.Lazy
-import "base" Debug.Trace
+--import "base" Debug.Trace
 
 data TermConst = TOP | BOT | AND | OR | IMPL | CUST String | ID Int | CUSTOM String
   deriving (Show, Eq, Ord)
@@ -66,34 +67,107 @@ aplRights :: (PropagatorMonad m) => [OpenVarTerm m] -> [Cell m (TermSet m)]
 aplRights ts = snd <$> applContents ts
 
 
+
 data TermSet m =   TSBot
-                 | TS (Set (OpenVarTerm m))
+                 | TS {
+                   constants :: Set (OpenVarTerm m),
+                   variables :: Set (OpenVarTerm m),
+                   applications :: Set (OpenVarTerm m),
+                   constrainedVars :: Set (OpenVarTerm m),
+                   constrainedApls :: Set (OpenVarTerm m)
+                 }
   --deriving (Show, Eq, Ord)
 deriving instance (PropagatorMonad m) => Show (TermSet m)
 deriving instance (PropagatorMonad m) => Eq (TermSet m)
 deriving instance (PropagatorMonad m) => Ord (TermSet m)
 
+emptyTermSet :: (PropagatorMonad m) => TermSet m
+emptyTermSet = TS (S.empty) (S.empty) (S.empty) (S.empty) (S.empty)
+
+termSetWithConstants :: (PropagatorMonad m) => (Set (OpenVarTerm m)) -> TermSet m
+termSetWithConstants cvs = TS {
+  constants = cvs,
+  variables = S.empty,
+  applications = S.empty,
+  constrainedVars = S.empty,
+  constrainedApls = S.empty
+}
+
+termSetWithVariables :: (PropagatorMonad m) => (Set (OpenVarTerm m)) -> TermSet m
+termSetWithVariables cvs = TS {
+  constants = S.empty,
+  variables = cvs,
+  applications = S.empty,
+  constrainedVars = S.empty,
+  constrainedApls = S.empty
+}
+
+termSetWithApls :: (PropagatorMonad m) => (Set (OpenVarTerm m)) -> TermSet m
+termSetWithApls cvs = TS {
+  constants = S.empty,
+  variables = S.empty,
+  applications = cvs,
+  constrainedVars = S.empty,
+  constrainedApls = S.empty
+}
+
+termSetWithConstrainedVars :: (PropagatorMonad m) => (Set (OpenVarTerm m)) -> TermSet m
+termSetWithConstrainedVars cvs = TS {
+  constants = S.empty,
+  variables = S.empty,
+  applications = S.empty,
+  constrainedVars = cvs,
+  constrainedApls = S.empty
+}
+
+termSetWithConstrainedApls :: (PropagatorMonad m) => (Set (OpenVarTerm m)) -> TermSet m
+termSetWithConstrainedApls cvs = TS {
+  constants = S.empty,
+  variables = S.empty,
+  applications = S.empty,
+  constrainedVars = S.empty,
+  constrainedApls = cvs
+}
+
 cleanTermSet :: (PropagatorMonad m) => TermSet m -> TermSet m
 cleanTermSet TSBot = TSBot
-cleanTermSet (TS ts)
+cleanTermSet ts
   --the value cannot be application and constant atst.
-  | (not $ S.null apls) && (not $ S.null cnst) = TSBot
+  | (not $ S.null (constrainedApls ts)) &&
+    (not $ S.null (constants ts)) = TSBot
   --no more than one constant allowed
-  | length cnst > 1 = TSBot
-  | otherwise = TS ts
-  where apls = S.filter ovtIsApl ts
-        cnst = S.filter ovtIsCon ts
+  | length (constants ts) > 1 = TSBot
+  | otherwise = TS {
+    constants = (constants ts),
+    variables = S.difference (variables ts) (constrainedVars ts),
+    applications = S.difference (applications ts) (constrainedApls ts),
+    constrainedVars = constrainedVars ts,
+    constrainedApls = constrainedApls ts
+  }
 
 instance (PropagatorMonad m) => Meet (TermSet m) where
   TSBot /\ _ = TSBot
   _ /\ TSBot = TSBot
-  (TS a) /\ (TS b) = cleanTermSet $ TS $ S.union a b
+  (ts1) /\ (ts2) = cleanTermSet $ TS {
+    constants = S.union (constants ts1) (constants ts2),
+    variables = S.union (variables ts1) (variables ts2),
+    applications = S.union (applications ts1) (applications ts2),
+    constrainedVars = S.union (constrainedVars ts1) (constrainedVars ts2),
+    constrainedApls = S.union (constrainedApls ts1) (constrainedApls ts2)
+  }
 instance (PropagatorMonad m) => BoundedMeet (TermSet m) where
-    top = TS $ S.empty
+    top = emptyTermSet
 instance (PropagatorMonad m) => Join (TermSet m) where
   TSBot \/ a = a
   a \/ TSBot = a
-  (TS a) \/ (TS b) = cleanTermSet $ TS $ S.intersection a b
+  --WARNING: This still needs to store which listeners should be removed!
+  ts1 \/ ts2 = cleanTermSet $ TS {
+    constants = S.intersection (constants ts1) (constants ts2),
+    variables = S.intersection (variables ts1) (variables ts2),
+    applications = S.intersection (applications ts1) (applications ts2),
+    constrainedVars = S.intersection (constrainedVars ts1) (constrainedVars ts2),
+    constrainedApls = S.intersection (constrainedApls ts1) (constrainedApls ts2)
+  }
 instance (PropagatorMonad m) => BoundedJoin (TermSet m) where
     bot = TSBot
 instance (PropagatorMonad m) => Lattice (TermSet m)
@@ -117,21 +191,25 @@ watchTerm ct = watch ct $ (staticTermListener $# liftRef ct)
 staticTermListener :: forall m. PropagatorEqMonad m => Ref (Cell m (TermSet m) -> TermSet m -> m ())
 staticTermListener = defere @(PropagatorEqMonad m) $ static \Dict -> termListener
 
+--WARNING: Does not remove listeners after join!
 termListener :: forall m. PropagatorEqMonad m => Cell m (TermSet m) -> TermSet m -> m ()
 termListener _ TSBot = return ()
-termListener this (TS ts) = do
-  traceM "I'm Alive"
+termListener this ts = do
   --equality for variables
-  mapM_ (eq this) varconts
+  mapM_ (eq this) (variableContents (S.toList $ variables ts))
+
+  write this (termSetWithConstrainedVars (variables ts))
   --equality for applications
-  eqAll $ applLefts apls
-  eqAll $ aplRights apls
+  eqAll $ applLefts relApls
+  eqAll $ aplRights relApls
   --as subvalues are not equivalent to this value, their bots have to be propagated as well
-  mapM_ (\x -> watch x (staticPropBot $# liftRef this)) $ applLefts apls
-  mapM_ (\x -> watch x (staticPropBot $# liftRef this)) $ aplRights apls
+  mapM_ (\x -> watch x (staticPropBot $# liftRef this)) $ applLefts (S.toList (applications ts))
+  mapM_ (\x -> watch x (staticPropBot $# liftRef this)) $ aplRights (S.toList (applications ts))
+
+  write this (termSetWithConstrainedApls (applications ts))
   return ()
-  where varconts = variableContents (S.toList ts)
-        apls = S.toList $ S.filter ovtIsApl ts
+  --add one constrained application in there to that the equality class is still connected
+  where relApls = (safeHead $ S.toList $ constrainedApls ts) ++ S.toList (applications ts)
 
 {-
 unifyM :: (PropagatorMonad m) =>
