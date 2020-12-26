@@ -1,9 +1,11 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Data.Facts where
 
-import "this" Data.Lattice
 import "containers" Data.Set ( Set )
-import qualified "containers" Data.Set as S
+import "containers" Data.Set qualified as S
+
+import "this" Data.Lattice
+
 
 data Fact a
     = Top
@@ -13,6 +15,7 @@ data Fact a
 
 data FactSet a = FSet (Set a) | SBot
   deriving (Eq, Ord, Show)
+
 
 data LogFact a
     = LTop

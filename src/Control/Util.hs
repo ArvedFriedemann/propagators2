@@ -5,3 +5,7 @@ m <**< m' = do
   r <- m
   m' r
   return r
+
+safeHead :: [a] -> [a]
+safeHead [] = []
+safeHead (x : _) = [x]

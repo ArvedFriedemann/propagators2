@@ -110,7 +110,11 @@ instance PropagatorMonad SimplePropagator where
         }
       deriving newtype (Eq, Ord, Show, Semigroup, Monoid)
 
+<<<<<<< HEAD
     newCell n a = poolAct $ first (MkSPC n) . newVarF (Val a pool [])
+=======
+    newCell n a = state $ first (MkSPC n) . newVarF (val a)
+>>>>>>> master
     readCell = (readCell' =<<) . getVal'
       where
         readCell' (Val v _ _) = pure v
