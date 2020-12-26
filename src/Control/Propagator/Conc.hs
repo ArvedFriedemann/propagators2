@@ -137,7 +137,7 @@ copyParState s = ParState
              <*> (MutList.map copyAnyCellVal . cells $ s)
 
 -------------------------------------------------------------------------------
--- 
+-- Sub
 -------------------------------------------------------------------------------
 
 data Sub where
@@ -251,12 +251,14 @@ forkListener c (Listener dirty l) = do
         atomicModifyIORef' jobs $ (,()) . pred
 
 instance Forkable Par where
-    forkFinally act fin = do
+    fork m = do
         jobs <- jobCount <$> MkPar ask
         liftIO . atomicModifyIORef' jobs $ (,()) . succ
         void . MkPar . ReaderT $ \ s -> do
             s' <- liftIO $ copyParState s
             forkIO $ do
-                a <- flip runReaderT s' . runPar $ act
-                flip runReaderT s . runPar $ fin a
+                flip runReaderT s' . runPar $ m (liftParent s)
                 atomicModifyIORef' jobs $ (,()) . pred
+      where
+        liftParent :: ParState -> (forall a. Par a -> Par a)
+        liftParent s = liftIO . flip runReaderT s . runPar
