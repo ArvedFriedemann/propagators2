@@ -47,12 +47,13 @@ newMutList = do
 addMutList :: a -> MutList a -> IO Int
 addMutList a (MkML ref) = atomicModifyIORef' ref (unsafePerformIO . add')
   where
-    add' x@(lastIndex, v) = do
+    add' (lastIndex, v) = do
       let l = Vec.length v
-      (i', v') <- if lastIndex <= l then pure x
-                else (succ lastIndex,) <$> Vec.grow v (l*2)
-      Vec.write v' i' a
-      pure ((succ i', v'), lastIndex)
+      v' <- if lastIndex >= l
+            then Vec.grow v (l*2)
+            else pure v
+      Vec.write v' lastIndex a
+      pure ((succ lastIndex, v'), lastIndex)
 
 writeMutList :: Int -> a -> MutList a -> IO (MutList a)
 writeMutList i a ml@(MkML ref) = atomicModifyIORef' ref (unsafePerformIO . write')
