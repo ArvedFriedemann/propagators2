@@ -47,6 +47,14 @@ newCellVal idA a = CellVal idA
                 <$> newIORef a
                 <*> newIORef Set.empty
 
+copyCellVal :: Value a => CellVal a -> IO (CellVal a)
+copyCellVal cv = CellVal (cellId cv)
+              <$> copyIORef (getCellVal cv)
+              <*> copyIORef (listeners cv)
+
+copyIORef :: IORef a -> IO (IORef a)
+copyIORef r = newIORef =<< readIORef r
+
 instance Show a => Show (CellVal a) where
     showsPrec d = showsPrec d . cellId
 
@@ -71,6 +79,9 @@ data AnyCellVal where
 
 toCellVal :: (Value a, MonadFail m) => AnyCellVal -> m (CellVal a)
 toCellVal (AnyCellVal ref) = castM ref
+
+copyAnyCellVal :: AnyCellVal -> IO AnyCellVal
+copyAnyCellVal (AnyCellVal v) = AnyCellVal <$> copyCellVal v
 
 castM :: (Typeable a, Typeable b, MonadFail m) => a -> m b
 castM a = do
@@ -120,6 +131,11 @@ newCellIO name a s = do
 readCellVal :: Value a => Cell Par a -> Par (CellVal a)
 readCellVal idA = MkPar $ toCellVal =<< liftIO . MutList.read (cellIndex idA) =<< cells <$> ask
 
+copyParState :: ParState -> IO ParState
+copyParState s = ParState
+             <$> newIORef 0
+             <*> (MutList.map copyAnyCellVal . cells $ s)
+
 -------------------------------------------------------------------------------
 -- 
 -------------------------------------------------------------------------------
@@ -150,7 +166,7 @@ newtype Par a = MkPar
   deriving newtype (Functor, Applicative, Alternative, Monad, MonadIO)
 
 execPar :: Par a -> (a -> Par b) -> IO b
-execPar = execPar' 1000000 -- one second
+execPar = execPar' 100000 -- 100 millsec
 
 execPar' :: Int -> Par a -> (a -> Par b) -> IO b
 execPar' tick setup doneP = do
@@ -233,3 +249,14 @@ forkListener c (Listener dirty l) = do
         when d $ do
             flip runReaderT s . runPar $ deRef l =<< readCell c
         atomicModifyIORef' jobs $ (,()) . pred
+
+instance Forkable Par where
+    forkFinally act fin = do
+        jobs <- jobCount <$> MkPar ask
+        liftIO . atomicModifyIORef' jobs $ (,()) . succ
+        void . MkPar . ReaderT $ \ s -> do
+            s' <- liftIO $ copyParState s
+            forkIO $ do
+                a <- flip runReaderT s' . runPar $ act
+                flip runReaderT s . runPar $ fin a
+                atomicModifyIORef' jobs $ (,()) . pred

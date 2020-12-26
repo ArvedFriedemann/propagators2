@@ -3,6 +3,7 @@
 module Control.Propagator.Class
     ( PropagatorMonad(..)
     , PropagatorEqMonad(..)
+    , Forkable(..)
     , Value
     , BoundedValue
     , newEmptyCell
@@ -93,3 +94,9 @@ newEmptyCell = flip newCell top
 
 staticWrite :: forall a m. (Typeable m, Value a, PropagatorMonad m) => Ref (Cell m a -> a -> m ())
 staticWrite = defere @(Value a, PropagatorMonad m) (static \Dict -> write)
+
+class Applicative m => Forkable m where
+    fork :: m () -> m ()
+    fork = flip forkFinally (const . pure $ ())
+
+    forkFinally :: m a -> (a -> m ()) -> m ()

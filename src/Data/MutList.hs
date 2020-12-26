@@ -5,9 +5,10 @@ module Data.MutList
     , add
     , write
     , read
+    , map
     ) where
 
-import "base" Prelude hiding ( read )
+import "base" Prelude hiding ( read, map )
 import "base" Data.IORef
 import "base" System.IO.Unsafe
 
@@ -39,3 +40,10 @@ write i a ml@(MkML ref) = atomicModifyIORef' ref (unsafePerformIO . write')
 
 read :: Int -> MutList a -> IO a
 read i (MkML ref) = (flip Vec.read i =<<) . fmap snd . readIORef $ ref
+
+map :: (a -> IO b) -> MutList a -> IO (MutList b)
+map f (MkML ref) = do
+    (i, v) <- readIORef ref
+    v' <- Vec.new (Vec.length v)
+    mapM_ (\ j -> Vec.read v j >>= f >>= Vec.write v' j ) ([0 .. i] :: [Int])
+    MkML <$> newIORef (i, v')
