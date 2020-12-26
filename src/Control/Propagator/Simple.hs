@@ -38,18 +38,17 @@ instance MonadFail SimplePropagator where
     fail = MkSP . throwE
 
 --TODO: do the queue switching here somewhere!
-runSimplePropagator :: SimplePropagator a -> Either String a
-runSimplePropagator = flip evalState (poolF,[]) . runExceptT . runSP . queuePropagation
+runSimplePropagator :: SimplePropagator a -> (a -> SimplePropagator b) -> Either String b
+runSimplePropagator p = flip evalState (poolF,[]) . runExceptT . runSP . (queuePropagation p)
 
-queuePropagation :: SimplePropagator a -> SimplePropagator a
-queuePropagation p = do
+queuePropagation :: SimplePropagator a -> (a -> SimplePropagator b) -> SimplePropagator b
+queuePropagation p end = do
   res <- p
   (s,q) <- get
   put (s, []) --clear the queue for new listeners
   if null q
-    then return res
-    --TODO: does this do what it should? The output of the action kinda depends on the state. If that one is not changed accordingly, the monad should be reevaluated...nope, tried it. Does not do what it should.
-    else sequence q >> return res
+    then end res
+    else sequence q >> queuePropagation (return res) end
 
 instance Show (Cell SimplePropagator a) where
     showsPrec _ c
