@@ -16,7 +16,6 @@ import "base" Control.Monad
 import "base" Control.Concurrent
 import "base" Control.Monad.IO.Class
 import "base" Control.Category
-import "base" System.IO.Unsafe
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
@@ -25,43 +24,13 @@ import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
 
 import "mtl" Control.Monad.Reader.Class
 
-import "vector" Data.Vector.Mutable qualified as Vec
-
 import "this" Data.ShowM
 import "this" Control.Propagator.Class
 import "this" Data.Lattice
 import "this" Data.Iso
 import "this" Data.Ref
-
--------------------------------------------------------------------------------
--- MutList
--------------------------------------------------------------------------------
-
-newtype MutList a  = MkML (IORef (Int, Vec.IOVector a))
-
-newMutList :: IO (MutList a)
-newMutList = do
-    v <- Vec.new 4
-    MkML <$> newIORef (0, v)
-
-addMutList :: a -> MutList a -> IO Int
-addMutList a (MkML ref) = atomicModifyIORef' ref (unsafePerformIO . add')
-  where
-    add' (lastIndex, v) = do
-      let l = Vec.length v
-      v' <- if lastIndex >= l
-            then Vec.grow v (l*2)
-            else pure v
-      Vec.write v' lastIndex a
-      pure ((succ lastIndex, v'), lastIndex)
-
-writeMutList :: Int -> a -> MutList a -> IO (MutList a)
-writeMutList i a ml@(MkML ref) = atomicModifyIORef' ref (unsafePerformIO . write')
-  where
-    write' x@(_, v) = (x, ml) <$ Vec.write v i a
-
-readMutList :: Int -> MutList a -> IO a
-readMutList i (MkML ref) = (flip Vec.read i =<<) . fmap snd . readIORef $ ref
+import "this" Data.MutList ( MutList )
+import "this" Data.MutList qualified as MutList
 
 -------------------------------------------------------------------------------
 -- CellVal
@@ -138,18 +107,18 @@ data ParState = ParState
     }
 
 newParState :: IO ParState
-newParState = ParState <$> newIORef 0 <*> newMutList
+newParState = ParState <$> newIORef 0 <*> MutList.new
 
 newCellIO :: forall a. Value a => String -> a -> ParState -> IO (Cell Par a)
 newCellIO name a s = do
-    i <- addMutList undefined . cells $ s
+    i <- MutList.add undefined . cells $ s
     let idA = PID name i
     cv <- newCellVal idA a
-    writeMutList i (AnyCellVal cv) . cells $ s
+    MutList.write i (AnyCellVal cv) . cells $ s
     pure idA
 
 readCellVal :: Value a => Cell Par a -> Par (CellVal a)
-readCellVal idA = MkPar $ toCellVal =<< liftIO . readMutList (cellIndex idA) =<< cells <$> ask
+readCellVal idA = MkPar $ toCellVal =<< liftIO . MutList.read (cellIndex idA) =<< cells <$> ask
 
 -------------------------------------------------------------------------------
 -- 
