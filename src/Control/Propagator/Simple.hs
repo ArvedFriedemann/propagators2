@@ -173,3 +173,14 @@ instance PropagatorEqMonad SimplePropagator where
                 write a (from i bv)
 
         moveMapping (Mapping ref i' lx) = Mapping ref (co i . i') lx
+
+
+{-
+instance Forkable SimplePropagator where
+  fork :: (LiftParent SimplePropagator -> SimplePropagator ()) -> SimplePropagator ()
+  fork lft
+-}
+
+{-
+Don't copy listeners. Only lazily copy cells. Have one-directional watches. Problem: Original listeners do not fire for new knowledge. When copying the listeners as well, this needs to be updated with the original state (e.g. when new listeners are placed).
+-}
