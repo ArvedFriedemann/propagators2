@@ -1,5 +1,4 @@
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE StaticPointers    #-}
 module Data.Iso where
 
 import "base" Prelude hiding ( (.), id )
@@ -12,7 +11,6 @@ import "base" GHC.Exts
 import "base" GHC.Generics ( Generic( Rep ), Generic1( Rep1 ) )
 import "base" GHC.Generics qualified as Gen
 
-import "this" Data.Ref
 import "this" Data.NaturalTransformation
 
 
@@ -84,13 +82,3 @@ functor n i = toF n . fmap (to i) :<-> fromF n . fmap (from i)
 
 generic1 :: Generic1 f => f <~> Rep1 f
 generic1 = NT Gen.from1 :<-> NT Gen.to1
-
-staticTo :: forall k (cat :: k -> k -> *) a b.
-          ( Typeable k, Typeable cat, Typeable a, Typeable b) 
-          => FunRef (Iso cat a b) (cat a b)
-staticTo = funRef $ static to
-
-staticFrom :: forall k (cat :: k -> k -> *) a b.
-          ( Typeable k, Typeable cat, Typeable a, Typeable b) 
-          => FunRef (Iso cat a b) (cat b a)
-staticFrom = funRef $ static from

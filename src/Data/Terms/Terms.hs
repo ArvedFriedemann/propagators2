@@ -1,15 +1,16 @@
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE StaticPointers       #-}
 module Data.Terms.Terms where
+
+import "containers" Data.Set ( Set )
+import "containers" Data.Set qualified as S
 
 import "this" Control.Util
 import "this" Data.Lattice
 import "this" Control.Propagator
-import "this" Data.Ref
-import "containers" Data.Set ( Set )
-import "containers" Data.Set qualified as S
+
 --import "transformers" Control.Monad.Trans.Writer.Lazy
 --import "base" Debug.Trace
+
 
 data TermConst = TOP | BOT | AND | OR | IMPL | CUST String | ID Int | CUSTOM String
   deriving (Show, Eq, Ord)
@@ -173,26 +174,18 @@ instance (PropagatorMonad m) => BoundedJoin (TermSet m) where
 instance (PropagatorMonad m) => Lattice (TermSet m)
 instance (PropagatorMonad m) => BoundedLattice (TermSet m)
 
-propBot :: (Value b, Value a, PropagatorEqMonad m, BoundedJoin a, BoundedJoin b) =>
+propBot :: (Value b, Value a, PropagatorMonad m, BoundedJoin a, BoundedJoin b) =>
             Cell m b -> a -> m ()
 propBot cout cin = do
   if cin == bot
     then write cout bot
     else return ()
 
-staticPropBot :: forall m a b.
-               (Value b, Value a, PropagatorEqMonad m, BoundedJoin a, BoundedJoin b)
-              => Ref (Cell m b -> a -> m ())
-staticPropBot = defere @(Value b, Value a, PropagatorEqMonad m, BoundedJoin a, BoundedJoin b) $ static \Dict -> propBot
-
-watchTerm :: PropagatorEqMonad m => Cell m (TermSet m) -> m (Subscription m)
-watchTerm ct = watch ct $ (staticTermListener $# liftRef ct)
-
-staticTermListener :: forall m. PropagatorEqMonad m => Ref (Cell m (TermSet m) -> TermSet m -> m ())
-staticTermListener = defere @(PropagatorEqMonad m) $ static \Dict -> termListener
+watchTerm :: PropagatorMonad m => Cell m (TermSet m) -> m (Subscriptions m)
+watchTerm ct = watch ct $ termListener ct
 
 --WARNING: Does not remove listeners after join!
-termListener :: forall m. PropagatorEqMonad m => Cell m (TermSet m) -> TermSet m -> m ()
+termListener :: forall m. PropagatorMonad m => Cell m (TermSet m) -> TermSet m -> m ()
 termListener _ TSBot = return ()
 termListener this ts = do
   --equality for variables
@@ -203,8 +196,10 @@ termListener this ts = do
   eqAll $ applLefts relApls
   eqAll $ aplRights relApls
   --as subvalues are not equivalent to this value, their bots have to be propagated as well
-  mapM_ (\x -> watch x (staticPropBot $# liftRef this)) $ applLefts (S.toList (applications ts))
-  mapM_ (\x -> watch x (staticPropBot $# liftRef this)) $ aplRights (S.toList (applications ts))
+  let propBotThis = flip watch $ propBot this
+  let appList = S.toList . applications $ ts
+  mapM_ propBotThis $ applLefts appList
+  mapM_ propBotThis $ aplRights appList
 
   write this (termSetWithConstrainedApls (applications ts))
   return ()

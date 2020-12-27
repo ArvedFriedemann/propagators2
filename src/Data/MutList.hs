@@ -6,9 +6,10 @@ module Data.MutList
     , write
     , read
     , map
+    , length
     ) where
 
-import "base" Prelude hiding ( read, map )
+import "base" Prelude hiding ( read, map, length )
 import "base" Data.IORef
 import "base" System.IO.Unsafe
 
@@ -47,3 +48,6 @@ map f (MkML ref) = do
     v' <- Vec.new (Vec.length v)
     mapM_ (\ j -> Vec.read v j >>= f >>= Vec.write v' j ) ([0 .. i] :: [Int])
     MkML <$> newIORef (i, v')
+
+length :: MutList a -> IO Int
+length (MkML ref) = fst <$> readIORef ref

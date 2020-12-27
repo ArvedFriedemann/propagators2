@@ -40,7 +40,7 @@ var a = SVAR a
 ls :: [TermStruc a] -> TermStruc a
 ls lst = foldl applts STOP lst
 
-fromVarsAsCells :: (PropagatorEqMonad m) => TermStruc (Cell m (TermSet m)) -> m (Cell m (TermSet m))
+fromVarsAsCells :: (PropagatorMonad m) => TermStruc (Cell m (TermSet m)) -> m (Cell m (TermSet m))
 fromVarsAsCells SBOT =  newEmptyCell "mpt_trm" <**< watchTerm <**< (flip write) TSBot
 fromVarsAsCells STOP =  newEmptyCell "mpt_trm" <**< watchTerm
 fromVarsAsCells (SCON c) = newCell "cnst" (termSetWithConstants $ S.singleton (VTerm $ CON c)) <**< watchTerm

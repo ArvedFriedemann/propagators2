@@ -1,12 +1,12 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude    #-}
 {-# LANGUAGE StrictData           #-}
-{-# LANGUAGE StaticPointers       #-}
 module Control.Propagator.Conc where
 
 import "base" Prelude hiding ( (.), id )
 import "base" GHC.Generics ( Generic )
 import "base" Data.Function ( on )
+import "base" Data.Unique
 import "base" Data.IORef
 import "base" Data.Typeable
 import "base" Data.Type.Equality
@@ -27,8 +27,6 @@ import "mtl" Control.Monad.Reader.Class
 import "this" Data.ShowM
 import "this" Control.Propagator.Class
 import "this" Data.Lattice
-import "this" Data.Iso
-import "this" Data.Ref
 import "this" Data.MutList ( MutList )
 import "this" Data.MutList qualified as MutList
 
@@ -93,20 +91,24 @@ castM a = do
 -------------------------------------------------------------------------------
 
 data Listener a = Listener
-    { listenerDirty  :: IORef Bool
-    , listenerAction :: Ref (a -> Par ())
+    { listenerId     :: Unique
+    , listenerDirty  :: IORef Bool
+    , listenerAction :: a -> Par ()
     }
 
-newListener :: Ref (a -> Par ()) -> IO (Listener a)
-newListener l = flip Listener l <$> newIORef False
+newListener :: (a -> Par ()) -> IO (Listener a)
+newListener l = Listener
+    <$> newUnique
+    <*> newIORef False
+    <*> pure l
 
 instance Eq (Listener a) where
     a == b = compare a b == EQ
 instance Ord (Listener a) where
-    compare = compare `on` listenerAction
+    compare = compare `on` listenerId
 
 instance Show (Listener a) where
-    showsPrec d (Listener _ ref) = showParen (d >= 10) $ showString "Listener " . shows ref
+    showsPrec d (Listener lId _ _) = showParen (d >= 10) $ showString "Listener " . shows (hashUnique lId)
 
 -------------------------------------------------------------------------------
 -- ParState
@@ -137,31 +139,11 @@ copyParState s = ParState
              <*> (MutList.map copyAnyCellVal . cells $ s)
 
 -------------------------------------------------------------------------------
--- Sub
--------------------------------------------------------------------------------
-
-data Sub where
-    Sub :: Value a => Cell Par a -> Listener a -> Sub
-
-instance Eq Sub where
-    Sub cA lA == Sub cB lB = case testEquality cA cB of
-        Just Refl -> cA == cB && lA == lB
-        Nothing   -> False
-
-instance Show Sub where
-    showsPrec d (Sub c l)
-        = showParen (d >= 10)
-        $ showString "Sub "
-        . showsPrec 10 c
-        . showString " "
-        . showsPrec 10 l
-
--------------------------------------------------------------------------------
 -- Par
 -------------------------------------------------------------------------------
 
 newtype Par a = MkPar
-    { runPar :: ReaderT ParState IO a
+    { runPar' :: ReaderT ParState IO a
     }
   deriving newtype (Functor, Applicative, Alternative, Monad, MonadIO)
 
@@ -171,15 +153,17 @@ execPar = execPar' 100000 -- 100 millsec
 execPar' :: Int -> Par a -> (a -> Par b) -> IO b
 execPar' tick setup doneP = do
     s <- newParState
-    a <- run s setup
+    a <- runPar s setup
     waitForDone s
-    run s . doneP $ a
+    runPar s . doneP $ a
   where
-    run s = flip runReaderT s . runPar
     waitForDone s = do
         threadDelay tick
         jobs <- readIORef . jobCount $ s
         unless (jobs == 0) . waitForDone $ s
+
+runPar :: ParState -> Par a -> IO a
+runPar s = flip runReaderT s . runPar'
 
 -- Cell
 
@@ -192,6 +176,21 @@ instance TestEquality (Cell Par) where
           then unsafeCoerce $ Just Refl
           else Nothing
 
+-- Sub
+
+instance Eq (Subscription Par) where
+    Sub cA lA == Sub cB lB = case testEquality cA cB of
+        Just Refl -> cA == cB && lA == lB
+        Nothing   -> False
+
+instance Show (Subscription Par) where
+    showsPrec d (Sub c l)
+        = showParen (d >= 10)
+        $ showString "Sub "
+        . showsPrec 10 c
+        . showString " "
+        . showsPrec 10 l
+
 -- PropagatorMonad
 
 instance PropagatorMonad Par where
@@ -202,11 +201,9 @@ instance PropagatorMonad Par where
         }
       deriving (Eq, Ord, Generic)
 
-    newtype Subscription Par = ConcPSub
-        { getSubs :: [Sub]
-        }
-      deriving newtype (Eq, Show, Semigroup, Monoid)
-        
+    data Subscription Par where
+        Sub :: Value a => Cell Par a -> Listener a -> Subscription Par
+
     newCell n a = MkPar $ liftIO . newCellIO n a =<< ask
 
     readCell = (liftIO . readIORef . getCellVal =<<) . readCellVal
@@ -223,42 +220,43 @@ instance PropagatorMonad Par where
         ls <- fmap listeners . readCellVal $ c
         liftIO . atomicModifyIORef' ls $ (,()) . Set.insert l'
         forkListener c l'
-        pure . ConcPSub . pure $ Sub c l'
+        pure . Subscriptions . pure $ Sub c l'
     
-    cancel = mapM_ cancel' . getSubs
+    cancel = mapM_ cancel' . getSubscriptions
       where
         cancel' (Sub c l) = do
             liftIO $ writeIORef (listenerDirty l) False
             ls <- fmap listeners . readCellVal $ c
             liftIO . atomicModifyIORef' ls $ (,()) . Set.delete l
 
-instance PropagatorEqMonad Par where
-    iso :: forall a b. (Value a, Value b) => Cell Par a -> Cell Par b -> Ref (a <-> b) -> Par ()
-    iso ca cb i = do
-        watch ca $ (staticWrite $# liftRef cb) .# (staticTo $## i)
-        watch cb $ (staticWrite $# liftRef ca) .# (staticFrom $## i)
-        pure ()
-
 forkListener :: Value a => Cell Par a -> Listener a -> Par ()
-forkListener c (Listener dirty l) = do
-    jobs <- jobCount <$> MkPar ask
+forkListener c (Listener _ dirty l) = do
+    done <- startJob
     liftIO $ writeIORef dirty True
-    liftIO . atomicModifyIORef' jobs $ (,()) . succ
     void . MkPar . ReaderT $ \ s -> forkIO $ do
         d <- atomicModifyIORef' dirty (False,)
         when d $ do
-            flip runReaderT s . runPar $ deRef l =<< readCell c
-        atomicModifyIORef' jobs $ (,()) . pred
-
+            runPar s $ l =<< readCell c
+        done
+            
 instance Forkable Par where
     fork m = do
-        jobs <- jobCount <$> MkPar ask
-        liftIO . atomicModifyIORef' jobs $ (,()) . succ
+        done <- startJob
         void . MkPar . ReaderT $ \ s -> do
             s' <- liftIO $ copyParState s
+            liftIO $ connectStates s s'
             forkIO $ do
-                flip runReaderT s' . runPar $ m (liftParent s)
-                atomicModifyIORef' jobs $ (,()) . pred
-      where
-        liftParent :: ParState -> (forall a. Par a -> Par a)
-        liftParent s = liftIO . flip runReaderT s . runPar
+                runPar s' $ m (liftParent s)
+                done
+
+liftParent :: ParState -> LiftParent Par
+liftParent s = liftIO . runPar s
+
+connectStates :: ParState -> ParState -> IO ()
+connectStates _ _ = undefined
+
+startJob :: Par (IO ())
+startJob = do
+    jobs <- jobCount <$> MkPar ask
+    liftIO . atomicModifyIORef' jobs $ (,()) . succ
+    pure $ atomicModifyIORef' jobs $ (,()) . pred
