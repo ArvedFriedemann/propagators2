@@ -1,5 +1,7 @@
 module Tests.UnificationTest where
 
+import "base" Control.Monad
+
 --import "this" Data.Terms.Terms
 import "this" Data.Terms.TermFunctions
 import "this" Control.Propagator
@@ -7,7 +9,7 @@ import "this" Control.Propagator.Conc
 --import "base" Data.Either
 --import "containers" Data.Set ( Set )
 --import qualified "containers" Data.Set as S
-
+import "this" Control.Combinator.Logics
 
 
 test1 :: IO ()
@@ -59,3 +61,17 @@ test3 = (putStrLn =<<) $ flip execPar printMyStuff $ do
         pure $ (show rt1) ++ "\n\n"
             ++ (show rt2) ++ "\n\n"
             ++ (show rsv)
+
+test4 :: IO ()
+test4 = (putStrLn =<<) $ flip execPar printMyStuff $ do
+    sv1 <- newEmptyCell "sv1"
+
+    orig <- fromVarsAsCells (ls [var sv1, ccon "a"])
+    t1 <- fromVarsAsCells (ls [ccon "b", ccon "a"])
+    t2 <- fromVarsAsCells (ls [ccon "b", ccon "b"])
+    disjunctFork orig (void $ eq orig t1) (void $ eq orig t2)
+    return orig
+  where
+    printMyStuff orig = do
+        rorig <- fromCell' orig
+        pure $ (show rorig)
