@@ -8,7 +8,7 @@ ghc-options:
   - -fshow-warning-groups
   - -Wwarn=unused-top-binds
   - -Wwarn=unused-imports
-  - -rtsopts -threaded
+  - -rtsopts -threaded -O
 
 executable:
   source-dirs: src

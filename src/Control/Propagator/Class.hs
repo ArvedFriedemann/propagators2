@@ -1,10 +1,13 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 module Control.Propagator.Class
     ( PropagatorMonad(..)
+    , watch
     , Subscriptions(..)
     , Scoped(..)
+    , scope
     , LiftParent
     , Forkable(..)
+    , fork
     , Std
     , Value
     , BoundedValue
@@ -20,7 +23,6 @@ module Control.Propagator.Class
 
 import "base" Prelude hiding ( (.), id )
 import "base" Data.Foldable
-import "base" Data.Functor
 import "base" Data.Typeable
 import "base" Data.Type.Equality
 import "base" Control.Category
@@ -50,7 +52,6 @@ class ( forall a. Show (Cell m a)
       , TestEquality (Cell m)
       , Eq (Subscription m)
       , Show (Subscription m)
-      , Std (Id m)
       , Typeable m
       , Monad m
       ) => PropagatorMonad m where
@@ -59,68 +60,73 @@ class ( forall a. Show (Cell m a)
 
     data Subscription m
 
-    data Id m
-
-    newCell :: (Std b, Value a) => b -> a -> m (Cell m a)
+    newCell :: Value a => String -> a -> m (Cell m a)
 
     readCell :: Value a => Cell m a -> m a
 
     write :: Value a => Cell m a -> a -> m ()
 
-    watch :: (Std b, Value a) => Cell m a -> b -> (a -> m ()) -> m (Subscriptions m)
+    namedWatch :: Value a => Cell m a -> String -> (a -> m ()) -> m (Subscriptions m)
 
     cancel :: Subscriptions m -> m ()
-
+    
+watch :: (PropagatorMonad m, Value a) => Cell m a -> (a -> m ()) -> m (Subscriptions m)
+watch c = namedWatch c ""
 
 type LiftParent m = forall a. m a -> m a
 
 class Applicative m => Forkable m where
-    fork :: Std b => b -> (LiftParent m -> m ()) -> m ()
+    namedFork :: String -> (LiftParent m -> m ()) -> m ()
 
-class PropagatorMonad m => Scoped m where
+fork :: Forkable m => (LiftParent m -> m ()) -> m ()
+fork = namedFork ""
 
-    scope :: String -> m a -> m a
+class (Std (Scope m), PropagatorMonad m) => Scoped m where
 
-    scope' :: m a -> m a
-    scope' = scope "anon"
+    data Scope m
+
+    namedScope :: String -> m a -> m a
     
-    currentScope :: m (Id m)
+    currentScope :: m (Scope m)
+
+scope :: Scoped m => m a -> m a
+scope = namedScope ("anon" :: String)
 
 -------------------------------------------------------------------------------
 -- combinators
 -------------------------------------------------------------------------------
 
-iso :: (Scoped m, Value a, Value b) => Cell m a -> Cell m b -> (a <-> b) -> m (Subscriptions m)
-iso ca cb i = scope "iso" $ do
-    sa <- watch ca ("to" :: String) $ write cb . to i
-    sb <- watch cb ("from" :: String) $ write ca . from i
+iso :: (PropagatorMonad m, Value a, Value b) => Cell m a -> Cell m b -> (a <-> b) -> m (Subscriptions m)
+iso ca cb i = do
+    sa <- namedWatch ca ("to" :: String) $ write cb . to i
+    sb <- namedWatch cb ("from" :: String) $ write ca . from i
     pure (sa <> sb)
 
-eq :: (Scoped m, Value a) => Cell m a -> Cell m a -> m (Subscriptions m)
+eq :: (PropagatorMonad m, Value a) => Cell m a -> Cell m a -> m (Subscriptions m)
 eq a b = iso a b id
 
-eqAll :: (Scoped m, Value a) => [Cell m a] -> m (Subscriptions m)
+eqAll :: (PropagatorMonad m, Value a) => [Cell m a] -> m (Subscriptions m)
 eqAll [] = pure mempty
 eqAll (a : as) = fold <$> mapM (eq a) as
 
-linkM :: (Scoped m, Value a, Value b, Std l)
-      => Cell m a -> Cell m b -> l -> (a -> m b) -> m (Subscriptions m)
-linkM ca cb l f = watch ca ("linkM" :: String, cb, l) $ \ a -> f a >>= write cb
+linkM :: (PropagatorMonad m, Value a, Value b)
+      => Cell m a -> Cell m b -> (a -> m b) -> m (Subscriptions m)
+linkM ca cb f = namedWatch ca ("linkM " ++ show cb) $ \ a -> f a >>= write cb
 
-linkM2 :: (Scoped m, Value a, Value b, Value c, Std l)
-       => Cell m a -> Cell m b -> Cell m c -> l -> (a -> b -> m c) -> m (Subscriptions m)
-linkM2 ca cb cc l f = do
-    unsubCa <- linkM ca cc l $ \ a -> f a =<< readCell cb
-    unsubCb <- linkM cb cc l $ \ b -> flip f b =<< readCell ca
+linkM2 :: (PropagatorMonad m, Value a, Value b, Value c)
+       => Cell m a -> Cell m b -> Cell m c -> (a -> b -> m c) -> m (Subscriptions m)
+linkM2 ca cb cc f = do
+    unsubCa <- linkM ca cc $ \ a -> f a =<< readCell cb
+    unsubCb <- linkM cb cc $ \ b -> flip f b =<< readCell ca
     pure (unsubCa <> unsubCb)
 
-link :: (Scoped m, Value a, Value b, Std l)
-     =>  Cell m a -> Cell m b -> l -> (a -> b) -> m (Subscriptions m)
-link ca cb l f = linkM ca cb l $ pure . f
+link :: (PropagatorMonad m, Value a, Value b)
+     =>  Cell m a -> Cell m b -> (a -> b) -> m (Subscriptions m)
+link ca cb f = linkM ca cb $ pure . f
 
-link2 :: (Scoped m, Value a, Value b, Value c, Std l)
-      => Cell m a -> Cell m b -> Cell m c -> l -> (a -> b -> c) -> m (Subscriptions m)
-link2 ca cb cc l f = linkM2 ca cb cc l $ \ a b -> pure $ f a b
+link2 :: (PropagatorMonad m, Value a, Value b, Value c)
+      => Cell m a -> Cell m b -> Cell m c -> (a -> b -> c) -> m (Subscriptions m)
+link2 ca cb cc f = linkM2 ca cb cc $ \ a b -> pure $ f a b
 
-newEmptyCell :: forall a m. (Scoped m, BoundedValue a) => String -> m (Cell m a)
+newEmptyCell :: forall a m. (PropagatorMonad m, BoundedValue a) => String -> m (Cell m a)
 newEmptyCell = flip newCell top

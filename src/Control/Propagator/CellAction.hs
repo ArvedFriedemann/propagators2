@@ -1,6 +1,5 @@
 module Control.Propagator.CellAction
-    ( CellAction
-    , readAction
+    ( CellAction(Read, Watch)
     , propagate
     , eval
     ) where
@@ -12,15 +11,12 @@ import "this" Control.Propagator.Class
 
 data CellAction m a where
     Pure :: a -> CellAction m a
-    Read :: Value a => Cell m a -> (a -> b) -> CellAction m b
+    Read :: Value a => Cell m a -> CellAction m a
+    Watch :: Value a => Cell m a -> CellAction m a
     CApp :: CellAction m (a -> b) -> CellAction m a -> CellAction m b
 
-readAction :: Value a => Cell m a -> CellAction m a
-readAction = flip Read id
-
 instance Functor (CellAction m) where
-    f `fmap` Pure a = Pure (f a)
-    g `fmap` Read c f = Read c (g . f)
+    f `fmap` Pure a = pure $ f a
     f `fmap` c = pure f <*> c
 
 instance Applicative (CellAction m) where
@@ -33,5 +29,6 @@ propagate = eval . write
 
 eval :: PropagatorMonad m => (a -> m ()) -> CellAction m a -> m ()
 eval f (Pure a) = f a
-eval f (Read s g) = void $ watch s ("" :: String) (f . g)
+eval f (Read s) = readCell s >>= f
+eval f (Watch s) = void $ watch s f
 eval f (CApp g a) = flip eval g $ \ vg -> flip eval a (f . vg) 
