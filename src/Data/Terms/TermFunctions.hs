@@ -75,9 +75,9 @@ fromTermSet' n ts
   | ts == emptyTermSet = return STOP
   | not $ null (constants ts) = do
     return $ con $ head $ constantContents (S.toList $ constants ts)
-  | not $ null (constrainedApls ts) = do
-    (a,b) <- return $ head $ applContents (S.toList $ constrainedApls ts)
+  | not $ null (applications ts) = do
+    (a,b) <- return $ head $ applContents (S.toList $ applications ts)
     a' <- fromCellSize (n-1) a
     b' <- fromCellSize (n-1) b
     return $ applts a' b'
-  | otherwise = fromCellSize (n-1) $ head $ variableContents (S.toList $ constrainedVars ts) --TODO: This will recurse if there are cyclic equalities
+  | otherwise = fromCellSize (n-1) $ head $ variableContents (S.toList $ variables ts) --TODO: This will recurse if there are cyclic equalities
