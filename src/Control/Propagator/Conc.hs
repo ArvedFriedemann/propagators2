@@ -1,28 +1,30 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude    #-}
 {-# LANGUAGE StrictData           #-}
-module Control.Propagator.Conc where
+module Control.Propagator.Conc
+    ( Par
+    , execPar
+    , execPar'
+    ) where
 
 import "base" Prelude hiding ( (.), id )
 import "base" GHC.Generics ( Generic )
 import "base" Data.Function ( on )
 import "base" Data.Unique
 import "base" Data.IORef
+import "base" Data.List
 import "base" Data.Typeable
 import "base" Data.Type.Equality
 import "base" Unsafe.Coerce
 import "base" Control.Applicative
 import "base" Control.Monad
 import "base" Control.Concurrent
-import "base" Control.Monad.IO.Class
 import "base" Control.Category
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
 
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
-
-import "mtl" Control.Monad.Reader.Class
 
 import "this" Data.ShowM
 import "this" Control.Propagator.Class
@@ -130,13 +132,12 @@ newCellIO name a s = do
     MutList.write i (AnyCellVal cv) . cells $ s
     pure idA
 
-readCellVal :: Value a => Cell Par a -> Par (CellVal a)
-readCellVal idA = MkPar $ toCellVal =<< liftIO . MutList.read (cellIndex idA) =<< cells <$> ask
+readCellValIO :: Value a => Cell Par a -> ParState -> IO (CellVal a)
+readCellValIO idA s = toCellVal =<< MutList.read (cellIndex idA) (cells s)
 
 copyParState :: ParState -> IO ParState
-copyParState s = ParState
-             <$> newIORef 0
-             <*> (MutList.map copyAnyCellVal . cells $ s)
+copyParState s = ParState (jobCount s)
+             <$> (MutList.map copyAnyCellVal . cells $ s)
 
 -------------------------------------------------------------------------------
 -- Par
@@ -145,7 +146,7 @@ copyParState s = ParState
 newtype Par a = MkPar
     { runPar' :: ReaderT ParState IO a
     }
-  deriving newtype (Functor, Applicative, Alternative, Monad, MonadIO)
+  deriving newtype (Functor, Applicative, Alternative, Monad)
 
 execPar :: Par a -> (a -> Par b) -> IO b
 execPar = execPar' 100000 -- 100 millsec
@@ -204,59 +205,74 @@ instance PropagatorMonad Par where
     data Subscription Par where
         Sub :: Value a => Cell Par a -> Listener a -> Subscription Par
 
-    newCell n a = MkPar $ liftIO . newCellIO n a =<< ask
+    newCell n = liftPar . newCellIO n
+    readCell = liftPar . readCellIO
+    write c = liftPar . writeIO c
+    watch c = liftPar . watchIO c
+    cancel = liftPar . cancelIO
 
-    readCell = (liftIO . readIORef . getCellVal =<<) . readCellVal
-
-    write c a = do
-        cv <- readCellVal c
-        changed <- liftIO $ atomicModifyIORef' (getCellVal cv) (meetEq a)
-        when changed $ do
-            ls <- fmap Set.toList . liftIO . readIORef . listeners $ cv
-            mapM_ (forkListener c) ls
-    
-    watch c l = do
-        l' <- liftIO . newListener $ l
-        ls <- fmap listeners . readCellVal $ c
-        liftIO . atomicModifyIORef' ls $ (,()) . Set.insert l'
-        forkListener c l'
-        pure . Subscriptions . pure $ Sub c l'
-    
-    cancel = mapM_ cancel' . getSubscriptions
-      where
-        cancel' (Sub c l) = do
-            liftIO $ writeIORef (listenerDirty l) False
-            ls <- fmap listeners . readCellVal $ c
-            liftIO . atomicModifyIORef' ls $ (,()) . Set.delete l
-
-forkListener :: Value a => Cell Par a -> Listener a -> Par ()
-forkListener c (Listener _ dirty l) = do
-    done <- startJob
-    liftIO $ writeIORef dirty True
-    void . MkPar . ReaderT $ \ s -> forkIO $ do
-        d <- atomicModifyIORef' dirty (False,)
-        when d $ do
-            runPar s $ l =<< readCell c
-        done
-            
 instance Forkable Par where
-    fork m = do
-        done <- startJob
-        void . MkPar . ReaderT $ \ s -> do
-            s' <- liftIO $ copyParState s
-            liftIO $ connectStates s s'
-            forkIO $ do
-                runPar s' $ m (liftParent s)
-                done
+    fork m = liftPar $ forkParIO m    
+
+-- IO
+
+liftPar :: (ParState -> IO a) -> Par a
+liftPar = MkPar . ReaderT
+
+readCellIO :: Value a => Cell Par a -> ParState -> IO a
+readCellIO c s = readIORef . getCellVal =<< readCellValIO c s 
+
+cancelIO :: Subscriptions Par -> ParState -> IO ()
+cancelIO (getSubscriptions -> subs) s = mapM_ cancel' subs
+  where
+    cancel' (Sub c l) = do
+        writeIORef (listenerDirty l) False
+        ls <- listeners <$> readCellValIO c s
+        atomicModifyIORef' ls $ (,()) . Set.delete l
+
+writeIO :: Value a => Cell Par a -> a -> ParState -> IO ()
+writeIO c a s = do
+    cv <- readCellValIO c s
+    changed <- atomicModifyIORef' (getCellVal cv) (meetEq a)
+    when changed $ do
+        ls <- fmap Set.toList . readIORef . listeners $ cv
+        mapM_ (flip (forkListenerIO c) s) ls
+
+watchIO :: Value a => Cell Par a -> (a -> Par ()) -> ParState -> IO (Subscriptions Par)
+watchIO c l s = do
+    l' <- newListener $ l
+    ls <- fmap listeners . readCellValIO c $ s
+    atomicModifyIORef' ls $ (,()) . Set.insert l'
+    forkListenerIO c l' s
+    pure . Subscriptions . pure $ Sub c l'
+
+forkListenerIO :: Value a => Cell Par a -> Listener a -> ParState -> IO ()
+forkListenerIO c (Listener _ dirty l) s = do
+    writeIORef dirty True
+    forkJob s $ do
+        d <- atomicModifyIORef' dirty (False,)
+        when d $ runPar s . l =<< readCellIO c s
+
+forkParIO :: (LiftParent Par -> Par ()) -> ParState -> IO () 
+forkParIO m s = do
+    s' <- copyParState s
+    connectStates s s'
+    forkJob s (runPar s' $ m (liftParent s))
 
 liftParent :: ParState -> LiftParent Par
-liftParent s = liftIO . runPar s
+liftParent s a = liftPar $ \ _ -> runPar s a
 
 connectStates :: ParState -> ParState -> IO ()
-connectStates _ _ = undefined
+connectStates s s' = mapM_ connectCell =<< enumFromTo 0 <$> pred <$> MutList.length (cells s)
+  where
+    connectCell i = do
+        AnyCellVal c <- flip MutList.read (cells s) i
+        let idC = cellId c
+        watchIO idC (\ v -> liftPar $ \ _ ->  writeIO idC v s') s
 
-startJob :: Par (IO ())
-startJob = do
-    jobs <- jobCount <$> MkPar ask
-    liftIO . atomicModifyIORef' jobs $ (,()) . succ
-    pure $ atomicModifyIORef' jobs $ (,()) . pred
+forkJob :: ParState -> IO a -> IO ()
+forkJob s m = do
+    let jobs = jobCount s
+    let modJobs f = atomicModifyIORef' jobs $ (,()) . f
+    modJobs succ
+    void . forkIO $ m >> modJobs pred
