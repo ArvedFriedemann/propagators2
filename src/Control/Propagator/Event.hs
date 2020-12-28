@@ -3,6 +3,7 @@
 {-# LANGUAGE ApplicativeDo        #-}
 module Control.Propagator.Event where
 
+import "base" GHC.Generics
 import "base" Data.Typeable
 import "base" Data.String
 import "base" Data.Functor.Classes
@@ -13,6 +14,8 @@ import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
 import "transformers" Control.Monad.Trans.Class
 
 import "mtl" Control.Monad.Reader.Class
+
+import "deepseq" Control.DeepSeq
 
 import "this" Control.Propagator.Class
 import "this" Data.Id
@@ -93,6 +96,7 @@ instance Eq1 (Cell (EventT m)) where
 instance Ord1 (Cell (EventT m)) where
     liftCompare _ (cellId -> a) (cellId -> b) = a `compare` b
 
+instance NFData (Cell (EventT m) a)
 
 instance Eq (Subscription (EventT m)) where
     a == b = compare a b == EQ
@@ -102,6 +106,9 @@ instance Ord (Subscription (EventT m)) where
         <> compare ia ib
         <> compare sa sb
 deriving instance (forall a. Show (Cell (EventT m) a)) => Show (Subscription (EventT m))
+
+instance NFData (Subscription (EventT m)) where
+    rnf (Sub c i s) = c `deepseq` i `deepseq` s `deepseq` ()
 
 instance ( Typeable m
          , MonadId m
@@ -113,7 +120,7 @@ instance ( Typeable m
     newtype Cell (EventT m) a = EventCell
         { cellId :: Id
         }
-      deriving stock (Eq, Ord, Show)
+      deriving stock (Eq, Ord, Show, Generic)
 
     data Subscription (EventT m) where
         Sub :: Cell (EventT m) a -> Id -> Scope -> Subscription (EventT m)
@@ -141,8 +148,8 @@ instance ( Typeable m
     cancel = mapM_ (lift . fire . Cancel) . getSubscriptions
 
 newtype Scope = Scope Id
-  deriving stock (Eq, Ord, Show)
-  deriving newtype (Semigroup, Monoid)
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving newtype (Semigroup, Monoid, NFData)
 
 instance (Monad m, MonadId m, MonadEvent (Evt m) m) => Forkable (EventT m) where
     namedFork n m = do

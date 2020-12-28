@@ -26,11 +26,13 @@ import "base" Data.Typeable
 import "base" Data.Type.Equality
 import "base" Control.Category
 
+import "deepseq" Control.DeepSeq
+
 import "this" Data.Iso
 import "this" Data.Lattice
 
-class (Ord a, Typeable a, Show a) => Std a
-instance (Ord a, Typeable a, Show a) => Std a
+class (Ord a, Typeable a, Show a, NFData a) => Std a
+instance (Ord a, Typeable a, Show a, NFData a) => Std a
 
 class (Meet a, Std a) => Value a
 instance (Meet a, Std a) => Value a
@@ -48,9 +50,11 @@ deriving stock instance Eq (Subscription m) => Eq (Subscriptions m)
 
 class ( forall a. Show (Cell m a)
       , forall a. Ord (Cell m a)
+      , forall a. NFData (Cell m a)
       , TestEquality (Cell m)
       , Eq (Subscription m)
       , Show (Subscription m)
+      , NFData (Subscription m)
       , Typeable m
       ) => PropagatorMonad m where
 

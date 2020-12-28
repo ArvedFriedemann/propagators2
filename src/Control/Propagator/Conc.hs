@@ -27,6 +27,8 @@ import "containers" Data.Set qualified as Set
 
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
 
+import "deepseq" Control.DeepSeq
+
 import "this" Data.ShowM
 import "this" Control.Propagator.Class
 import "this" Data.Lattice
@@ -94,6 +96,7 @@ castM a = do
 -------------------------------------------------------------------------------
 
 data Listener a = Listener String Unique (IORef Bool) (a -> Par ())
+  deriving Generic
 
 listenerId :: Listener a -> Unique
 listenerId (Listener _ i _ _) = i
@@ -107,6 +110,8 @@ newListener n l = Listener n
     <$> newUnique
     <*> newIORef False
     <*> pure l
+
+instance NFData (Listener a)
 
 instance Eq (Listener a) where
     a == b = compare a b == EQ
@@ -187,6 +192,8 @@ instance TestEquality (Cell Par) where
           then unsafeCoerce $ Just Refl
           else Nothing
 
+instance NFData (Cell Par a)
+
 -- Sub
 
 instance Eq (Subscription Par) where
@@ -201,6 +208,9 @@ instance Show (Subscription Par) where
         . showsPrec 10 c
         . showString " "
         . showsPrec 10 l
+
+instance NFData (Subscription Par) where
+    rnf (Sub c l) = c `seq` l `seq` ()
 
 -- PropagatorMonad
 
@@ -241,7 +251,7 @@ cancelIO (getSubscriptions -> subs) s = mapM_ cancel' subs
         atomicModifyIORef' ls $ (,()) . Set.delete l
 
 writeIO :: Value a => Cell Par a -> a -> ParState -> IO ()
-writeIO c a s = do
+writeIO c (force -> a) s = do
     cv <- readCellValIO c s
     same <- atomicModifyIORef' (getCellVal cv) meetEq
     when (not same) $ do
@@ -263,7 +273,7 @@ forkListenerIO :: Value a => Cell Par a -> Listener a -> ParState -> IO ()
 forkListenerIO c x@(Listener _ _ dirty l) s = do
     writeIORef dirty True
     traceM $ "Forking "++ show x
-    forkJob s $ do
+    forkJob (show x) s $ do
         d <- atomicModifyIORef' dirty (False,)
         when d $ runPar s . l =<< readCellIO c s
 
@@ -271,7 +281,7 @@ forkParIO :: String -> (LiftParent Par -> Par ()) -> ParState -> IO ()
 forkParIO n m s = do
     s' <- copyParState s
     connectStates n s s'
-    forkJob s (runPar s' $ m (liftParent s))
+    forkJob ("Fork " ++ show n) s (runPar s' $ m (liftParent s))
 
 liftParent :: ParState -> LiftParent Par
 liftParent s a = liftPar $ \ _ -> runPar s a
@@ -285,12 +295,12 @@ connectStates n s s' = mapM_ connectCell =<< enumFromTo 0 <$> pred <$> MutList.l
         let nameL = "propagate " ++ show idC ++ " into " ++ show n 
         watchIO idC nameL (\ v -> liftPar $ \ _ ->  writeIO idC v s') s
 
-forkJob :: ParState -> IO a -> IO ()
-forkJob s m = do
+forkJob :: String -> ParState -> IO a -> IO ()
+forkJob n s m = do
     let jobs = jobCount s
     let modJobs f = atomicModifyIORef' jobs $ (,()) . f
     modJobs succ
     void . forkIO $ do
         tooLong <- maybe True (const False) <$> timeout 3000000 m
-        when tooLong $ traceM $ "Job reached timeout"
+        when tooLong $ traceM $ "Fork Timeout: " ++ n
         modJobs pred

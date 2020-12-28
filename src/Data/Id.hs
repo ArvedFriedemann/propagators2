@@ -1,14 +1,20 @@
+{-# LANGUAGE StrictData #-}
 module Data.Id
     ( Id
     , MonadId(..)
     ) where
 
+import "base" GHC.Generics
 import "base" Data.Unique
 import "base" Data.String
 
+import "deepseq" Control.DeepSeq
+
 
 newtype Id = Id [Either String Unique]
-  deriving newtype (Eq, Ord, Semigroup, Monoid)
+  deriving newtype (Eq, Ord, Semigroup, Monoid, Generic)
+
+instance NFData Id
 
 instance IsString Id where
     fromString = Id . pure . Left
