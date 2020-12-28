@@ -1,4 +1,4 @@
-{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE StrictData #-}
 module Data.Lattice
     {-( Meet(..), BoundedMeet(..)
     , Join(..), BoundedJoin(..)

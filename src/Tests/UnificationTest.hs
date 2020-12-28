@@ -1,7 +1,10 @@
 module Tests.UnificationTest where
 
+import "base" GHC.Generics
 import "base" Data.List
 import "base" Data.Functor
+
+import "deepseq" Control.DeepSeq
 
 import "containers" Data.Set qualified as S
 
@@ -46,11 +49,16 @@ test4 = runTest $ do
     disjunctFork orig (void $ eq orig t1) (void $ eq orig t2)
     return [orig, t1, t2]
 
+data TD = A | B | C
+  deriving (Eq, Ord, Show, Generic, Enum, Bounded)
+instance NFData TD
+
+
 test5 :: IO ()
 test5 = runTest $ do
-    orig <- newCell "orig" (S.singleton @Int 1)
-    t1 <- newCell "t1" (S.singleton @Int 1)
-    t2 <- newCell "t2" (S.singleton @Int 2)
+    orig <- newCell "orig" (S.singleton A)
+    t1 <- newCell "t1" (S.singleton A)
+    t2 <- newCell "t2" (S.singleton B)
     disjunctFork orig (void $ eq orig t1) (void $ eq orig t2)
     return []
 

@@ -21,6 +21,7 @@ module Control.Propagator.Class
     ) where
 
 import "base" Prelude hiding ( (.), id )
+import "base" GHC.Stack
 import "base" Data.Foldable
 import "base" Data.Typeable
 import "base" Data.Type.Equality
@@ -69,22 +70,22 @@ class ( forall a. Show (Cell m a)
 
     readCell :: Value a => Cell m a -> m a
 
-    write :: Value a => Cell m a -> a -> m ()
+    write :: (HasCallStack, Value a) => Cell m a -> a -> m ()
 
-    namedWatch :: Value a => Cell m a -> String -> (a -> m ()) -> m (Subscriptions m)
+    namedWatch :: (HasCallStack, Value a) => Cell m a -> String -> (a -> m ()) -> m (Subscriptions m)
 
     cancel :: Subscriptions m -> m ()
 
-watch :: (PropagatorMonad m, Value a) => Cell m a -> (a -> m ()) -> m (Subscriptions m)
+watch :: (HasCallStack, PropagatorMonad m, Value a) => Cell m a -> (a -> m ()) -> m (Subscriptions m)
 watch c = namedWatch c ""
 
 
 type LiftParent m = forall a. m a -> m a
 
 class Applicative m => Forkable m where
-    namedFork :: String -> (LiftParent m -> m ()) -> m ()
+    namedFork :: HasCallStack => String -> (LiftParent m -> m ()) -> m ()
 
-fork :: Forkable m => (LiftParent m -> m ()) -> m ()
+fork :: (HasCallStack, Forkable m) => (LiftParent m -> m ()) -> m ()
 fork = namedFork ""
 
 -------------------------------------------------------------------------------

@@ -9,12 +9,14 @@ module Control.Propagator.Conc
 
 import "base" Prelude hiding ( (.), id )
 import "base" GHC.Generics ( Generic )
+import "base" GHC.Stack
 import "base" Data.Function ( on )
 import "base" Data.Unique
 import "base" Data.IORef
 import "base" Data.Typeable
 import "base" Data.Type.Equality
 import "base" Unsafe.Coerce
+import "base" Control.Exception
 import "base" Control.Applicative
 import "base" Control.Monad
 import "base" Control.Concurrent
@@ -210,7 +212,7 @@ instance Show (Subscription Par) where
         . showsPrec 10 l
 
 instance NFData (Subscription Par) where
-    rnf (Sub c l) = c `seq` l `seq` ()
+    rnf (Sub c l) = c `deepseq` l `deepseq` ()
 
 -- PropagatorMonad
 
@@ -236,6 +238,19 @@ instance Forkable Par where
 
 -- IO
 
+pattern DebugTimeout :: forall a. (Eq a, Num a) => a
+pattern DebugTimeout = 3000000
+
+tryTimeout :: HasCallStack => String -> IO a -> IO a
+tryTimeout = tryTimeout' DebugTimeout
+
+tryTimeout' :: HasCallStack => Int -> String -> IO a -> IO a
+tryTimeout' t n m = do
+    r <- timeout t m
+    case r of
+        Just a  -> pure a
+        Nothing -> error $ "Timeout: " ++ n
+
 liftPar :: (ParState -> IO a) -> Par a
 liftPar = MkPar . ReaderT
 
@@ -250,18 +265,18 @@ cancelIO (getSubscriptions -> subs) s = mapM_ cancel' subs
         ls <- listeners <$> readCellValIO c s
         atomicModifyIORef' ls $ (,()) . Set.delete l
 
-writeIO :: Value a => Cell Par a -> a -> ParState -> IO ()
+writeIO :: HasCallStack => Value a => Cell Par a -> a -> ParState -> IO ()
 writeIO c (force -> a) s = do
     cv <- readCellValIO c s
-    same <- atomicModifyIORef' (getCellVal cv) meetEq
+    same <-tryTimeout ("write " ++ show c ++ " = " ++ show a) $ atomicModifyIORef' (getCellVal cv) meetEq
     when (not same) $ do
         traceM $ "writing into "++(show c)++" value "++(show a)
         ls <- fmap Set.toList . readIORef . listeners $ cv
         mapM_ (flip (forkListenerIO c) s) ls
   where meetEq a' = let a'' = a /\ a'
-                     in (a'', a == a'')
+                     in force (a'', a == a'')
 
-watchIO :: Value a => Cell Par a -> String -> (a -> Par ()) -> ParState -> IO (Subscriptions Par)
+watchIO :: HasCallStack => Value a => Cell Par a -> String -> (a -> Par ()) -> ParState -> IO (Subscriptions Par)
 watchIO c n l s = do
     l' <- newListener n l
     ls <- fmap listeners . readCellValIO c $ s
@@ -269,38 +284,37 @@ watchIO c n l s = do
     forkListenerIO c l' s
     pure . Subscriptions . pure $ Sub c l'
 
-forkListenerIO :: Value a => Cell Par a -> Listener a -> ParState -> IO ()
+forkListenerIO :: HasCallStack => Value a => Cell Par a -> Listener a -> ParState -> IO ()
 forkListenerIO c x@(Listener _ _ dirty l) s = do
     writeIORef dirty True
     traceM $ "Forking "++ show x
     forkJob (show x) s $ do
         d <- atomicModifyIORef' dirty (False,)
-        when d $ runPar s . l =<< readCellIO c s
+        when d $ do
+            cv <- readCellIO c s
+            runPar s . l $ cv 
 
-forkParIO :: String -> (LiftParent Par -> Par ()) -> ParState -> IO ()
+forkParIO :: HasCallStack => String -> (LiftParent Par -> Par ()) -> ParState -> IO ()
 forkParIO n m s = do
     s' <- copyParState s
     connectStates n s s'
     forkJob ("Fork " ++ show n) s (runPar s' $ m (liftParent s))
 
-liftParent :: ParState -> LiftParent Par
+liftParent :: HasCallStack => ParState -> LiftParent Par
 liftParent s a = liftPar $ \ _ -> runPar s a
 
-connectStates :: String -> ParState -> ParState -> IO ()
+connectStates :: HasCallStack => String -> ParState -> ParState -> IO ()
 connectStates n s s' = mapM_ connectCell =<< enumFromTo 0 <$> pred <$> MutList.length (cells s)
   where
     connectCell i = do
         AnyCellVal c <- flip MutList.read (cells s) i
         let idC = cellId c
         let nameL = "propagate " ++ show idC ++ " into " ++ show n 
-        watchIO idC nameL (\ v -> liftPar $ \ _ ->  writeIO idC v s') s
+        watchIO idC nameL (\ v -> liftPar $ \ _ -> writeIO idC v s') s
 
-forkJob :: String -> ParState -> IO a -> IO ()
+forkJob :: HasCallStack => String -> ParState -> IO a -> IO ()
 forkJob n s m = do
     let jobs = jobCount s
     let modJobs f = atomicModifyIORef' jobs $ (,()) . f
     modJobs succ
-    void . forkIO $ do
-        tooLong <- maybe True (const False) <$> timeout 3000000 m
-        when tooLong $ traceM $ "Fork Timeout: " ++ n
-        modJobs pred
+    void . forkIO . void $ tryTimeout' (DebugTimeout*2) n m `finally` modJobs pred
