@@ -21,8 +21,8 @@ import "base" Control.Applicative
 import "base" Control.Monad
 import "base" Control.Concurrent
 import "base" Control.Category
-import "base" Debug.Trace
 import "base" System.Timeout
+import "base" Debug.Trace
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
@@ -34,6 +34,7 @@ import "deepseq" Control.DeepSeq
 import "this" Data.ShowM
 import "this" Control.Propagator.Class
 import "this" Data.Lattice
+import "this" Data.Id
 import "this" Data.MutList ( MutList )
 import "this" Data.MutList qualified as MutList
 
@@ -133,12 +134,17 @@ instance Show (Listener a) where
 -------------------------------------------------------------------------------
 
 data ParState = ParState
-    { jobCount :: IORef Int
+    { stateId :: Id
+    , jobCount :: IORef Int
     , cells    :: MutList AnyCellVal
     }
 
-newParState :: IO ParState
-newParState = ParState <$> newIORef 0 <*> MutList.new
+newParState :: String -> IO ParState
+newParState n
+    = ParState
+        <$> newId n
+        <*> newIORef 0
+        <*> MutList.new
 
 newCellIO :: forall a. Value a => String -> a -> ParState -> IO (Cell Par a)
 newCellIO name a s = do
@@ -151,9 +157,12 @@ newCellIO name a s = do
 readCellValIO :: Value a => Cell Par a -> ParState -> IO (CellVal a)
 readCellValIO idA s = toCellVal =<< MutList.read (cellIndex idA) (cells s)
 
-copyParState :: ParState -> IO ParState
-copyParState s = ParState (jobCount s)
-             <$> (MutList.map copyAnyCellVal . cells $ s)
+copyParState :: String -> ParState -> IO ParState
+copyParState n s
+    = ParState 
+        <$> newId n
+        <*> pure (jobCount s)
+        <*> (MutList.map copyAnyCellVal . cells $ s)
 
 -------------------------------------------------------------------------------
 -- Par
@@ -169,7 +178,7 @@ execPar = execPar' 100000 -- 100 millsec
 
 execPar' :: Int -> Par a -> (a -> Par b) -> IO b
 execPar' tick setup doneP = do
-    s <- newParState
+    s <- newParState "root"
     a <- runPar s setup
     waitForDone s
     runPar s . doneP $ a
@@ -177,7 +186,6 @@ execPar' tick setup doneP = do
     waitForDone s = do
         threadDelay tick
         jobs <- readIORef . jobCount $ s
-        traceM $ (show jobs) ++" jobs running"
         unless (jobs == 0) . waitForDone $ s
 
 runPar :: ParState -> Par a -> IO a
@@ -268,9 +276,10 @@ cancelIO (getSubscriptions -> subs) s = mapM_ cancel' subs
 writeIO :: HasCallStack => Value a => Cell Par a -> a -> ParState -> IO ()
 writeIO c (force -> a) s = do
     cv <- readCellValIO c s
-    same <-tryTimeout ("write " ++ show c ++ " = " ++ show a) $ atomicModifyIORef' (getCellVal cv) meetEq
+    same <-tryTimeout ("write " ++ show c ++ " = " ++ show a ++ " you may have a spaceleak")
+            $ atomicModifyIORef' (getCellVal cv) meetEq
+    traceM $ "write " ++ show c ++ " = " ++ show a ++ " s=" ++ show (stateId s)
     when (not same) $ do
-        traceM $ "writing into "++(show c)++" value "++(show a)
         ls <- fmap Set.toList . readIORef . listeners $ cv
         mapM_ (flip (forkListenerIO c) s) ls
   where meetEq a' = let a'' = a /\ a'
@@ -287,7 +296,6 @@ watchIO c n l s = do
 forkListenerIO :: HasCallStack => Value a => Cell Par a -> Listener a -> ParState -> IO ()
 forkListenerIO c x@(Listener _ _ dirty l) s = do
     writeIORef dirty True
-    traceM $ "Forking "++ show x
     forkJob (show x) s $ do
         d <- atomicModifyIORef' dirty (False,)
         when d $ do
@@ -295,10 +303,10 @@ forkListenerIO c x@(Listener _ _ dirty l) s = do
             runPar s . l $ cv 
 
 forkParIO :: HasCallStack => String -> (LiftParent Par -> Par ()) -> ParState -> IO ()
-forkParIO n m s = do
-    s' <- copyParState s
+forkParIO n m s = forkJob ("Fork " ++ show n) s $ do
+    s' <- copyParState n s
     connectStates n s s'
-    forkJob ("Fork " ++ show n) s (runPar s' $ m (liftParent s))
+    runPar s' $ m (liftParent s)
 
 liftParent :: HasCallStack => ParState -> LiftParent Par
 liftParent s a = liftPar $ \ _ -> runPar s a
@@ -310,7 +318,7 @@ connectStates n s s' = mapM_ connectCell =<< enumFromTo 0 <$> pred <$> MutList.l
         AnyCellVal c <- flip MutList.read (cells s) i
         let idC = cellId c
         let nameL = "propagate " ++ show idC ++ " into " ++ show n 
-        watchIO idC nameL (\ v -> liftPar $ \ _ -> writeIO idC v s') s
+        flip (watchIO idC nameL) s $ \ v -> liftPar $ \ _ -> writeIO idC v s'
 
 forkJob :: HasCallStack => String -> ParState -> IO a -> IO ()
 forkJob n s m = do

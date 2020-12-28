@@ -5,19 +5,32 @@ module Control.Propagator.Event where
 
 import "base" GHC.Generics
 import "base" Data.Typeable
-import "base" Data.String
+import "base" Data.Maybe
+import "base" Data.Foldable
+import "base" Data.List.NonEmpty
 import "base" Data.Functor.Classes
 import "base" Data.Type.Equality
+import "base" Control.Applicative
+import "base" Control.Monad
 import "base" Unsafe.Coerce
 
+import "containers" Data.Set ( Set )
+import "containers" Data.Set qualified as Set
+
+import "containers" Data.Map ( Map )
+import "containers" Data.Map qualified as Map
+
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
+import "transformers" Control.Monad.Trans.State ( StateT(..), evalStateT )
 import "transformers" Control.Monad.Trans.Class
 
 import "mtl" Control.Monad.Reader.Class
+import "mtl" Control.Monad.State.Class
 
 import "deepseq" Control.DeepSeq
 
 import "this" Control.Propagator.Class
+import "this" Data.Lattice
 import "this" Data.Id
 
 
@@ -25,7 +38,7 @@ data Event m where
     Create :: Value a => Scope -> Id -> a -> Event m
     Write :: Value a => Scope -> Cell m a -> a -> Event m
     Watch :: Value a => Scope -> Cell m a -> Id -> (a -> m ()) -> Event m
-    Fork :: Scope -> Scope -> (LiftParent m -> m ()) -> Event m
+    Fork :: Scope -> Id -> (LiftParent m -> m ()) -> Event m
     Cancel :: Subscription m -> Event m
 
 viaType :: (c a, c TypeRep, Typeable a, Typeable b)
@@ -69,27 +82,24 @@ class MonadEvent e m | m -> e where
     fire :: e -> m ()
 
 class MonadRef m where
-    getVal :: Typeable a => Id -> m a
+    getVal :: Value a => Scope -> Id -> m a
 
 newtype EventT m a = EventT
-    { runEventT :: ReaderT (Scope) m a
+    { runEventT :: ReaderT Scope m a
     }
-  deriving newtype (Functor, Applicative, Monad)
+  deriving newtype (Functor, Applicative, Monad, MonadFail)
 
 instance MonadTrans EventT where
     lift = EventT . lift
 
 instance MonadId m => MonadId (EventT m) where
-    newId = EventT . ReaderT . const $ newId
+    newId = EventT . ReaderT . const . newId
 
 instance TestEquality (Cell (EventT m)) where
     EventCell a `testEquality` EventCell b
         = if a == b
             then Just $ unsafeCoerce Refl
             else Nothing
-
-mkId :: (Functor m, MonadId m) => String -> EventT m Id
-mkId b = mappend (fromString b) <$> newId
 
 instance Eq1 (Cell (EventT m)) where
     liftEq _ (cellId -> a) (cellId -> b) = a == b
@@ -126,13 +136,13 @@ instance ( Typeable m
         Sub :: Cell (EventT m) a -> Id -> Scope -> Subscription (EventT m)
 
     newCell i a = do
-        i' <- mkId i
+        i' <- newId i
         s <- EventT ask
         lift . fire $ Create s i' a
         pure . EventCell $ i'
 
     namedWatch c i a = do
-        i' <- mkId i
+        i' <- newId i
         s <- EventT ask
         lift . fire $ Watch s c i' a
         pure . Subscriptions . pure $ Sub c i' s
@@ -141,18 +151,96 @@ instance ( Typeable m
         s <- EventT ask
         lift . fire $ Write s c a
 
-    readCell (cellId -> i) = do
-        Scope s <- EventT ask
-        lift . getVal $ s <> i
+    readCell (cellId -> i) = lift . flip getVal i =<< EventT ask
 
     cancel = mapM_ (lift . fire . Cancel) . getSubscriptions
 
-newtype Scope = Scope Id
-  deriving stock (Eq, Ord, Show, Generic)
-  deriving newtype (Semigroup, Monoid, NFData)
+newtype Scope = Scope (NonEmpty Id)
+  deriving stock (Eq, Ord, Generic)
+  deriving newtype (Semigroup, NFData)
+instance Show Scope where
+    show (Scope ids) = fold . intersperse "/" . fmap show $ ids
+
+popScope :: Scope -> Maybe Scope
+popScope (Scope p) = fmap Scope . snd . uncons $ p
 
 instance (Monad m, MonadId m, MonadEvent (Evt m) m) => Forkable (EventT m) where
     namedFork n m = do
         cur <- EventT ask
-        child <- flip mappend cur . Scope <$> mkId n
+        child <- newId n
         lift . fire $ Fork cur child m
+
+data SEBId = SEBId Scope Id
+  deriving (Eq, Ord, Show, Generic)
+
+data SEBCell where
+    SEBC :: Value a => a -> Map Id (a -> SEB ()) -> SEBCell
+
+toVal :: Value a => SEBCell -> Maybe a
+toVal (SEBC a _) = cast a
+
+type SEB = EventT SimpleEventBus
+
+data SEBState = SEBS
+    { unSEBS :: Set (Evt SimpleEventBus)
+    , cells :: Map SEBId SEBCell
+    } 
+newtype SimpleEventBus a = SEB
+    { unSEB :: StateT SEBState IO a
+    }
+  deriving newtype (Functor, Applicative, Monad, MonadFail)
+
+runSEB :: SEB a -> (a -> SEB b) -> IO b
+runSEB start end = do
+    root <- Scope . pure <$> newId "root"
+    flip evalStateT (SEBS Set.empty Map.empty) . unSEB . flip runReaderT root . runEventT $ do
+        a <- start
+        flushSEB
+        end a
+
+flushSEB :: SEB ()
+flushSEB = do
+    (SEBS evt cx) <- lift $ SEB get
+    unless (Set.null evt) $ do
+        lift . SEB . put $ SEBS Set.empty cx
+        mapM_ handleEvent . Set.toList $ evt
+        flushSEB
+    
+handleEvent :: Evt SimpleEventBus -> SEB ()
+handleEvent (Create s i a) = lift $ do
+    SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.insert (SEBId s i) (SEBC a Map.empty) cx
+handleEvent (Write s i a) = do
+    Just (old, ls) <- searchCell s i . cells <$> lift (SEB get) 
+    let a' =  old /\ a
+    lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.insert (SEBId s $ cellId i) (SEBC a' Map.empty) cx
+    mapM_ ($ a') ls
+handleEvent (Watch s c i a) = do
+    Just (v, _) <- searchCell s c . cells <$> lift (SEB get)
+    lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.adjust addListener (SEBId s i) cx
+    a v
+  where
+    addListener (SEBC v ls) = SEBC v $ Map.insert i (fromJust $ cast a) ls
+handleEvent (Cancel _) = pure ()
+handleEvent (Fork (Scope s) i act) = do
+    let lft = EventT . local (fromJust . popScope) . runEventT
+    lift $ runReaderT (runEventT $ act lft) (Scope (i <| s))
+
+searchCell :: forall a. Value a => Scope -> Cell SEB a -> Map SEBId SEBCell -> Maybe (a, [a -> SEB ()])
+searchCell s i cx = do
+    SEBC a lsA <- Map.lookup (SEBId s $ cellId i) cx
+    a' <- cast a
+    lsA' <- cast @_ @(Map Id (a -> SEB ())) lsA
+    (b, lsB) <- fromParentScope <|> pure (a', [])
+    pure (a' /\ b, Map.elems lsA' <> lsB)
+  where
+    fromParentScope = do 
+        s' <- popScope s
+        searchCell s' i cx
+
+instance MonadEvent (Evt SimpleEventBus) SimpleEventBus where
+    fire e = SEB $ modify (\(SEBS evts cx) -> SEBS (Set.insert e evts) cx)
+
+instance MonadRef SimpleEventBus where
+    getVal s i = SEB . gets $ orError . fmap fst . searchCell s (EventCell i) . cells
+      where
+        orError = fromMaybe (error $ "cell " ++ show i ++ " not found in scope " ++ show s)

@@ -26,6 +26,7 @@ import "base" Data.Foldable
 import "base" Data.Typeable
 import "base" Data.Type.Equality
 import "base" Control.Category
+import "base" Debug.Trace
 
 import "deepseq" Control.DeepSeq
 
@@ -57,6 +58,7 @@ class ( forall a. Show (Cell m a)
       , Show (Subscription m)
       , NFData (Subscription m)
       , Typeable m
+      , Monad m
       ) => PropagatorMonad m where
 
     data Cell m :: * -> *
@@ -94,8 +96,14 @@ fork = namedFork ""
 
 iso :: (Applicative m, PropagatorMonad m, Value a, Value b) => Cell m a -> Cell m b -> (a <-> b) -> m (Subscriptions m)
 iso ca cb i = (<>)
-    <$> (namedWatch ca ("to" :: String) $ write cb . to i)
-    <*> (namedWatch cb ("from" :: String) $ write ca . from i)
+    <$> (namedWatch ca "to" $ \ v -> do
+            let v' = to i v
+            traceM $ "iso to   " ++ show ca ++ " = " ++ show v ++ " -> " ++ show cb ++ " = " ++ show v' 
+            write cb v')
+    <*> (namedWatch cb "from" $ \ v -> do
+            let v' = from i v
+            traceM $ "iso from " ++ show cb ++ " = " ++ show v ++ " -> " ++ show ca ++ " = " ++ show v' 
+            write ca v')
 
 eq :: (Applicative m, PropagatorMonad m, Value a) => Cell m a -> Cell m a -> m (Subscriptions m)
 eq a b = iso a b id

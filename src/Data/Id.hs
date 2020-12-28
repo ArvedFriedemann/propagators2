@@ -6,27 +6,24 @@ module Data.Id
 
 import "base" GHC.Generics
 import "base" Data.Unique
-import "base" Data.String
 
 import "deepseq" Control.DeepSeq
 
 
-newtype Id = Id [Either String Unique]
-  deriving newtype (Eq, Ord, Semigroup, Monoid, Generic)
-
+data Id = Id String {-# UNPACK #-} Unique
+  deriving (Eq, Ord, Generic)
 instance NFData Id
 
-instance IsString Id where
-    fromString = Id . pure . Left
-
 instance Show Id where
-    showsPrec d (Id parts)
-        = showParen (d >= 10)
-        $ showString "Id "
-        . shows (either id (show . hashUnique) <$> parts)
+    showsPrec _ (Id n u)
+        = showString n
+        . showString "#"
+        . shows (hashUnique u)
 
 class MonadId m where
-    newId :: m Id
+    newId :: String -> m Id
+    newId' :: m Id
+    newId' = newId ""
 
 instance MonadId IO where
-    newId = Id . pure . Right <$> newUnique
+    newId n = Id n <$> newUnique

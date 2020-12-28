@@ -3,6 +3,7 @@ module Tests.UnificationTest where
 import "base" GHC.Generics
 import "base" Data.List
 import "base" Data.Functor
+import "base" Debug.Trace
 
 import "deepseq" Control.DeepSeq
 
@@ -55,15 +56,23 @@ instance NFData TD
 
 
 test5 :: IO ()
-test5 = runTest $ do
-    orig <- newCell "orig" (S.singleton A)
-    t1 <- newCell "t1" (S.singleton A)
-    t2 <- newCell "t2" (S.singleton B)
-    disjunctFork orig (void $ eq orig t1) (void $ eq orig t2)
-    return []
+test5 = flip execPar (>> pure ()) $ do
+    orig <- newCell "orig" ([A, B, C] :: S.Set TD)
+    c2 <- newCell "c2" ([A, C] :: S.Set TD)
+
+    orig `eq` c2
+
+    namedFork "Fork" $ \ lft -> do
+        write c2 [A]
+        watch orig $ lft . write orig
+        pure ()
+        
+    pure $ do
+        v <- readCell orig
+        traceM $ show v
 
 runTest :: Par [TermCell Par] -> IO ()
 runTest p = (putStrLn =<<) (execPar p showAll)
-
+        
 showAll :: (Monad m, PropagatorMonad m) => [TermCell m] -> m String
 showAll = fmap (intercalate "\n\n") . traverse (fmap show . fromCellSize @String 100)

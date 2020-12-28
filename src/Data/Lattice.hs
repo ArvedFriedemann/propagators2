@@ -131,6 +131,7 @@ instance Ord a => Join (Set a) where
 instance Ord a => BoundedJoin (Set a) where
     bot = Set.empty
 instance Ord a => Lattice (Set a)
+instance (Ord a, Bounded a, Enum a) => BoundedLattice (Set a)
 
 
 newtype Ordered a = Ordered
