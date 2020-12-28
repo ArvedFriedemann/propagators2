@@ -3,7 +3,7 @@ module Control.Propagator.Class
     ( PropagatorMonad(..)
     , watch
     , Subscriptions(..)
-    , Scoped(..)
+
     , LiftParent
     , Forkable(..)
     , fork
@@ -78,12 +78,6 @@ class Applicative m => Forkable m where
 
 fork :: Forkable m => (LiftParent m -> m ()) -> m ()
 fork = namedFork ""
-
-class (Std (Scope m), PropagatorMonad m) => Scoped m where
-
-    data Scope m
-    
-    currentScope :: m (Scope m)
 
 -------------------------------------------------------------------------------
 -- combinators

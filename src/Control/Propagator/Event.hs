@@ -19,10 +19,10 @@ import "this" Data.Id
 
 
 data Event m where
-    Create :: Value a => Scope m -> Id -> a -> Event m
-    Write :: Value a => Scope m -> Cell m a -> a -> Event m
-    Watch :: Value a => Scope m -> Cell m a -> Id -> (a -> m ()) -> Event m
-    Fork :: Scope m -> Scope m -> (LiftParent m -> m ()) -> Event m
+    Create :: Value a => Scope -> Id -> a -> Event m
+    Write :: Value a => Scope -> Cell m a -> a -> Event m
+    Watch :: Value a => Scope -> Cell m a -> Id -> (a -> m ()) -> Event m
+    Fork :: Scope -> Scope -> (LiftParent m -> m ()) -> Event m
     Cancel :: Subscription m -> Event m
 
 viaType :: (c a, c TypeRep, Typeable a, Typeable b)
@@ -34,7 +34,7 @@ viaType _ f a b = case cast b of
 
 instance Ord (Event m) => Eq (Event m) where
     a == b = compare a b == EQ
-instance (Ord (Scope m), Ord1 (Cell m), Ord (Subscription m)) => Ord (Event m) where
+instance (Ord (Scope), Ord1 (Cell m), Ord (Subscription m)) => Ord (Event m) where
     Create sa ia a `compare` Create sb ib b 
         = compare sa sb
         <> compare ia ib
@@ -69,7 +69,7 @@ class MonadRef m where
     getVal :: Typeable a => Id -> m a
 
 newtype EventT m a = EventT
-    { runEventT :: ReaderT (Scope (EventT m)) m a
+    { runEventT :: ReaderT (Scope) m a
     }
   deriving newtype (Functor, Applicative, Monad)
 
@@ -116,7 +116,7 @@ instance ( Typeable m
       deriving stock (Eq, Ord, Show)
 
     data Subscription (EventT m) where
-        Sub :: Cell (EventT m) a -> Id -> Scope (EventT m) -> Subscription (EventT m)
+        Sub :: Cell (EventT m) a -> Id -> Scope -> Subscription (EventT m)
 
     newCell i a = do
         i' <- mkId i
@@ -140,19 +140,12 @@ instance ( Typeable m
     
     cancel = mapM_ (lift . fire . Cancel) . getSubscriptions 
 
-instance ( PropagatorMonad (EventT m)
-         , MonadId m
-         , Monad m
-         ) => Scoped (EventT m) where
+newtype Scope = Scope Id
+  deriving stock (Eq, Ord, Show)
+  deriving newtype (Semigroup, Monoid)
 
-    newtype Scope (EventT m) = Scope Id
-      deriving stock (Eq, Ord, Show)
-      deriving newtype (Semigroup, Monoid)
-
-    currentScope = EventT ask
-
-instance (Monad m, MonadId m, MonadEvent (Evt m) m, Scoped (EventT m)) => Forkable (EventT m) where
+instance (Monad m, MonadId m, MonadEvent (Evt m) m) => Forkable (EventT m) where
     namedFork n m = do
-        cur <- currentScope
+        cur <- EventT ask
         child <- flip mappend cur . Scope <$> mkId n
         lift . fire $ Fork cur child m
