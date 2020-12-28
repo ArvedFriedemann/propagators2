@@ -2,7 +2,7 @@ module Tests.UnificationTest where
 
 import "base" Data.List
 import "base" Data.Functor
-    
+
 import "this" Data.Terms.TermFunctions
 import "this" Control.Propagator
 import "this" Control.Propagator.Conc
@@ -14,7 +14,7 @@ test1 = runTest $ do
     sv_a <- fromVarsAsCells (ls [var sv, ccon "a"])
     b_sv <- fromVarsAsCells (ls [ccon "b", var sv])
     eq sv_a b_sv
-    showAll [sv_a, b_sv, sv]
+    return [sv_a, b_sv, sv]
 
 test2 :: IO ()
 test2 = runTest $ do
@@ -24,7 +24,7 @@ test2 = runTest $ do
     t1 <- fromVarsAsCells (ls [var sv1, ccon "a", var sv1])
     t2 <- fromVarsAsCells (ls [var sv2, ccon "a"])
     eq t1 t2
-    showAll [t1, t2, sv1, sv2]
+    return [t1, t2, sv1, sv2]
 
 test3 :: IO ()
 test3 = runTest $ do
@@ -32,7 +32,7 @@ test3 = runTest $ do
     t1 <- fromVarsAsCells (var sv)
     t2 <- fromVarsAsCells (ls [ccon "a", var sv])
     eq t1 t2
-    showAll [t1, t2, sv]
+    return [t1, t2, sv]
 
 test4 :: IO ()
 test4 = runTest $ do
@@ -42,10 +42,10 @@ test4 = runTest $ do
     t1 <- fromVarsAsCells (ls [ccon "b", ccon "a"])
     t2 <- fromVarsAsCells (ls [ccon "b", ccon "b"])
     disjunctFork orig (void $ eq orig t1) (void $ eq orig t2)
-    showAll [orig]
+    return [orig]
 
-runTest :: Par String -> IO ()
-runTest = (putStrLn =<<) . flip execPar pure
+runTest :: Par [TermCell Par] -> IO ()
+runTest p = (putStrLn =<<) (execPar p showAll)
 
 showAll :: (Monad m, PropagatorMonad m) => [TermCell m] -> m String
 showAll = fmap (intercalate "\n\n") . traverse (fmap show . fromCellSize @String 100)
