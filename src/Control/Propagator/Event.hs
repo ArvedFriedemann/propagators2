@@ -167,7 +167,8 @@ instance ( Typeable m
     newtype Cell (EventT m) a = EventCell
         { cellId :: Id
         }
-      deriving stock (Eq, Ord, Show, Generic)
+      deriving newtype Show
+      deriving stock (Eq, Ord, Generic)
 
     data Subscription (EventT m) where
         Sub :: Cell (EventT m) a -> Id -> Scope -> Subscription (EventT m)
@@ -245,7 +246,7 @@ flushSEB = do
         lift . SEB . put $ SEBS Set.empty cx
         forM_ (Set.toDescList evts) $ \ evt -> do
             traceM $ show evt
-            handleEvent evt 
+            handleEvent evt
         flushSEB
     
 handleEvent :: Evt SimpleEventBus -> SEB ()

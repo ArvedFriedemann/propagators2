@@ -96,14 +96,8 @@ fork = namedFork ""
 
 iso :: (Applicative m, PropagatorMonad m, Value a, Value b) => Cell m a -> Cell m b -> (a <-> b) -> m (Subscriptions m)
 iso ca cb i = (<>)
-    <$> (namedWatch ca "to" $ \ v -> do
-            let v' = to i v
-            traceM $ "iso to   " ++ show ca ++ " = " ++ show v ++ " -> " ++ show cb ++ " = " ++ show v' 
-            write cb v')
-    <*> (namedWatch cb "from" $ \ v -> do
-            let v' = from i v
-            traceM $ "iso from " ++ show cb ++ " = " ++ show v ++ " -> " ++ show ca ++ " = " ++ show v' 
-            write ca v')
+    <$> namedWatch ca "to" (write cb . to i)
+    <*> namedWatch cb "from" (write ca . from i)
 
 eq :: (Applicative m, PropagatorMonad m, Value a) => Cell m a -> Cell m a -> m (Subscriptions m)
 eq a b = iso a b id
