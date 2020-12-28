@@ -19,6 +19,7 @@ import "base" Control.Applicative
 import "base" Control.Monad
 import "base" Control.Concurrent
 import "base" Control.Category
+import "base" Debug.Trace
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
@@ -163,6 +164,7 @@ execPar' tick setup doneP = do
     waitForDone s = do
         threadDelay tick
         jobs <- readIORef . jobCount $ s
+        traceM $ (show jobs) ++" jobs running"
         unless (jobs == 0) . waitForDone $ s
 
 runPar :: ParState -> Par a -> IO a
@@ -174,7 +176,7 @@ instance Show (Cell Par a) where
     show (PID n i) = n ++ '@' : show i
 
 instance TestEquality (Cell Par) where
-    testEquality a b 
+    testEquality a b
         = if cellIndex a == cellIndex b
           then unsafeCoerce $ Just Refl
           else Nothing
@@ -222,7 +224,7 @@ liftPar :: (ParState -> IO a) -> Par a
 liftPar = MkPar . ReaderT
 
 readCellIO :: Value a => Cell Par a -> ParState -> IO a
-readCellIO c s = readIORef . getCellVal =<< readCellValIO c s 
+readCellIO c s = readIORef . getCellVal =<< readCellValIO c s
 
 cancelIO :: Subscriptions Par -> ParState -> IO ()
 cancelIO (getSubscriptions -> subs) s = mapM_ cancel' subs
@@ -235,10 +237,14 @@ cancelIO (getSubscriptions -> subs) s = mapM_ cancel' subs
 writeIO :: Value a => Cell Par a -> a -> ParState -> IO ()
 writeIO c a s = do
     cv <- readCellValIO c s
-    same <- atomicModifyIORef' (getCellVal cv) (meetEq a)
+    same <- atomicModifyIORef' (getCellVal cv) meetEq
     when (not same) $ do
+        traceM $ "writing into "++(show c)++" value "++(show a)
         ls <- fmap Set.toList . readIORef . listeners $ cv
         mapM_ (flip (forkListenerIO c) s) ls
+    where meetEq a' = let a'' = a /\ a'
+                        in (a'', a == a'')
+
 
 watchIO :: Value a => Cell Par a -> (a -> Par ()) -> ParState -> IO (Subscriptions Par)
 watchIO c l s = do
@@ -249,13 +255,14 @@ watchIO c l s = do
     pure . Subscriptions . pure $ Sub c l'
 
 forkListenerIO :: Value a => Cell Par a -> Listener a -> ParState -> IO ()
-forkListenerIO c (Listener _ dirty l) s = do
+forkListenerIO c (Listener i dirty l) s = do
     writeIORef dirty True
+    traceM $ "Forking "++(show $ hashUnique i)++"!"
     forkJob s $ do
         d <- atomicModifyIORef' dirty (False,)
         when d $ runPar s . l =<< readCellIO c s
 
-forkParIO :: (LiftParent Par -> Par ()) -> ParState -> IO () 
+forkParIO :: (LiftParent Par -> Par ()) -> ParState -> IO ()
 forkParIO m s = do
     s' <- copyParState s
     connectStates s s'

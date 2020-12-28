@@ -16,13 +16,15 @@ disjunctFork r m1 m2 = do
   traceM $ show $ rc2
   disjunct rc1 rc2 r
   fork (\lft -> do
+    traceM "starting branch A"
     watch r (lft . write rc1)
-    watch r (\x -> traceM $ "branch A: "++show x)
+    watch r (\x -> traceM $ "branch A: "++(show r)++" "++show x)
     m1
     )
   fork (\lft -> do
+    traceM "starting branch B"
     watch r (lft . write rc2)
-    watch r (\x -> traceM $ "branch B: "++show x)
+    watch r (\x -> traceM $ "branch B: "++(show r)++" "++show x)
     m2
     )
 
