@@ -20,6 +20,7 @@ import "base" Control.Monad
 import "base" Control.Concurrent
 import "base" Control.Category
 import "base" Debug.Trace
+import "base" System.Timeout
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
@@ -92,17 +93,17 @@ castM a = do
 -- Listener
 -------------------------------------------------------------------------------
 
-data Listener a = Listener Unique (IORef Bool) (a -> Par ())
+data Listener a = Listener String Unique (IORef Bool) (a -> Par ())
 
 listenerId :: Listener a -> Unique
-listenerId (Listener i _ _) = i
+listenerId (Listener _ i _ _) = i
 
 listenerDirty :: Listener a -> IORef Bool
-listenerDirty (Listener _ d _) = d
+listenerDirty (Listener _ _ d _) = d
 
 
-newListener :: (a -> Par ()) -> IO (Listener a)
-newListener l = Listener
+newListener :: String -> (a -> Par ()) -> IO (Listener a)
+newListener n l = Listener n
     <$> newUnique
     <*> newIORef False
     <*> pure l
@@ -113,7 +114,12 @@ instance Ord (Listener a) where
     compare = compare `on` listenerId
 
 instance Show (Listener a) where
-    showsPrec d (Listener lId _ _) = showParen (d >= 10) $ showString "Listener " . shows (hashUnique lId)
+    showsPrec d (Listener n lId _ _)
+        = showParen (d >= 10)
+        $ showString "Listener "
+        . showString n
+        . showString "#"
+        . shows (hashUnique lId)
 
 -------------------------------------------------------------------------------
 -- ParState
@@ -212,11 +218,11 @@ instance PropagatorMonad Par where
     newCell n = liftPar . newCellIO n
     readCell = liftPar . readCellIO
     write c = liftPar . writeIO c
-    namedWatch c _ = liftPar . watchIO c
+    namedWatch c n = liftPar . watchIO c n
     cancel = liftPar . cancelIO
 
 instance Forkable Par where
-    namedFork _ m = liftPar $ forkParIO m
+    namedFork n m = liftPar $ forkParIO n m
 
 -- IO
 
@@ -242,46 +248,49 @@ writeIO c a s = do
         traceM $ "writing into "++(show c)++" value "++(show a)
         ls <- fmap Set.toList . readIORef . listeners $ cv
         mapM_ (flip (forkListenerIO c) s) ls
-    where meetEq a' = let a'' = a /\ a'
-                        in (a'', a == a'')
+  where meetEq a' = let a'' = a /\ a'
+                     in (a'', a == a'')
 
-
-watchIO :: Value a => Cell Par a -> (a -> Par ()) -> ParState -> IO (Subscriptions Par)
-watchIO c l s = do
-    l' <- newListener $ l
+watchIO :: Value a => Cell Par a -> String -> (a -> Par ()) -> ParState -> IO (Subscriptions Par)
+watchIO c n l s = do
+    l' <- newListener n l
     ls <- fmap listeners . readCellValIO c $ s
     atomicModifyIORef' ls $ (,()) . Set.insert l'
     forkListenerIO c l' s
     pure . Subscriptions . pure $ Sub c l'
 
 forkListenerIO :: Value a => Cell Par a -> Listener a -> ParState -> IO ()
-forkListenerIO c (Listener i dirty l) s = do
+forkListenerIO c x@(Listener _ _ dirty l) s = do
     writeIORef dirty True
-    traceM $ "Forking "++(show $ hashUnique i)++"!"
+    traceM $ "Forking "++ show x
     forkJob s $ do
         d <- atomicModifyIORef' dirty (False,)
         when d $ runPar s . l =<< readCellIO c s
 
-forkParIO :: (LiftParent Par -> Par ()) -> ParState -> IO ()
-forkParIO m s = do
+forkParIO :: String -> (LiftParent Par -> Par ()) -> ParState -> IO ()
+forkParIO n m s = do
     s' <- copyParState s
-    connectStates s s'
+    connectStates n s s'
     forkJob s (runPar s' $ m (liftParent s))
 
 liftParent :: ParState -> LiftParent Par
 liftParent s a = liftPar $ \ _ -> runPar s a
 
-connectStates :: ParState -> ParState -> IO ()
-connectStates s s' = mapM_ connectCell =<< enumFromTo 0 <$> pred <$> MutList.length (cells s)
+connectStates :: String -> ParState -> ParState -> IO ()
+connectStates n s s' = mapM_ connectCell =<< enumFromTo 0 <$> pred <$> MutList.length (cells s)
   where
     connectCell i = do
         AnyCellVal c <- flip MutList.read (cells s) i
         let idC = cellId c
-        watchIO idC (\ v -> liftPar $ \ _ ->  writeIO idC v s') s
+        let nameL = "propagate " ++ show idC ++ " into " ++ show n 
+        watchIO idC nameL (\ v -> liftPar $ \ _ ->  writeIO idC v s') s
 
 forkJob :: ParState -> IO a -> IO ()
 forkJob s m = do
     let jobs = jobCount s
     let modJobs f = atomicModifyIORef' jobs $ (,()) . f
     modJobs succ
-    void . forkIO $ m >> modJobs pred
+    void . forkIO $ do
+        tooLong <- maybe True (const False) <$> timeout 10000000 m
+        when tooLong $ traceM $ "Job reached timeout"
+        modJobs pred

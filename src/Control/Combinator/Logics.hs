@@ -10,21 +10,21 @@ import "this" Data.Lattice
 
 disjunctFork :: (Monad m, PropagatorMonad m, Forkable m, BoundedMeet a, BoundedJoin a, Value a) => Cell m a -> m () -> m () -> m ()
 disjunctFork r m1 m2 = do
-  rc1 <- newEmptyCell'
-  rc2 <- newEmptyCell'
+  rc1 <- newEmptyCell "rc1"
+  rc2 <- newEmptyCell "rc2"
   traceM $ show $ rc1
   traceM $ show $ rc2
   disjunct rc1 rc2 r
-  fork (\lft -> do
+  namedFork "A" (\lft -> do
     traceM "starting branch A"
-    watch r (lft . write rc1)
-    watch r (\x -> traceM $ "branch A: "++(show r)++" "++show x)
+    namedWatch r ("write back " ++ show rc1 ++ " from " ++ show r ++ " in A") (lft . write rc1)
+    namedWatch r "debugWatchA" (\x -> traceM $ "branch A: "++(show r)++" "++show x)
     m1
     )
-  fork (\lft -> do
+  namedFork "B" (\lft -> do
     traceM "starting branch B"
-    watch r (lft . write rc2)
-    watch r (\x -> traceM $ "branch B: "++(show r)++" "++show x)
+    namedWatch r ("write back " ++ show rc2 ++ " from " ++ show r ++ " in B")(lft . write rc2)
+    namedWatch r "debugWatchB" (\x -> traceM $ "branch B: "++(show r)++" "++show x)
     m2
     )
 
