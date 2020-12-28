@@ -177,7 +177,6 @@ execPar' tick setup doneP = do
     waitForDone s = do
         threadDelay tick
         jobs <- readIORef . jobCount $ s
-        traceM $ (show jobs) ++" jobs running"
         unless (jobs == 0) . waitForDone $ s
 
 runPar :: ParState -> Par a -> IO a
@@ -270,7 +269,6 @@ writeIO c (force -> a) s = do
     cv <- readCellValIO c s
     same <-tryTimeout ("write " ++ show c ++ " = " ++ show a) $ atomicModifyIORef' (getCellVal cv) meetEq
     when (not same) $ do
-        traceM $ "writing into "++(show c)++" value "++(show a)
         ls <- fmap Set.toList . readIORef . listeners $ cv
         mapM_ (flip (forkListenerIO c) s) ls
   where meetEq a' = let a'' = a /\ a'
@@ -287,12 +285,11 @@ watchIO c n l s = do
 forkListenerIO :: HasCallStack => Value a => Cell Par a -> Listener a -> ParState -> IO ()
 forkListenerIO c x@(Listener _ _ dirty l) s = do
     writeIORef dirty True
-    traceM $ "Forking "++ show x
     forkJob (show x) s $ do
         d <- atomicModifyIORef' dirty (False,)
         when d $ do
             cv <- readCellIO c s
-            runPar s . l $ cv 
+            runPar s . l $ cv
 
 forkParIO :: HasCallStack => String -> (LiftParent Par -> Par ()) -> ParState -> IO ()
 forkParIO n m s = do
@@ -309,7 +306,7 @@ connectStates n s s' = mapM_ connectCell =<< enumFromTo 0 <$> pred <$> MutList.l
     connectCell i = do
         AnyCellVal c <- flip MutList.read (cells s) i
         let idC = cellId c
-        let nameL = "propagate " ++ show idC ++ " into " ++ show n 
+        let nameL = "propagate " ++ show idC ++ " into " ++ show n
         watchIO idC nameL (\ v -> liftPar $ \ _ -> writeIO idC v s') s
 
 forkJob :: HasCallStack => String -> ParState -> IO a -> IO ()

@@ -10,21 +10,15 @@ import "this" Data.Lattice
 
 disjunctFork :: (Monad m, PropagatorMonad m, Forkable m, BoundedMeet a, BoundedJoin a, Value a) => Cell m a -> m () -> m () -> m ()
 disjunctFork r m1 m2 = do
-  rc1 <- newEmptyCell "rc1"
-  rc2 <- newEmptyCell "rc2"
-  traceM $ show $ rc1
-  traceM $ show $ rc2
+  rc1 <- newEmptyCell'
+  rc2 <- newEmptyCell'
   disjunct rc1 rc2 r
-  namedFork "A" (\lft -> do
-    traceM "starting branch A"
-    namedWatch r ("write back " ++ show rc1 ++ " from " ++ show r ++ " in A") (lft . write rc1)
-    namedWatch r "debugWatchA" (\x -> traceM $ "branch A: "++(show r)++" "++show x)
+  fork (\lft -> do
+    watch r (lft . write rc1)
     m1
     )
-  namedFork "B" (\lft -> do
-    traceM "starting branch B"
-    namedWatch r ("write back " ++ show rc2 ++ " from " ++ show r ++ " in B")(lft . write rc2)
-    namedWatch r "debugWatchB" (\x -> traceM $ "branch B: "++(show r)++" "++show x)
+  fork (\lft -> do
+    watch r (lft . write rc2)
     m2
     )
 
@@ -38,5 +32,5 @@ disjunct a b r = do
 --TODO: does not remove subscriptions
 disjunctListener :: (Monad m, PropagatorMonad m, BoundedJoin a, Value a) => Cell m a -> Cell m a -> a -> m ()
 disjunctListener r ca b
-  | b == bot = traceM ("The thing that's not "++(show ca)++" is bot") >> void $ eq r ca
+  | b == bot =  void $ eq r ca
   | otherwise = return ()

@@ -64,6 +64,9 @@ fromCellSize s c = readCell c >>= fromTermSet' s
 fromTermSet :: (Monad m, PropagatorMonad m) => TermSet m -> m (TermStruc a)
 fromTermSet = fromTermSet' (-1)
 
+fromTermSetString :: (Monad m, PropagatorMonad m) => TermSet m -> m (TermStruc String)
+fromTermSetString = fromTermSet
+
 fromTermSet' :: (Monad m, PropagatorMonad m) => Int -> TermSet m -> m (TermStruc a)
 fromTermSet' 0 _ = pure STOP
 fromTermSet' _ TSBot = pure SBOT

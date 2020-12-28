@@ -3,6 +3,7 @@ module Tests.UnificationTest where
 import "base" GHC.Generics
 import "base" Data.List
 import "base" Data.Functor
+import "base" Debug.Trace
 
 import "deepseq" Control.DeepSeq
 
@@ -46,7 +47,13 @@ test4 = runTest $ do
     orig <- fromVarsAsCells (ls [var sv1, ccon "a"])
     t1 <- fromVarsAsCells (ls [ccon "b", ccon "a"])
     t2 <- fromVarsAsCells (ls [ccon "b", ccon "b"])
-    disjunctFork orig (void $ eq orig t1) (void $ eq orig t2)
+    disjunctFork orig
+      (void $ do
+        eq orig t1
+        watch orig (\r -> (show <$> fromTermSetString r) >>= (\r' -> traceM $ "branch A:" ++ (show r')) ) )
+      (void $ do
+        eq orig t2
+        watch orig (\r -> (show <$> fromTermSetString r) >>= (\r' -> traceM $ "branch B:" ++ (show r')) ) )
     return [orig, t1, t2]
 
 data TD = A | B | C
