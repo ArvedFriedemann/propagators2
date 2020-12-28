@@ -12,7 +12,6 @@ import "base" GHC.Generics ( Generic )
 import "base" Data.Function ( on )
 import "base" Data.Unique
 import "base" Data.IORef
-import "base" Data.List
 import "base" Data.Typeable
 import "base" Data.Type.Equality
 import "base" Unsafe.Coerce
@@ -92,11 +91,14 @@ castM a = do
 -- Listener
 -------------------------------------------------------------------------------
 
-data Listener a = Listener
-    { listenerId     :: Unique
-    , listenerDirty  :: IORef Bool
-    , listenerAction :: a -> Par ()
-    }
+data Listener a = Listener Unique (IORef Bool) (a -> Par ())
+
+listenerId :: Listener a -> Unique
+listenerId (Listener i _ _) = i
+
+listenerDirty :: Listener a -> IORef Bool
+listenerDirty (Listener _ d _) = d
+
 
 newListener :: (a -> Par ()) -> IO (Listener a)
 newListener l = Listener
@@ -208,11 +210,11 @@ instance PropagatorMonad Par where
     newCell n = liftPar . newCellIO n
     readCell = liftPar . readCellIO
     write c = liftPar . writeIO c
-    watch c = liftPar . watchIO c
+    namedWatch c _ = liftPar . watchIO c
     cancel = liftPar . cancelIO
 
 instance Forkable Par where
-    fork m = liftPar $ forkParIO m    
+    namedFork _ m = liftPar $ forkParIO m
 
 -- IO
 

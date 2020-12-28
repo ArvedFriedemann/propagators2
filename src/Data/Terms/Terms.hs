@@ -1,4 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ApplicativeDo #-}
 module Data.Terms.Terms where
 
 import "containers" Data.Set ( Set )
@@ -134,30 +135,30 @@ instance (PropagatorMonad m) => BoundedJoin (TermSet m) where
 instance (PropagatorMonad m) => Lattice (TermSet m)
 instance (PropagatorMonad m) => BoundedLattice (TermSet m)
 
-propBot :: (Value b, Value a, PropagatorMonad m, BoundedJoin a, BoundedJoin b) =>
+propBot :: (Value b, Value a, Applicative m, PropagatorMonad m, BoundedJoin a, BoundedJoin b) =>
             Cell m b -> a -> m ()
 propBot cout cin = do
   if cin == bot
     then write cout bot
-    else return ()
+    else pure ()
 
-watchTerm :: PropagatorMonad m => Cell m (TermSet m) -> m (Subscriptions m)
+watchTerm :: (Applicative m, PropagatorMonad m) => Cell m (TermSet m) -> m (Subscriptions m)
 watchTerm ct = watch ct $ termListener ct
 
 --WARNING: Does not remove listeners after join!
-termListener :: forall m. PropagatorMonad m => Cell m (TermSet m) -> TermSet m -> m ()
-termListener _ TSBot = return ()
+termListener :: (Applicative m, PropagatorMonad m) => Cell m (TermSet m) -> TermSet m -> m ()
+termListener _ TSBot = pure ()
 termListener this ts = do
   --equality for variables
-  mapM_ (eq this) (variableContents (S.toList $ variables ts))
+  traverse (eq this) (variableContents (S.toList $ variables ts))
   --equality for applications
   eqAll $ applLefts (S.toList (applications ts))
   eqAll $ aplRights (S.toList (applications ts))
   --as subvalues are not equivalent to this value, their bots have to be propagated as well
   let propBotThis = flip watch $ propBot this
   let appList = S.toList . applications $ ts
-  mapM_ propBotThis $ applLefts appList
-  mapM_ propBotThis $ aplRights appList
+  traverse propBotThis $ applLefts appList
+  traverse propBotThis $ aplRights appList
 
   return ()
 
