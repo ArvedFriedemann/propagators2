@@ -22,7 +22,7 @@ data Event m where
     Create :: Value a => Scope m -> Id -> a -> Event m
     Write :: Value a => Scope m -> Cell m a -> a -> Event m
     Watch :: Value a => Scope m -> Cell m a -> Id -> (a -> m ()) -> Event m
-    Fork :: Scope m -> Scope m -> m () -> Event m
+    Fork :: Scope m -> Scope m -> (LiftParent m -> m ()) -> Event m
     Cancel :: Subscription m -> Event m
 
 viaType :: (c a, c TypeRep, Typeable a, Typeable b)
@@ -68,7 +68,9 @@ class MonadEvent e m | m -> e where
 class MonadRef m where
     getVal :: Typeable a => Id -> m a
 
-newtype EventT m a = EventT (ReaderT (Scope (EventT m)) m a)
+newtype EventT m a = EventT
+    { runEventT :: ReaderT (Scope (EventT m)) m a
+    }
   deriving newtype (Functor, Applicative, Monad)
 
 instance MonadTrans EventT where
@@ -147,10 +149,10 @@ instance ( PropagatorMonad (EventT m)
       deriving stock (Eq, Ord, Show)
       deriving newtype (Semigroup, Monoid)
 
-    namedScope n (EventT m)
-        = EventT
-        . flip local m
-        . mappend 
-        . Scope =<< mkId n
-
     currentScope = EventT ask
+
+instance (Monad m, MonadId m, MonadEvent (Evt m) m, Scoped (EventT m)) => Forkable (EventT m) where
+    namedFork n m = do
+        cur <- currentScope
+        child <- flip mappend cur . Scope <$> mkId n
+        lift . fire $ Fork cur child m

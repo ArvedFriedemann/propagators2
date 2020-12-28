@@ -4,7 +4,6 @@ module Control.Propagator.Class
     , watch
     , Subscriptions(..)
     , Scoped(..)
-    , scope
     , LiftParent
     , Forkable(..)
     , fork
@@ -83,13 +82,8 @@ fork = namedFork ""
 class (Std (Scope m), PropagatorMonad m) => Scoped m where
 
     data Scope m
-
-    namedScope :: String -> m a -> m a
     
     currentScope :: m (Scope m)
-
-scope :: Scoped m => m a -> m a
-scope = namedScope ("anon" :: String)
 
 -------------------------------------------------------------------------------
 -- combinators
