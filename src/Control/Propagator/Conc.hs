@@ -291,6 +291,6 @@ forkJob s m = do
     let modJobs f = atomicModifyIORef' jobs $ (,()) . f
     modJobs succ
     void . forkIO $ do
-        tooLong <- maybe True (const False) <$> timeout 10000000 m
+        tooLong <- maybe True (const False) <$> timeout 3000000 m
         when tooLong $ traceM $ "Job reached timeout"
         modJobs pred
