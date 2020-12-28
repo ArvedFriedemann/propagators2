@@ -24,10 +24,11 @@ instance Applicative (CellAction m) where
     Pure f <*> a = f <$> a
     a <*> b = CApp a b 
 
-propagate :: (Value a, PropagatorMonad m) => Cell m a -> CellAction m a -> m ()
+propagate :: (Value a, Monad m, PropagatorMonad m)
+          => Cell m a -> CellAction m a -> m ()
 propagate = eval . write
 
-eval :: PropagatorMonad m => (a -> m ()) -> CellAction m a -> m ()
+eval :: (Monad m, PropagatorMonad m) => (a -> m ()) -> CellAction m a -> m ()
 eval f (Pure a) = f a
 eval f (Read s) = readCell s >>= f
 eval f (Watch s) = void $ watch s f

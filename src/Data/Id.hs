@@ -19,7 +19,7 @@ instance Show Id where
         $ showString "Id "
         . shows (either id (show . hashUnique) <$> parts)
 
-class Monad m => MonadId m where
+class MonadId m where
     newId :: m Id
 
 instance MonadId IO where

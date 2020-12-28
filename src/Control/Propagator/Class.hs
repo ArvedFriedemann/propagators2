@@ -53,7 +53,6 @@ class ( forall a. Show (Cell m a)
       , Eq (Subscription m)
       , Show (Subscription m)
       , Typeable m
-      , Monad m
       ) => PropagatorMonad m where
 
     data Cell m :: * -> *
@@ -96,24 +95,23 @@ scope = namedScope ("anon" :: String)
 -- combinators
 -------------------------------------------------------------------------------
 
-iso :: (PropagatorMonad m, Value a, Value b) => Cell m a -> Cell m b -> (a <-> b) -> m (Subscriptions m)
-iso ca cb i = do
-    sa <- namedWatch ca ("to" :: String) $ write cb . to i
-    sb <- namedWatch cb ("from" :: String) $ write ca . from i
-    pure (sa <> sb)
+iso :: (Applicative m, PropagatorMonad m, Value a, Value b) => Cell m a -> Cell m b -> (a <-> b) -> m (Subscriptions m)
+iso ca cb i = (<>)
+    <$> (namedWatch ca ("to" :: String) $ write cb . to i)
+    <*> (namedWatch cb ("from" :: String) $ write ca . from i)
 
-eq :: (PropagatorMonad m, Value a) => Cell m a -> Cell m a -> m (Subscriptions m)
+eq :: (Applicative m, PropagatorMonad m, Value a) => Cell m a -> Cell m a -> m (Subscriptions m)
 eq a b = iso a b id
 
-eqAll :: (PropagatorMonad m, Value a) => [Cell m a] -> m (Subscriptions m)
+eqAll :: (Applicative m, PropagatorMonad m, Value a) => [Cell m a] -> m (Subscriptions m)
 eqAll [] = pure mempty
-eqAll (a : as) = fold <$> mapM (eq a) as
+eqAll (a : as) = fold <$> traverse (eq a) as
 
-linkM :: (PropagatorMonad m, Value a, Value b)
+linkM :: (Monad m, PropagatorMonad m, Value a, Value b)
       => Cell m a -> Cell m b -> (a -> m b) -> m (Subscriptions m)
 linkM ca cb f = namedWatch ca ("linkM " ++ show cb) $ \ a -> f a >>= write cb
 
-linkM2 :: (PropagatorMonad m, Value a, Value b, Value c)
+linkM2 :: (Monad m, PropagatorMonad m, Value a, Value b, Value c)
        => Cell m a -> Cell m b -> Cell m c -> (a -> b -> m c) -> m (Subscriptions m)
 linkM2 ca cb cc f = do
     unsubCa <- linkM ca cc $ \ a -> f a =<< readCell cb
@@ -122,11 +120,13 @@ linkM2 ca cb cc f = do
 
 link :: (PropagatorMonad m, Value a, Value b)
      =>  Cell m a -> Cell m b -> (a -> b) -> m (Subscriptions m)
-link ca cb f = linkM ca cb $ pure . f
+link ca cb f = namedWatch ca ("linkM " ++ show cb) $ \ a -> write cb $ f a 
 
-link2 :: (PropagatorMonad m, Value a, Value b, Value c)
+link2 :: (Monad m, PropagatorMonad m, Value a, Value b, Value c)
       => Cell m a -> Cell m b -> Cell m c -> (a -> b -> c) -> m (Subscriptions m)
-link2 ca cb cc f = linkM2 ca cb cc $ \ a b -> pure $ f a b
+link2 ca cb cc f = (<>)
+    <$> linkM ca cc (\ a -> f a <$> readCell cb)
+    <*> linkM cb cc (\ b -> flip f b <$> readCell ca)
 
 newEmptyCell :: forall a m. (PropagatorMonad m, BoundedValue a) => String -> m (Cell m a)
 newEmptyCell = flip newCell top

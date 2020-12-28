@@ -19,9 +19,9 @@ test1 = (putStrLn =<<) $ flip execPar printMyStuff $ do
     return (sv_a, b_sv, sv)
   where
     printMyStuff (sv_a, b_sv, sv) = do
-        rsv_a <- readCell sv_a--fromCell' sv_a
-        rb_sv <- readCell b_sv--fromCell' b_sv
-        rsv <- readCell sv--fromCell' sv
+        rsv_a <- readCell sv_a--fromCell @String sv_a
+        rb_sv <- readCell b_sv--fromCell @String b_sv
+        rsv <- readCell sv--fromCell @String sv
         pure $ (show rsv_a) ++ "\n\n" ++ (show rb_sv) ++ "\n\n" ++ (show rsv)
 
 test2 :: IO ()
@@ -35,10 +35,10 @@ test2 = (putStrLn =<<) $ flip execPar printMyStuff $ do
     return (t1, t2, sv1, sv2)
   where
     printMyStuff (t1, t2, sv1, sv2) = do
-        rt1 <- fromCell' t1
-        rt2 <- fromCell' t2
-        rsv1 <- fromCell' sv1
-        rsv2 <- fromCell' sv2
+        rt1 <- fromCell @String t1
+        rt2 <- fromCell @String t2
+        rsv1 <- fromCell @String sv1
+        rsv2 <- fromCell @String sv2
         pure $ (show rt1) ++ "\n\n"
             ++ (show rt2) ++ "\n\n"
             ++ (show rsv1) ++ "\n\n"
@@ -53,9 +53,9 @@ test3 = (putStrLn =<<) $ flip execPar printMyStuff $ do
     return (t1, t2, sv)
   where
     printMyStuff (t1, t2, sv) = do
-        rt1 <- fromCellSize' 100 t1
-        rt2 <- fromCellSize' 100 t2
-        rsv <- fromCellSize' 100 sv
+        rt1 <- fromCellSize @String 100 t1
+        rt2 <- fromCellSize @String 100 t2
+        rsv <- fromCellSize @String 100 sv
         pure $ (show rt1) ++ "\n\n"
             ++ (show rt2) ++ "\n\n"
             ++ (show rsv)
