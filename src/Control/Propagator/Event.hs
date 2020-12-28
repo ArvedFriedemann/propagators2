@@ -13,6 +13,7 @@ import "base" Data.Type.Equality
 import "base" Control.Applicative
 import "base" Control.Monad
 import "base" Unsafe.Coerce
+import "base" Debug.Trace
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
@@ -40,6 +41,42 @@ data Event m where
     Watch :: Value a => Scope -> Cell m a -> Id -> (a -> m ()) -> Event m
     Fork :: Scope -> Id -> (LiftParent m -> m ()) -> Event m
     Cancel :: Subscription m -> Event m
+
+instance PropagatorMonad m => Show (Event m) where
+    showsPrec d (Create s i a)
+        = showParen (d >= 10)
+        $ showString "Create "
+        . shows s
+        . showString " "
+        . shows i
+        . showString " "
+        . shows a
+    showsPrec d (Write s i a)
+        = showParen (d >= 10)
+        $ showString "Write "
+        . shows s
+        . showString " "
+        . shows i
+        . showString " "
+        . shows a
+    showsPrec d (Watch s c i _)
+        = showParen (d >= 10)
+        $ showString "Watch "
+        . shows s
+        . showString " "
+        . shows c
+        . showString " "
+        . shows i
+    showsPrec d (Fork s i _)
+        = showParen (d >= 10)
+        $ showString "Fork "
+        . shows s
+        . showString " "
+        . shows i
+    showsPrec d (Cancel s)
+        = showParen (d >= 10)
+        $ showString "Cancel "
+        . shows s
 
 viaType :: (c a, c TypeRep, Typeable a, Typeable b)
         => Proxy c -> (forall x. c x => x -> x -> y)
@@ -190,6 +227,9 @@ newtype SimpleEventBus a = SEB
     }
   deriving newtype (Functor, Applicative, Monad, MonadFail)
 
+instance MonadId SimpleEventBus where
+    newId = SEB . lift . newId
+
 runSEB :: SEB a -> (a -> SEB b) -> IO b
 runSEB start end = do
     root <- Scope . pure <$> newId "root"
@@ -200,10 +240,12 @@ runSEB start end = do
 
 flushSEB :: SEB ()
 flushSEB = do
-    (SEBS evt cx) <- lift $ SEB get
-    unless (Set.null evt) $ do
+    (SEBS evts cx) <- lift $ SEB get
+    unless (Set.null evts) $ do
         lift . SEB . put $ SEBS Set.empty cx
-        mapM_ handleEvent . Set.toList $ evt
+        forM_ (Set.toDescList evts) $ \ evt -> do
+            traceM $ show evt
+            handleEvent evt 
         flushSEB
     
 handleEvent :: Evt SimpleEventBus -> SEB ()
@@ -221,18 +263,22 @@ handleEvent (Watch s c i a) = do
   where
     addListener (SEBC v ls) = SEBC v $ Map.insert i (fromJust $ cast a) ls
 handleEvent (Cancel _) = pure ()
-handleEvent (Fork (Scope s) i act) = do
-    let lft = EventT . local (fromJust . popScope) . runEventT
+handleEvent (Fork parent@(Scope s) i act) = do
     lift $ runReaderT (runEventT $ act lft) (Scope (i <| s))
+  where
+    lft :: forall a. SEB a -> SEB a
+    lft = EventT . local (const parent) . runEventT
+
+maybeMerge :: (a -> a -> a) -> Maybe a -> Maybe a -> Maybe a
+maybeMerge f a b = liftA2 f a b <|> a <|> b
 
 searchCell :: forall a. Value a => Scope -> Cell SEB a -> Map SEBId SEBCell -> Maybe (a, [a -> SEB ()])
-searchCell s i cx = do
-    SEBC a lsA <- Map.lookup (SEBId s $ cellId i) cx
-    a' <- cast a
-    lsA' <- cast @_ @(Map Id (a -> SEB ())) lsA
-    (b, lsB) <- fromParentScope <|> pure (a', [])
-    pure (a' /\ b, Map.elems lsA' <> lsB)
+searchCell s i cx = maybeMerge mergeCell fromThisScope fromParentScope
   where
+    mergeCell (a, lsA) (b, lsB) = (a /\ b, lsA ++ lsB)
+    fromThisScope = do
+        SEBC a lsA <- Map.lookup (SEBId s $ cellId i) cx
+        liftA2 (,) (cast a) (cast $ Map.elems lsA)
     fromParentScope = do 
         s' <- popScope s
         searchCell s' i cx

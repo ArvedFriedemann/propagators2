@@ -12,6 +12,7 @@ import "containers" Data.Set qualified as S
 import "this" Data.Terms.TermFunctions
 import "this" Control.Propagator
 import "this" Control.Propagator.Conc
+import "this" Control.Propagator.Event
 import "this" Control.Combinator.Logics
 
 test1 :: IO ()
@@ -41,13 +42,19 @@ test3 = runTest $ do
     return [t1, t2, sv]
 
 test4 :: IO ()
-test4 = runTest $ do
+test4 = runTestSEB $ do
     sv1 <- newEmptyCell "sv1"
 
     orig <- fromVarsAsCells (ls [var sv1, ccon "a"])
     t1 <- fromVarsAsCells (ls [ccon "b", ccon "a"])
     t2 <- fromVarsAsCells (ls [ccon "b", ccon "b"])
-    disjunctFork orig (void $ eq orig t1) (void $ eq orig t2)
+    disjunctFork orig
+      (void $ do
+        watch orig (\r -> (show <$> fromTermSetString r) >>= (\r' -> traceM $ "branch A:" ++ (show r')) )
+        eq orig t1 )
+      (void $ do
+        watch orig (\r -> (show <$> fromTermSetString r) >>= (\r' -> traceM $ "branch B:" ++ (show r')) )
+        eq orig t2 )
     return [orig, t1, t2]
 
 data TD = A | B | C
@@ -70,6 +77,9 @@ test5 = flip execPar (>> pure ()) $ do
     pure $ do
         v <- readCell orig
         traceM $ show v
+
+runTestSEB :: SEB [TermCell SEB] -> IO ()
+runTestSEB p = (putStrLn =<<) (runSEB p showAll)
 
 runTest :: Par [TermCell Par] -> IO ()
 runTest p = (putStrLn =<<) (execPar p showAll)

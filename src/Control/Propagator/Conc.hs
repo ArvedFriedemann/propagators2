@@ -300,7 +300,7 @@ forkListenerIO c x@(Listener _ _ dirty l) s = do
         d <- atomicModifyIORef' dirty (False,)
         when d $ do
             cv <- readCellIO c s
-            runPar s . l $ cv 
+            runPar s . l $ cv
 
 forkParIO :: HasCallStack => String -> (LiftParent Par -> Par ()) -> ParState -> IO ()
 forkParIO n m s = forkJob ("Fork " ++ show n) s $ do
