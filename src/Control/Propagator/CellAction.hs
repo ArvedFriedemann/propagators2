@@ -22,7 +22,7 @@ instance Functor (CellAction m) where
 instance Applicative (CellAction m) where
     pure = Pure
     Pure f <*> a = f <$> a
-    a <*> b = CApp a b 
+    a <*> b = CApp a b
 
 propagate :: (Value a, Monad m, PropagatorMonad m)
           => Cell m a -> CellAction m a -> m ()
@@ -32,4 +32,4 @@ eval :: (Monad m, PropagatorMonad m) => (a -> m ()) -> CellAction m a -> m ()
 eval f (Pure a) = f a
 eval f (Read s) = readCell s >>= f
 eval f (Watch s) = void $ watch s f
-eval f (CApp g a) = flip eval g $ \ vg -> flip eval a (f . vg) 
+eval f (CApp g a) = flip eval g $ \ vg -> flip eval a (f . vg)

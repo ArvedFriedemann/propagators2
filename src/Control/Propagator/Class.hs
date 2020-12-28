@@ -3,7 +3,6 @@ module Control.Propagator.Class
     ( PropagatorMonad(..)
     , watch
     , Subscriptions(..)
-
     , LiftParent
     , Forkable(..)
     , fork
@@ -60,6 +59,9 @@ class ( forall a. Show (Cell m a)
 
     newCell :: Value a => String -> a -> m (Cell m a)
 
+    newCell' :: Value a => a -> m (Cell m a)
+    newCell' = newCell "anon"
+
     readCell :: Value a => Cell m a -> m a
 
     write :: Value a => Cell m a -> a -> m ()
@@ -67,9 +69,10 @@ class ( forall a. Show (Cell m a)
     namedWatch :: Value a => Cell m a -> String -> (a -> m ()) -> m (Subscriptions m)
 
     cancel :: Subscriptions m -> m ()
-    
+
 watch :: (PropagatorMonad m, Value a) => Cell m a -> (a -> m ()) -> m (Subscriptions m)
 watch c = namedWatch c ""
+
 
 type LiftParent m = forall a. m a -> m a
 
@@ -108,7 +111,7 @@ linkM2 ca cb cc f = do
 
 link :: (PropagatorMonad m, Value a, Value b)
      =>  Cell m a -> Cell m b -> (a -> b) -> m (Subscriptions m)
-link ca cb f = namedWatch ca ("linkM " ++ show cb) $ \ a -> write cb $ f a 
+link ca cb f = namedWatch ca ("linkM " ++ show cb) $ \ a -> write cb $ f a
 
 link2 :: (Monad m, PropagatorMonad m, Value a, Value b, Value c)
       => Cell m a -> Cell m b -> Cell m c -> (a -> b -> c) -> m (Subscriptions m)

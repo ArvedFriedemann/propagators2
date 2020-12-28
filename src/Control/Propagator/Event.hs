@@ -34,7 +34,7 @@ viaType _ f a b = case cast b of
 
 instance Ord (Event m) => Eq (Event m) where
     a == b = compare a b == EQ
-instance (Ord (Scope), Ord1 (Cell m), Ord (Subscription m)) => Ord (Event m) where
+instance (Ord1 (Cell m), Ord (Subscription m)) => Ord (Event m) where
     Create sa ia a `compare` Create sb ib b 
         = compare sa sb
         <> compare ia ib
@@ -92,7 +92,7 @@ instance Eq1 (Cell (EventT m)) where
     liftEq _ (cellId -> a) (cellId -> b) = a == b
 instance Ord1 (Cell (EventT m)) where
     liftCompare _ (cellId -> a) (cellId -> b) = a `compare` b
-    
+
 
 instance Eq (Subscription (EventT m)) where
     a == b = compare a b == EQ
@@ -123,22 +123,22 @@ instance ( Typeable m
         s <- EventT ask
         lift . fire $ Create s i' a
         pure . EventCell $ i'
-        
+
     namedWatch c i a = do
-        i' <- mkId i 
+        i' <- mkId i
         s <- EventT ask
         lift . fire $ Watch s c i' a
         pure . Subscriptions . pure $ Sub c i' s
-            
+
     write c a = do
         s <- EventT ask
         lift . fire $ Write s c a
-    
+
     readCell (cellId -> i) = do
         Scope s <- EventT ask
         lift . getVal $ s <> i
-    
-    cancel = mapM_ (lift . fire . Cancel) . getSubscriptions 
+
+    cancel = mapM_ (lift . fire . Cancel) . getSubscriptions
 
 newtype Scope = Scope Id
   deriving stock (Eq, Ord, Show)

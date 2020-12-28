@@ -1,10 +1,12 @@
 module Tests.UnificationTest where
 
 import "base" Data.List
+import "base" Data.Functor
+    
 import "this" Data.Terms.TermFunctions
 import "this" Control.Propagator
 import "this" Control.Propagator.Conc
-
+import "this" Control.Combinator.Logics
 
 test1 :: IO ()
 test1 = runTest $ do
@@ -32,8 +34,18 @@ test3 = runTest $ do
     eq t1 t2
     showAll [t1, t2, sv]
 
+test4 :: IO ()
+test4 = runTest $ do
+    sv1 <- newEmptyCell "sv1"
+
+    orig <- fromVarsAsCells (ls [var sv1, ccon "a"])
+    t1 <- fromVarsAsCells (ls [ccon "b", ccon "a"])
+    t2 <- fromVarsAsCells (ls [ccon "b", ccon "b"])
+    disjunctFork orig (void $ eq orig t1) (void $ eq orig t2)
+    showAll [orig]
+
 runTest :: Par String -> IO ()
 runTest = (putStrLn =<<) . flip execPar pure
 
 showAll :: (Monad m, PropagatorMonad m) => [TermCell m] -> m String
-showAll = fmap (intercalate "\n\n") . traverse (fmap show . fromCellSize @String 100) 
+showAll = fmap (intercalate "\n\n") . traverse (fmap show . fromCellSize @String 100)
