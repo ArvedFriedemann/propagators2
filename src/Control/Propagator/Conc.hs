@@ -91,11 +91,14 @@ castM a = do
 -- Listener
 -------------------------------------------------------------------------------
 
-data Listener a = Listener
-    { listenerId     :: Unique
-    , listenerDirty  :: IORef Bool
-    , listenerAction :: a -> Par ()
-    }
+data Listener a = Listener Unique (IORef Bool) (a -> Par ())
+
+listenerId :: Listener a -> Unique
+listenerId (Listener i _ _) = i
+
+listenerDirty :: Listener a -> IORef Bool
+listenerDirty (Listener _ d _) = d
+
 
 newListener :: (a -> Par ()) -> IO (Listener a)
 newListener l = Listener

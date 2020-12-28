@@ -6,6 +6,9 @@ import "this" Control.Util
 --import "containers" Data.Set ( Set )
 import qualified "containers" Data.Set as S
 
+
+type TermCell m = Cell m (TermSet m)
+
 data TermStruc a = STOP
                 | SBOT
                 | SCON TermConst
@@ -40,7 +43,7 @@ var a = SVAR a
 ls :: [TermStruc a] -> TermStruc a
 ls lst = foldl applts STOP lst
 
-fromVarsAsCells :: (Monad m, PropagatorMonad m) => TermStruc (Cell m (TermSet m)) -> m (Cell m (TermSet m))
+fromVarsAsCells :: (Monad m, PropagatorMonad m) => TermStruc (TermCell m) -> m (TermCell m)
 fromVarsAsCells SBOT =  newEmptyCell "mpt_trm" <**< watchTerm <**< (flip write) TSBot
 fromVarsAsCells STOP =  newEmptyCell "mpt_trm" <**< watchTerm
 fromVarsAsCells (SCON c) = newCell "cnst" (termSetWithConstants $ S.singleton (VTerm $ CON c)) <**< watchTerm
@@ -51,10 +54,10 @@ fromVarsAsCells (SAPPL a b) = do
   newCell "appl" (termSetWithApls $ S.singleton (VTerm $ APPL ca cb)) <**< watchTerm
 
 
-fromCell :: forall a m. (Monad m, PropagatorMonad m) => Cell m (TermSet m) -> m (TermStruc a)
+fromCell :: forall a m. (Monad m, PropagatorMonad m) => TermCell m -> m (TermStruc a)
 fromCell c = readCell c >>= fromTermSet
 
-fromCellSize :: forall a m. (Monad m, PropagatorMonad m) => Int -> Cell m (TermSet m) -> m (TermStruc a)
+fromCellSize :: forall a m. (Monad m, PropagatorMonad m) => Int -> TermCell m -> m (TermStruc a)
 fromCellSize s c = readCell c >>= fromTermSet' s
 
 fromTermSet :: (Monad m, PropagatorMonad m) => TermSet m -> m (TermStruc a)
