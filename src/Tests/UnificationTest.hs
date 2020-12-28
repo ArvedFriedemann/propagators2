@@ -3,6 +3,8 @@ module Tests.UnificationTest where
 import "base" Data.List
 import "base" Data.Functor
 
+import "containers" Data.Set qualified as S
+
 import "this" Data.Terms.TermFunctions
 import "this" Control.Propagator
 import "this" Control.Propagator.Conc
@@ -43,6 +45,14 @@ test4 = runTest $ do
     t2 <- fromVarsAsCells (ls [ccon "b", ccon "b"])
     disjunctFork orig (void $ eq orig t1) (void $ eq orig t2)
     return [orig, t1, t2]
+
+test5 :: IO ()
+test5 = runTest $ do
+    orig <- newCell "orig" (S.singleton @Int 1)
+    t1 <- newCell "t1" (S.singleton @Int 1)
+    t2 <- newCell "t2" (S.singleton @Int 2)
+    disjunctFork orig (void $ eq orig t1) (void $ eq orig t2)
+    return []
 
 runTest :: Par [TermCell Par] -> IO ()
 runTest p = (putStrLn =<<) (execPar p showAll)
