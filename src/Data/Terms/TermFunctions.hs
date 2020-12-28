@@ -3,8 +3,12 @@ module Data.Terms.TermFunctions where
 import "this" Data.Terms.Terms
 import "this" Control.Propagator
 import "this" Control.Util
+import "this" Data.Lattice
 --import "containers" Data.Set ( Set )
 import qualified "containers" Data.Set as S
+
+
+type TermCell m = Cell m (TermSet m)
 
 data TermStruc a = STOP
                 | SBOT
@@ -40,44 +44,39 @@ var a = SVAR a
 ls :: [TermStruc a] -> TermStruc a
 ls lst = foldl applts STOP lst
 
-fromVarsAsCells :: (PropagatorEqMonad m) => TermStruc (Cell m (TermSet m)) -> m (Cell m (TermSet m))
+fromVarsAsCells :: (Monad m, PropagatorMonad m) => TermStruc (TermCell m) -> m (TermCell m)
 fromVarsAsCells SBOT =  newEmptyCell "mpt_trm" <**< watchTerm <**< (flip write) TSBot
 fromVarsAsCells STOP =  newEmptyCell "mpt_trm" <**< watchTerm
 fromVarsAsCells (SCON c) = newCell "cnst" (termSetWithConstants $ S.singleton (VTerm $ CON c)) <**< watchTerm
-fromVarsAsCells (SVAR v) = return v
+fromVarsAsCells (SVAR v) = pure v
 fromVarsAsCells (SAPPL a b) = do
   ca <- fromVarsAsCells a
   cb <- fromVarsAsCells b
   newCell "appl" (termSetWithApls $ S.singleton (VTerm $ APPL ca cb)) <**< watchTerm
 
 
-fromCell :: (PropagatorMonad m) => Cell m (TermSet m) -> m (TermStruc a)
+fromCell :: forall a m. (Monad m, PropagatorMonad m) => TermCell m -> m (TermStruc a)
 fromCell c = readCell c >>= fromTermSet
 
-fromCellSize :: (PropagatorMonad m) => Int -> Cell m (TermSet m) -> m (TermStruc a)
+fromCellSize :: forall a m. (Monad m, PropagatorMonad m) => Int -> TermCell m -> m (TermStruc a)
 fromCellSize s c = readCell c >>= fromTermSet' s
 
---Just for the type, so casting can be ommitted
-fromCellSize' :: (PropagatorMonad m) => Int -> Cell m (TermSet m) -> m (TermStruc String)
-fromCellSize' = fromCellSize
-
---Just for the type, so casting can be ommitted
-fromCell' :: (PropagatorMonad m) => Cell m (TermSet m) -> m (TermStruc String)
-fromCell' = fromCell
-
-fromTermSet :: (PropagatorMonad m) => TermSet m -> m (TermStruc a)
+fromTermSet :: (Monad m, PropagatorMonad m) => TermSet m -> m (TermStruc a)
 fromTermSet = fromTermSet' (-1)
 
-fromTermSet' :: (PropagatorMonad m) => Int -> TermSet m -> m (TermStruc a)
-fromTermSet' 0 _ = return STOP
-fromTermSet' _ TSBot = return SBOT
+fromTermSetString :: (Monad m, PropagatorMonad m) => TermSet m -> m (TermStruc String)
+fromTermSetString = fromTermSet
+
+fromTermSet' :: (Monad m, PropagatorMonad m) => Int -> TermSet m -> m (TermStruc a)
+fromTermSet' 0 _ = pure STOP
+fromTermSet' _ TSBot = pure SBOT
 fromTermSet' n ts
-  | ts == emptyTermSet = return STOP
+  | ts == top = pure STOP
   | not $ null (constants ts) = do
-    return $ con $ head $ constantContents (S.toList $ constants ts)
+    pure $ con $ head $ constantContents (S.toList $ constants ts)
   | not $ null (applications ts) = do
-    (a,b) <- return $ head $ applContents (S.toList $ applications ts)
+    (a,b) <- pure $ head $ applContents (S.toList $ applications ts)
     a' <- fromCellSize (n-1) a
     b' <- fromCellSize (n-1) b
-    return $ applts a' b'
+    pure $ SAPPL a' b'--applts a' b' --if a variable is assigned top, it would just vanish
   | otherwise = fromCellSize (n-1) $ head $ variableContents (S.toList $ variables ts) --TODO: This will recurse if there are cyclic equalities

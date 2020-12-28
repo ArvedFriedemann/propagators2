@@ -1,3 +1,4 @@
+{-# LANGUAGE StrictData #-}
 module Data.Lattice
     {-( Meet(..), BoundedMeet(..)
     , Join(..), BoundedJoin(..)
@@ -13,6 +14,7 @@ module Data.Lattice
 import "base" Data.Functor.Identity
 import "base" Data.Monoid ( Dual(..) )
 import "base" Control.Applicative
+import "base" Data.Coerce
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
 
@@ -91,13 +93,13 @@ joinAll = foldr (\/) bot
 -- instances
 
 instance Meet l => Join (Dual l) where
-    (\/) = liftA2 (/\)
+    (\/) = coerce @(l -> l -> l) (/\)
 instance BoundedMeet l => BoundedJoin (Dual l) where
-    bot = pure top
+    bot = coerce @l top
 instance Join l => Meet (Dual l) where
-    (/\) = liftA2 (\/)
+    (/\) = coerce @(l -> l -> l)  (\/)
 instance BoundedJoin l => BoundedMeet (Dual l) where
-    top = pure bot
+    top = coerce @l bot
 instance Lattice l => Lattice (Dual l)
 instance BoundedLattice l => BoundedLattice (Dual l)
 
@@ -109,15 +111,15 @@ newtype Monoidal a = Monoidal
   deriving newtype (Eq, Ord, Bounded, Enum)
   deriving (Functor, Applicative, Monad) via Identity
 
-instance Semigroup a => Meet (Monoidal a) where
-    (/\) = liftA2 (<>)
-instance Monoid a => BoundedMeet (Monoidal a) where
-    top = pure mempty
+instance (Eq a, Semigroup a) => Meet (Monoidal a) where
+    (/\) = coerce @(a -> a -> a) (<>)
+instance (Eq a, Monoid a) => BoundedMeet (Monoidal a) where
+    top = coerce @a mempty
 
 instance Meet l => Semigroup (Monoidal l) where
-    (<>) = liftA2 (/\)
+    (<>) = coerce @(l -> l -> l) (/\)
 instance BoundedMeet l => Monoid (Monoidal l) where
-    mempty = pure top
+    mempty = coerce @l top
 
 
 instance Ord a => Meet (Set a) where

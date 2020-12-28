@@ -1,8 +1,18 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 module Control.Propagator.Class
     ( PropagatorMonad(..)
-    , PropagatorEqMonad(..)
+    , watch
+    , Subscriptions(..)
+    , LiftParent
+    , Forkable(..)
+    , fork
+    , Std
+    , Value
+    , BoundedValue
     , newEmptyCell
+    , newEmptyCell'
+    , iso
+    , eq
     , linkM
     , linkM2
     , link
@@ -11,86 +21,112 @@ module Control.Propagator.Class
     ) where
 
 import "base" Prelude hiding ( (.), id )
+import "base" GHC.Stack
+import "base" Data.Foldable
+import "base" Data.Typeable
+import "base" Data.Type.Equality
 import "base" Control.Category
+
+import "deepseq" Control.DeepSeq
 
 import "this" Data.Iso
 import "this" Data.Lattice
 
+class (Ord a, Typeable a, Show a, NFData a) => Std a
+instance (Ord a, Typeable a, Show a, NFData a) => Std a
 
-class ( forall a. Ord (Cell m a)
-      , forall a. Show (Cell m a)
-      , Ord (Subscription m)
+class (Meet a, Std a) => Value a
+instance (Meet a, Std a) => Value a
+
+class (BoundedMeet a, Value a) => BoundedValue a
+instance (BoundedMeet a, Value a) => BoundedValue a
+
+newtype Subscriptions m = Subscriptions
+    { getSubscriptions :: [Subscription m]
+    }
+  deriving newtype (Semigroup, Monoid)
+
+deriving stock instance Show (Subscription m) => Show (Subscriptions m)
+deriving stock instance Eq (Subscription m) => Eq (Subscriptions m)
+
+class ( forall a. Show (Cell m a)
+      , forall a. Ord (Cell m a)
+      , forall a. NFData (Cell m a)
+      , TestEquality (Cell m)
+      , Eq (Subscription m)
       , Show (Subscription m)
-      , Monoid (Subscription m)
-      , Monad m
+      , NFData (Subscription m)
+      , Typeable m
       ) => PropagatorMonad m where
 
     data Cell m :: * -> *
+
     data Subscription m
-    newCell :: (Meet a, Ord a) => String -> a -> m (Cell m a)
-    newCell' :: (Meet a, Ord a) => a -> m (Cell m a)
-    newCell' = newCell ""
-    readCell :: (Meet a, Ord a) => Cell m a -> m a
-    write :: (Meet a, Ord a) => Cell m a -> a -> m ()
-    watch :: (Meet a, Ord a) => Cell m a -> (a -> m ()) -> m (Subscription m)
-    cancel :: Subscription m -> m ()
 
+    newCell :: Value a => String -> a -> m (Cell m a)
 
-class PropagatorMonad m => PropagatorEqMonad m where
-    iso :: (Meet a, Ord a, Meet b, Ord b) => Cell m a -> Cell m b -> (a <-> b) -> m ()
-    eq :: (Meet a, Ord a) => Cell m a -> Cell m a -> m ()
-    eq a b = iso a b id
+    newCell' :: Value a => a -> m (Cell m a)
+    newCell' = newCell "anon"
+
+    readCell :: Value a => Cell m a -> m a
+
+    write :: (HasCallStack, Value a) => Cell m a -> a -> m ()
+
+    namedWatch :: (HasCallStack, Value a) => Cell m a -> String -> (a -> m ()) -> m (Subscriptions m)
+
+    cancel :: Subscriptions m -> m ()
+
+watch :: (HasCallStack, PropagatorMonad m, Value a) => Cell m a -> (a -> m ()) -> m (Subscriptions m)
+watch c = namedWatch c ""
 
 
 type LiftParent m = forall a. m a -> m a
 
 class Applicative m => Forkable m where
-  fork :: (LiftParent m -> m ()) -> m ()
+    namedFork :: HasCallStack => String -> (LiftParent m -> m ()) -> m ()
 
-
-eqAll :: (PropagatorEqMonad m, Meet a, Ord a) => [Cell m a] -> m ()
-eqAll [] = pure ()
-eqAll (a : as) = mapM_ (eq a) as
+fork :: (HasCallStack, Forkable m) => (LiftParent m -> m ()) -> m ()
+fork = namedFork ""
 
 -------------------------------------------------------------------------------
 -- combinators
 -------------------------------------------------------------------------------
 
-linkM :: ( PropagatorMonad m
-         , Meet a, Ord a
-         , Meet b, Ord b
-         )
-      => Cell m a -> Cell m b -> (a -> m b) -> m (Subscription m)
-linkM ca cb f = watch ca $ \ a -> f a >>= write cb
+iso :: (Applicative m, PropagatorMonad m, Value a, Value b) => Cell m a -> Cell m b -> (a <-> b) -> m (Subscriptions m)
+iso ca cb i = (<>)
+    <$> (namedWatch ca ("to" :: String) $ write cb . to i)
+    <*> (namedWatch cb ("from" :: String) $ write ca . from i)
 
-linkM2 :: ( PropagatorMonad m
-          , Meet a, Ord a
-          , Meet b, Ord b
-          , Meet c, Ord c
-          )
-      => Cell m a -> Cell m b -> Cell m c -> (a -> b -> m c) -> m (Subscription m)
+eq :: (Applicative m, PropagatorMonad m, Value a) => Cell m a -> Cell m a -> m (Subscriptions m)
+eq a b = iso a b id
+
+eqAll :: (Applicative m, PropagatorMonad m, Value a) => [Cell m a] -> m (Subscriptions m)
+eqAll [] = pure mempty
+eqAll (a : as) = fold <$> traverse (eq a) as
+
+linkM :: (Monad m, PropagatorMonad m, Value a, Value b)
+      => Cell m a -> Cell m b -> (a -> m b) -> m (Subscriptions m)
+linkM ca cb f = namedWatch ca ("linkM " ++ show cb) $ \ a -> f a >>= write cb
+
+linkM2 :: (Monad m, PropagatorMonad m, Value a, Value b, Value c)
+       => Cell m a -> Cell m b -> Cell m c -> (a -> b -> m c) -> m (Subscriptions m)
 linkM2 ca cb cc f = do
     unsubCa <- linkM ca cc $ \ a -> f a =<< readCell cb
     unsubCb <- linkM cb cc $ \ b -> flip f b =<< readCell ca
     pure (unsubCa <> unsubCb)
 
-link :: ( PropagatorMonad m
-        , Meet a, Ord a
-        , Meet b, Ord b
-        )
-     =>  Cell m a -> Cell m b -> (a -> b) -> m (Subscription m)
-link ca cb f = linkM ca cb $ pure . f
+link :: (PropagatorMonad m, Value a, Value b)
+     =>  Cell m a -> Cell m b -> (a -> b) -> m (Subscriptions m)
+link ca cb f = namedWatch ca ("linkM " ++ show cb) $ \ a -> write cb $ f a
 
-link2 :: ( PropagatorMonad m
-         , Meet a, Ord a
-         , Meet b, Ord b
-         , Meet c, Ord c
-         )
-      => Cell m a -> Cell m b -> Cell m c -> (a -> b -> c) -> m (Subscription m)
-link2 ca cb cc f = do
-    unsubCa <- linkM ca cc $ \ a -> f a <$> readCell cb
-    unsubCb <- linkM cb cc $ \ b -> flip f b <$> readCell ca
-    pure (unsubCa <> unsubCb)
+link2 :: (Monad m, PropagatorMonad m, Value a, Value b, Value c)
+      => Cell m a -> Cell m b -> Cell m c -> (a -> b -> c) -> m (Subscriptions m)
+link2 ca cb cc f = (<>)
+    <$> linkM ca cc (\ a -> f a <$> readCell cb)
+    <*> linkM cb cc (\ b -> flip f b <$> readCell ca)
 
-newEmptyCell :: forall a m. (PropagatorMonad m, BoundedMeet a, Ord a) => String -> m (Cell m a)
+newEmptyCell :: forall a m. (PropagatorMonad m, BoundedValue a) => String -> m (Cell m a)
 newEmptyCell = flip newCell top
+
+newEmptyCell' :: forall a m. (PropagatorMonad m, BoundedValue a) => m (Cell m a)
+newEmptyCell' = newCell' top
