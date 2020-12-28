@@ -49,11 +49,11 @@ test4 = runTest $ do
     t2 <- fromVarsAsCells (ls [ccon "b", ccon "b"])
     disjunctFork orig
       (void $ do
-        eq orig t1
-        watch orig (\r -> (show <$> fromTermSetString r) >>= (\r' -> traceM $ "branch A:" ++ (show r')) ) )
+        watch orig (\r -> (show <$> fromTermSetString r) >>= (\r' -> traceM $ "branch A:" ++ (show r')) )
+        eq orig t1 )
       (void $ do
-        eq orig t2
-        watch orig (\r -> (show <$> fromTermSetString r) >>= (\r' -> traceM $ "branch B:" ++ (show r')) ) )
+        watch orig (\r -> (show <$> fromTermSetString r) >>= (\r' -> traceM $ "branch B:" ++ (show r')) )
+        eq orig t2 )
     return [orig, t1, t2]
 
 data TD = A | B | C
