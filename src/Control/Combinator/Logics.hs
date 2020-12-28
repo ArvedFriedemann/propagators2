@@ -5,10 +5,12 @@ import "base" Control.Monad
 import "this" Control.Propagator.Class
 import "this" Data.Lattice
 
+
+
 disjunctFork :: (Monad m, PropagatorMonad m, Forkable m, BoundedMeet a, BoundedJoin a, Value a) => Cell m a -> m () -> m () -> m ()
 disjunctFork r m1 m2 = do
-  rc1 <- newCell' top
-  rc2 <- newCell' top
+  rc1 <- newEmptyCell'
+  rc2 <- newEmptyCell'
   disjunct rc1 rc2 r
   fork (\lft -> do
     watch r (lft . write rc1)

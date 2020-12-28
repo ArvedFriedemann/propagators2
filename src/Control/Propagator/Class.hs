@@ -10,6 +10,7 @@ module Control.Propagator.Class
     , Value
     , BoundedValue
     , newEmptyCell
+    , newEmptyCell'
     , iso
     , eq
     , linkM
@@ -121,3 +122,6 @@ link2 ca cb cc f = (<>)
 
 newEmptyCell :: forall a m. (PropagatorMonad m, BoundedValue a) => String -> m (Cell m a)
 newEmptyCell = flip newCell top
+
+newEmptyCell' :: forall a m. (PropagatorMonad m, BoundedValue a) => m (Cell m a)
+newEmptyCell' = newCell' top
