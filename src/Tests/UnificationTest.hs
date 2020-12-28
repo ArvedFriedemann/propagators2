@@ -42,7 +42,7 @@ test4 = runTest $ do
     t1 <- fromVarsAsCells (ls [ccon "b", ccon "a"])
     t2 <- fromVarsAsCells (ls [ccon "b", ccon "b"])
     disjunctFork orig (void $ eq orig t1) (void $ eq orig t2)
-    return [orig]
+    return [orig, t1, t2]
 
 runTest :: Par [TermCell Par] -> IO ()
 runTest p = (putStrLn =<<) (execPar p showAll)

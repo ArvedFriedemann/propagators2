@@ -3,6 +3,7 @@ module Data.Terms.TermFunctions where
 import "this" Data.Terms.Terms
 import "this" Control.Propagator
 import "this" Control.Util
+import "this" Data.Lattice
 --import "containers" Data.Set ( Set )
 import qualified "containers" Data.Set as S
 
@@ -67,12 +68,12 @@ fromTermSet' :: (Monad m, PropagatorMonad m) => Int -> TermSet m -> m (TermStruc
 fromTermSet' 0 _ = pure STOP
 fromTermSet' _ TSBot = pure SBOT
 fromTermSet' n ts
-  | ts == emptyTermSet = pure STOP
+  | ts == top = pure STOP
   | not $ null (constants ts) = do
     pure $ con $ head $ constantContents (S.toList $ constants ts)
   | not $ null (applications ts) = do
     (a,b) <- pure $ head $ applContents (S.toList $ applications ts)
     a' <- fromCellSize (n-1) a
     b' <- fromCellSize (n-1) b
-    pure $ applts a' b'
+    pure $ SAPPL a' b'--applts a' b' --if a variable is assigned top, it would just vanish
   | otherwise = fromCellSize (n-1) $ head $ variableContents (S.toList $ variables ts) --TODO: This will recurse if there are cyclic equalities
