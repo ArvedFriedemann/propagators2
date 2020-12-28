@@ -235,8 +235,8 @@ cancelIO (getSubscriptions -> subs) s = mapM_ cancel' subs
 writeIO :: Value a => Cell Par a -> a -> ParState -> IO ()
 writeIO c a s = do
     cv <- readCellValIO c s
-    changed <- atomicModifyIORef' (getCellVal cv) (meetEq a)
-    when changed $ do
+    same <- atomicModifyIORef' (getCellVal cv) (meetEq a)
+    when (not same) $ do
         ls <- fmap Set.toList . readIORef . listeners $ cv
         mapM_ (flip (forkListenerIO c) s) ls
 
