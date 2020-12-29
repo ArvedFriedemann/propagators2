@@ -7,7 +7,6 @@ import "base" GHC.Generics
 import "base" Data.Typeable
 import "base" Data.Maybe
 import "base" Data.Foldable
-import "base" Data.List.NonEmpty hiding ( length )
 import "base" Data.Functor.Classes
 import "base" Data.Type.Equality
 import "base" Control.Applicative
@@ -31,87 +30,10 @@ import "mtl" Control.Monad.State.Class
 import "deepseq" Control.DeepSeq
 
 import "this" Control.Propagator.Class
+import "this" Control.Propagator.Event.Types
 import "this" Data.Lattice
 import "this" Data.Id
 
-
-data Event m where
-    Create :: Value a => Scope -> Id -> a -> Event m
-    Write :: Value a => Scope -> Cell m a -> a -> Event m
-    Watch :: Value a => Scope -> Cell m a -> Id -> (a -> m ()) -> Event m
-    Fork :: Scope -> Id -> (LiftParent m -> m ()) -> Event m
-    Cancel :: Subscription m -> Event m
-
-instance PropagatorMonad m => Show (Event m) where
-    showsPrec d (Create s i a)
-        = showParen (d >= 10)
-        $ showString "Create "
-        . shows s
-        . showString " "
-        . shows i
-        . showString " "
-        . shows a
-    showsPrec d (Write s i a)
-        = showParen (d >= 10)
-        $ showString "Write "
-        . shows s
-        . showString " "
-        . shows i
-        . showString " "
-        . shows a
-    showsPrec d (Watch s c i _)
-        = showParen (d >= 10)
-        $ showString "Watch "
-        . shows s
-        . showString " "
-        . shows c
-        . showString " "
-        . shows i
-    showsPrec d (Fork s i _)
-        = showParen (d >= 10)
-        $ showString "Fork "
-        . shows s
-        . showString " "
-        . shows i
-    showsPrec d (Cancel s)
-        = showParen (d >= 10)
-        $ showString "Cancel "
-        . shows s
-
-viaType :: (c a, c TypeRep, Typeable a, Typeable b)
-        => Proxy c -> (forall x. c x => x -> x -> y)
-        -> a -> b -> y
-viaType _ f a b = case cast b of
-    Just a' -> f a a'
-    Nothing -> typeOf a `f` typeOf b
-
-instance Ord (Event m) => Eq (Event m) where
-    a == b = compare a b == EQ
-instance (Ord1 (Cell m), Ord (Subscription m)) => Ord (Event m) where
-    Create sa ia a `compare` Create sb ib b 
-        = compare sa sb
-        <> compare ia ib
-        <> viaType (Proxy @Ord) compare a b
-    Write sa ca a `compare` Write sb cb b
-        = compare sa sb
-        <> liftCompare undefined ca cb
-        <> viaType (Proxy @Ord) compare a b
-    Watch sa ca ia _ `compare` Watch sb cb ib _
-        = compare sa sb
-        <> liftCompare undefined ca cb
-        <> compare ia ib
-    Fork sa csa _ `compare` Fork sb csb _
-        = compare sa sb
-        <> compare csa csb
-    Cancel a `compare` Cancel b = compare a b
-    Create _ _ _ `compare` _ = GT
-    _ `compare` Create _ _ _ = LT
-    Write _ _ _ `compare` _ = GT
-    Watch _ _ _ _ `compare` _ = GT
-    _ `compare` Watch _ _ _ _ = LT
-    _ `compare` Write _ _ _ = LT
-    Fork _ _ _ `compare` _ = GT
-    _ `compare` Fork _ _ _ = LT
 
 type Evt m = Event (EventT m)
 
@@ -148,10 +70,10 @@ instance NFData (Cell (EventT m) a)
 instance Eq (Subscription (EventT m)) where
     a == b = compare a b == EQ
 instance Ord (Subscription (EventT m)) where
-    Sub ca ia sa `compare` Sub cb ib sb
-        = compare (cellId ca) (cellId cb)
+    Sub sa ca ia `compare` Sub sb cb ib
+        = compare sa sb
+        <> compare (cellId ca) (cellId cb)
         <> compare ia ib
-        <> compare sa sb
 deriving instance (forall a. Show (Cell (EventT m) a)) => Show (Subscription (EventT m))
 
 instance NFData (Subscription (EventT m)) where
@@ -171,42 +93,34 @@ instance ( Typeable m
       deriving stock (Eq, Ord, Generic)
 
     data Subscription (EventT m) where
-        Sub :: Cell (EventT m) a -> Id -> Scope -> Subscription (EventT m)
+        Sub :: Scope -> Cell (EventT m) a -> Id -> Subscription (EventT m)
 
     newCell i a = do
-        i' <- newId i
+        c <- EventCell <$> newId i
         s <- EventT ask
-        lift . fire $ Create s i' a
-        pure . EventCell $ i'
+        lift . fire . CreateEvt $ Create s c a
+        pure c
 
     namedWatch c i a = do
         i' <- newId i
         s <- EventT ask
-        lift . fire $ Watch s c i' a
-        pure . Subscriptions . pure $ Sub c i' s
+        lift . fire . WatchEvt $ Watch s c i' a
+        pure . Subscriptions . pure $ Sub s c i'
 
     write c a = do
         s <- EventT ask
-        lift . fire $ Write s c a
+        lift . fire . WriteEvt $ Write s c a
 
     readCell (cellId -> i) = lift . flip getVal i =<< EventT ask
 
-    cancel = mapM_ (lift . fire . Cancel) . getSubscriptions
+    cancel = mapM_ (lift . fire . CancelEvt . Cancel) . getSubscriptions
 
-newtype Scope = Scope (NonEmpty Id)
-  deriving stock (Eq, Ord, Generic)
-  deriving newtype (Semigroup, NFData)
-instance Show Scope where
-    show (Scope ids) = fold . intersperse "/" . fmap show $ ids
-
-popScope :: Scope -> Maybe Scope
-popScope (Scope p) = fmap Scope . snd . uncons $ p
 
 instance (Monad m, MonadId m, MonadEvent (Evt m) m) => Forkable (EventT m) where
     namedFork n m = do
         cur <- EventT ask
         child <- newId n
-        lift . fire $ Fork cur child m
+        lift . fire . ForkEvt $ Fork cur child m
 
 data SEBId = SEBId Scope Id
   deriving (Eq, Ord, Show, Generic)
@@ -258,9 +172,9 @@ flushSEB = do
         flushSEB
     
 handleEvent :: Evt SimpleEventBus -> SEB ()
-handleEvent (Create s i a) = lift $ do
-    SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.insert (SEBId s i) (SEBC a Map.empty) cx
-handleEvent (Write s i a) = do
+handleEvent (CreateEvt (Create s i a)) = lift $ do
+    SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.insert (SEBId s $ cellId i) (SEBC a Map.empty) cx
+handleEvent (WriteEvt (Write s i a)) = do
     Just (old, ls) <- searchCell s i . cells <$> lift (SEB get) 
     let a' =  old /\ a
     unless (a' == old) $ do
@@ -268,16 +182,16 @@ handleEvent (Write s i a) = do
         mapM_ (execListener s a') ls
   where
     setValue a' (SEBC _ ls) = SEBC (fromJust $ cast a') ls
-handleEvent (Watch s c i act) = do
+handleEvent (WatchEvt (Watch s c i act)) = do
     Just (v, _) <- searchCell s c . cells <$> lift (SEB get)
     lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.alter (addListener v) (SEBId s (cellId c)) cx
     execListener s v act
   where
     addListener v Nothing = pure $ SEBC v (Map.singleton i act)
     addListener _ (Just (SEBC v ls)) = pure $ SEBC v $ Map.insert i (fromJust $ cast act) ls
-handleEvent (Cancel _) = pure ()
-handleEvent (Fork parent@(Scope s) i act) = do
-    lift $ runReaderT (runEventT $ act (inScope parent)) (Scope (i <| s))
+handleEvent (CancelEvt (Cancel _)) = pure ()
+handleEvent (ForkEvt (Fork s i act)) = do
+    lift $ runReaderT (runEventT $ act (inScope s)) (appendScope i s)
 
 inScope :: Scope -> (forall a. SEB a -> SEB a)
 inScope s = EventT . local (const s) . runEventT
@@ -296,7 +210,7 @@ searchCell s i cx = maybeMerge mergeCell fromThisScope fromParentScope
         SEBC a lsA <- Map.lookup (SEBId s $ cellId i) cx
         liftA2 (,) (cast a) (cast $ Map.elems lsA)
     fromParentScope = do 
-        s' <- popScope s
+        s' <- parentScope s
         searchCell s' i cx
 
 instance MonadEvent (Evt SimpleEventBus) SimpleEventBus where

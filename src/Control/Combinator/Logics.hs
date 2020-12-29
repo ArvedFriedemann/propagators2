@@ -1,11 +1,9 @@
 module Control.Combinator.Logics where
 
 import "base" Control.Monad
-import "base" Debug.Trace
 
 import "this" Control.Propagator.Class
 import "this" Data.Lattice
-
 
 
 disjunctFork :: (Monad m, PropagatorMonad m, Forkable m, BoundedLattice a, Value a) => Cell m a -> m () -> m () -> m ()

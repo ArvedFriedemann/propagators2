@@ -26,7 +26,6 @@ import "base" Data.Foldable
 import "base" Data.Typeable
 import "base" Data.Type.Equality
 import "base" Control.Category
-import "base" Debug.Trace
 
 import "deepseq" Control.DeepSeq
 
@@ -54,9 +53,7 @@ class ( forall a. Show (Cell m a)
       , forall a. Ord (Cell m a)
       , forall a. NFData (Cell m a)
       , TestEquality (Cell m)
-      , Eq (Subscription m)
-      , Show (Subscription m)
-      , NFData (Subscription m)
+      , Std (Subscription m)
       , Typeable m
       , Monad m
       ) => PropagatorMonad m where
