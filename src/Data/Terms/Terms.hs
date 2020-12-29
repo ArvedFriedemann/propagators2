@@ -3,6 +3,7 @@
 module Data.Terms.Terms where
 
 import "base" GHC.Generics
+import "base" Control.Monad
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as S
@@ -15,7 +16,7 @@ import "this" Control.Propagator
 
 data TermConst = TOP | BOT | AND | OR | IMPL | CUST String | ID Int | CUSTOM String
   deriving (Show, Eq, Ord, Generic)
-  
+
 data Term a = CON TermConst
             | APPL a a
   deriving (Show, Eq, Ord, Functor, Foldable, Generic)
@@ -168,6 +169,48 @@ termListener this ts = do
   traverse propBotThis $ aplRights appList
 
   return ()
+
+copyTerm :: (PropagatorMonad m) =>
+  (Cell m (TermSet m) -> TermSet m -> m ()) ->
+  (Cell m (TermSet m) -> TermSet m -> m ()) ->
+  Cell m (TermSet m) -> Cell m (TermSet m) -> m ()
+copyTerm transCTo transCFrom orig cell = do
+  copyTerm' transCTo orig cell
+  copyTerm' transCFrom cell orig
+
+copyTerm' :: (PropagatorMonad m) =>
+  (Cell m (TermSet m) -> TermSet m -> m ()) ->
+  Cell m (TermSet m) -> Cell m (TermSet m) -> m ()
+copyTerm' transC orig ccell = do
+  apl1 <- newEmptyCell "cpyapl1"
+  apl2 <- newEmptyCell "cpyapl2"
+  copyTerm'' transC (termSetWithApls $ S.singleton (VTerm $ APPL apl1 apl2)) orig ccell
+
+copyTerm'' :: (PropagatorMonad m) =>
+  (Cell m (TermSet m) -> TermSet m -> m ()) ->
+  TermSet m -> Cell m (TermSet m) -> Cell m (TermSet m) -> m ()
+copyTerm'' transC newObj orig ccell = do
+  watch orig (transC ccell)
+  void $ namedWatch orig ("cpy-"++show orig++"-to-"++show ccell) (copyTermListener newObj ccell)
+
+copyTermListener :: (PropagatorMonad m) =>
+  TermSet m -> Cell m (TermSet m) -> TermSet m -> m ()
+copyTermListener newObj ccell orig = do
+
+  unless (null $ applications orig) $ do
+    write ccell newObj
+    let (VTerm (APPL v1 v2), VTerm (APPL v1' v2')) = (head $ S.toList $ applications $ newObj, head $ S.toList $ applications $ orig)
+      in do
+         copyTerm v1' v1
+         copyTerm v2' v2
+
+  when ((null $ constants orig) &&
+        (null $ applications orig) &&
+        ((not . null . variables) orig)) $
+    let var = head $ variableContent $ head $ S.toList $ variables orig
+      in do
+        copyTerm var ccell --TODO: current copy could be transferred
+
 
 {-
 unifyM :: PropagatorMonad m =>
