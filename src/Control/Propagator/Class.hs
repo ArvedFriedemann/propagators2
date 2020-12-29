@@ -28,13 +28,12 @@ import "base" Data.Type.Equality
 import "base" Control.Category
 import "base" Debug.Trace
 
-import "deepseq" Control.DeepSeq
-
 import "this" Data.Iso
 import "this" Data.Lattice
+import "this" Data.Facts
 
-class (Ord a, Typeable a, Show a, NFData a) => Std a
-instance (Ord a, Typeable a, Show a, NFData a) => Std a
+class (Ord a, Typeable a, Show a) => Std a
+instance (Ord a, Typeable a, Show a) => Std a
 
 class (Meet a, Std a) => Value a
 instance (Meet a, Std a) => Value a
@@ -52,11 +51,9 @@ deriving stock instance Eq (Subscription m) => Eq (Subscriptions m)
 
 class ( forall a. Show (Cell m a)
       , forall a. Ord (Cell m a)
-      , forall a. NFData (Cell m a)
       , TestEquality (Cell m)
       , Eq (Subscription m)
       , Show (Subscription m)
-      , NFData (Subscription m)
       , Typeable m
       , Monad m
       ) => PropagatorMonad m where
@@ -81,6 +78,13 @@ class ( forall a. Show (Cell m a)
 watch :: (HasCallStack, PropagatorMonad m, Value a) => Cell m a -> (a -> m ()) -> m (Subscriptions m)
 watch c = namedWatch c ""
 
+{-
+--AKA: delayed Action
+recursiveCall :: (HasCallStack, PropagatorMonad m) => m () -> m (Subscriptions m)
+recursiveCall m = do
+  tmp <- newCell "tmp" UnitFact
+  namedWatch tmp "rec-call" (const m)
+-}
 
 type LiftParent m = forall a. m a -> m a
 

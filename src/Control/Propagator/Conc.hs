@@ -29,8 +29,6 @@ import "containers" Data.Set qualified as Set
 
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
 
-import "deepseq" Control.DeepSeq
-
 import "this" Data.ShowM
 import "this" Control.Propagator.Class
 import "this" Data.Lattice
@@ -114,8 +112,6 @@ newListener n l = Listener n
     <*> newIORef False
     <*> pure l
 
-instance NFData (Listener a)
-
 instance Eq (Listener a) where
     a == b = compare a b == EQ
 instance Ord (Listener a) where
@@ -159,7 +155,7 @@ readCellValIO idA s = toCellVal =<< MutList.read (cellIndex idA) (cells s)
 
 copyParState :: String -> ParState -> IO ParState
 copyParState n s
-    = ParState 
+    = ParState
         <$> newId n
         <*> pure (jobCount s)
         <*> (MutList.map copyAnyCellVal . cells $ s)
@@ -202,8 +198,6 @@ instance TestEquality (Cell Par) where
           then unsafeCoerce $ Just Refl
           else Nothing
 
-instance NFData (Cell Par a)
-
 -- Sub
 
 instance Eq (Subscription Par) where
@@ -218,9 +212,6 @@ instance Show (Subscription Par) where
         . showsPrec 10 c
         . showString " "
         . showsPrec 10 l
-
-instance NFData (Subscription Par) where
-    rnf (Sub c l) = c `deepseq` l `deepseq` ()
 
 -- PropagatorMonad
 
@@ -274,7 +265,7 @@ cancelIO (getSubscriptions -> subs) s = mapM_ cancel' subs
         atomicModifyIORef' ls $ (,()) . Set.delete l
 
 writeIO :: HasCallStack => Value a => Cell Par a -> a -> ParState -> IO ()
-writeIO c (force -> a) s = do
+writeIO c a s = do
     cv <- readCellValIO c s
     same <-tryTimeout ("write " ++ show c ++ " = " ++ show a ++ " you may have a spaceleak")
             $ atomicModifyIORef' (getCellVal cv) meetEq
@@ -283,7 +274,7 @@ writeIO c (force -> a) s = do
         ls <- fmap Set.toList . readIORef . listeners $ cv
         mapM_ (flip (forkListenerIO c) s) ls
   where meetEq a' = let a'' = a /\ a'
-                     in force (a'', a == a'')
+                     in (a'', a == a'')
 
 watchIO :: HasCallStack => Value a => Cell Par a -> String -> (a -> Par ()) -> ParState -> IO (Subscriptions Par)
 watchIO c n l s = do
@@ -317,7 +308,7 @@ connectStates n s s' = mapM_ connectCell =<< enumFromTo 0 <$> pred <$> MutList.l
     connectCell i = do
         AnyCellVal c <- flip MutList.read (cells s) i
         let idC = cellId c
-        let nameL = "propagate " ++ show idC ++ " into " ++ show n 
+        let nameL = "propagate " ++ show idC ++ " into " ++ show n
         flip (watchIO idC nameL) s $ \ v -> liftPar $ \ _ -> writeIO idC v s'
 
 forkJob :: HasCallStack => String -> ParState -> IO a -> IO ()

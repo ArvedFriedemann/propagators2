@@ -6,6 +6,9 @@ import "containers" Data.Set qualified as S
 
 import "this" Data.Lattice
 
+data UnitFact = UnitFact
+  deriving (Eq, Ord, Show)
+
 
 data Fact a
     = Top
@@ -25,6 +28,18 @@ data LogFact a
     | LogFact a :=> LogFact a
     | LBot
   deriving (Eq, Ord, Show, Functor)
+
+
+instance Meet UnitFact where
+  _ /\ _ = UnitFact
+instance BoundedMeet UnitFact where
+    top = UnitFact
+instance Join UnitFact where
+  _ \/ _ = UnitFact
+instance BoundedJoin UnitFact where
+    bot = UnitFact
+instance Lattice UnitFact
+instance BoundedLattice UnitFact
 
 
 --TODO: Clean this up!

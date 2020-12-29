@@ -15,16 +15,14 @@ import "this" Control.Propagator
 
 data TermConst = TOP | BOT | AND | OR | IMPL | CUST String | ID Int | CUSTOM String
   deriving (Show, Eq, Ord, Generic)
-instance NFData TermConst
+  
 data Term a = CON TermConst
             | APPL a a
   deriving (Show, Eq, Ord, Functor, Foldable, Generic)
-instance NFData a => NFData (Term a)
 
 data OpenVarTerm m = VVar (Cell m (TermSet m))
                   | VTerm (Term (Cell m (TermSet m)))
   deriving Generic
-instance PropagatorMonad m => NFData (OpenVarTerm m)
 deriving instance PropagatorMonad m => Show (OpenVarTerm m)
 deriving instance PropagatorMonad m => Eq (OpenVarTerm m)
 deriving instance PropagatorMonad m => Ord (OpenVarTerm m)
@@ -82,7 +80,6 @@ data TermSet m =   TSBot
                    applications :: Set (OpenVarTerm m)
                  }
   deriving Generic
-instance PropagatorMonad m => NFData (TermSet m)
 deriving instance PropagatorMonad m => Show (TermSet m)
 deriving instance PropagatorMonad m => Eq (TermSet m)
 deriving instance PropagatorMonad m => Ord (TermSet m)
