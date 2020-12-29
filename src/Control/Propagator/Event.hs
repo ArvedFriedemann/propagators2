@@ -7,7 +7,7 @@ import "base" GHC.Generics
 import "base" Data.Typeable
 import "base" Data.Maybe
 import "base" Data.Foldable
-import "base" Data.List.NonEmpty
+import "base" Data.List.NonEmpty hiding ( length )
 import "base" Data.Functor.Classes
 import "base" Data.Type.Equality
 import "base" Control.Applicative
@@ -22,7 +22,7 @@ import "containers" Data.Map ( Map )
 import "containers" Data.Map qualified as Map
 
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
-import "transformers" Control.Monad.Trans.State ( StateT(..), evalStateT )
+import "transformers" Control.Monad.Trans.State.Strict ( StateT(..), evalStateT )
 import "transformers" Control.Monad.Trans.Class
 
 import "mtl" Control.Monad.Reader.Class
@@ -213,6 +213,13 @@ data SEBId = SEBId Scope Id
 
 data SEBCell where
     SEBC :: Value a => a -> Map Id (a -> SEB ()) -> SEBCell
+instance Show SEBCell where
+    showsPrec d (SEBC a m)
+        = showParen (d >= 10)
+        $ showString "SEBC "
+        . showsPrec 10 a
+        . showString " "
+        . shows (Map.keys m)
 
 toVal :: Value a => SEBCell -> Maybe a
 toVal (SEBC a _) = cast a
@@ -241,9 +248,10 @@ runSEB start end = do
 
 flushSEB :: SEB ()
 flushSEB = do
-    (SEBS evts cx) <- lift $ SEB get
+    evts <- lift . SEB . gets $ unSEBS
     unless (Set.null evts) $ do
-        lift . SEB . put $ SEBS Set.empty cx
+        traceM "flushSEB"
+        lift . SEB . modify $ \ (SEBS _ cx) -> SEBS Set.empty cx
         forM_ (Set.toDescList evts) $ \ evt -> do
             traceM $ show evt
             handleEvent evt
@@ -255,14 +263,18 @@ handleEvent (Create s i a) = lift $ do
 handleEvent (Write s i a) = do
     Just (old, ls) <- searchCell s i . cells <$> lift (SEB get) 
     let a' =  old /\ a
-    lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.insert (SEBId s $ cellId i) (SEBC a' Map.empty) cx
-    mapM_ ($ a') ls
-handleEvent (Watch s c i a) = do
-    Just (v, _) <- searchCell s c . cells <$> lift (SEB get)
-    lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.adjust addListener (SEBId s i) cx
-    a v
+    unless (a' == old) $ do
+        lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.adjust (setValue a') (SEBId s $ cellId i) cx
+        mapM_ ($ a') ls
   where
-    addListener (SEBC v ls) = SEBC v $ Map.insert i (fromJust $ cast a) ls
+    setValue a' (SEBC _ ls) = SEBC (fromJust $ cast a') ls
+handleEvent (Watch s c i act) = do
+    Just (v, _) <- searchCell s c . cells <$> lift (SEB get)
+    lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.alter (addListener v) (SEBId s (cellId c)) cx
+    act v
+  where
+    addListener v Nothing = pure $ SEBC v (Map.singleton i act)
+    addListener _ (Just (SEBC v ls)) = pure $ SEBC v $ Map.insert i (fromJust $ cast act) ls
 handleEvent (Cancel _) = pure ()
 handleEvent (Fork parent@(Scope s) i act) = do
     lift $ runReaderT (runEventT $ act lft) (Scope (i <| s))

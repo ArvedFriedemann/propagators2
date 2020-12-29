@@ -10,23 +10,21 @@ import "this" Data.Lattice
 
 disjunctFork :: (Monad m, PropagatorMonad m, Forkable m, BoundedLattice a, Value a) => Cell m a -> m () -> m () -> m ()
 disjunctFork r m1 m2 = do
-  rc1 <- newEmptyCell'
-  rc2 <- newEmptyCell'
+  rc1 <- newEmptyCell "rc1"
+  rc2 <- newEmptyCell "rc2"
   disjunct rc1 rc2 r
-  fork (\lft -> do
-    watch r (lft . write rc1)
+  namedFork "f1" $ \lft -> do
+    namedWatch r "r -> rc1" (lft . write rc1)
     m1
-    )
-  fork (\lft -> do
-    watch r (lft . write rc2)
+  namedFork "f2" $ \lft -> do
+    namedWatch r "r -> rc2" (lft . write rc2)
     m2
-    )
 
 --If one of the values becomes bot, the output it set equal to the other value
 disjunct :: (Monad m, PropagatorMonad m, BoundedLattice a, Value a) => Cell m a -> Cell m a -> Cell m a -> m (Subscriptions m)
 disjunct a b r = do
-  unsub1 <- watch a (disjunctListener r b)
-  unsub2 <- watch b (disjunctListener r a)
+  unsub1 <- namedWatch a ("disjunct " ++ show a ++ " " ++ show b) (disjunctListener r b)
+  unsub2 <- namedWatch b ("disjunct " ++ show b ++ " " ++ show a) (disjunctListener r a)
   return (unsub1 <> unsub2)
 
 --TODO: does not remove subscriptions

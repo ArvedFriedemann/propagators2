@@ -153,7 +153,7 @@ propBot cout cin = do
     else pure ()
 
 watchTerm :: (Applicative m, PropagatorMonad m) => Cell m (TermSet m) -> m (Subscriptions m)
-watchTerm ct = watch ct $ termListener ct
+watchTerm ct = namedWatch ct "term" $ termListener ct
 
 --WARNING: Does not remove listeners after join!
 termListener :: (Applicative m, PropagatorMonad m) => Cell m (TermSet m) -> TermSet m -> m ()
