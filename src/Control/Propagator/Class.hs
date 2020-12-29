@@ -9,6 +9,7 @@ module Control.Propagator.Class
     , Std
     , Value
     , BoundedValue
+    , recursiveCall
     , newEmptyCell
     , newEmptyCell'
     , iso
@@ -26,6 +27,7 @@ import "base" Data.Foldable
 import "base" Data.Typeable
 import "base" Data.Type.Equality
 import "base" Control.Category
+import "base" Control.Monad
 import "base" Debug.Trace
 
 import "this" Data.Iso
@@ -78,13 +80,12 @@ class ( forall a. Show (Cell m a)
 watch :: (HasCallStack, PropagatorMonad m, Value a) => Cell m a -> (a -> m ()) -> m (Subscriptions m)
 watch c = namedWatch c ""
 
-{-
 --AKA: delayed Action
-recursiveCall :: (HasCallStack, PropagatorMonad m) => m () -> m (Subscriptions m)
+recursiveCall :: (HasCallStack, PropagatorMonad m) => m a -> m (Subscriptions m)
 recursiveCall m = do
   tmp <- newCell "tmp" UnitFact
-  namedWatch tmp "rec-call" (const m)
--}
+  namedWatch tmp "rec-call" (const (void m))
+
 
 type LiftParent m = forall a. m a -> m a
 
