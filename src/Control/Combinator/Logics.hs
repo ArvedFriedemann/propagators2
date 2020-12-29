@@ -4,29 +4,45 @@ import "base" Control.Monad
 
 import "this" Control.Propagator.Class
 import "this" Data.Lattice
+import "this" Control.Util
 
+--TODO: does not delete listeners
+disjunctForkList :: (Monad m, PropagatorMonad m, Forkable m, BoundedLattice a, Value a) => Cell m a -> [m ()] -> m ()
+disjunctForkList _ [] = return ()
+disjunctForkList c [m] = do
+  fork (\lft -> do
+    namedWatch c ("->"++show c) (lft.(write c))
+    m
+    )
+disjunctForkList c mlst = do
+  ms <- forM mlst (\m -> do
+    rc <- newEmptyCell "rc"
+    return (rc, m))
+  case ms of
+    ((rc1,_):(rc2,_):rms) -> do
+      void $ namedWatch rc1 "rc1mult" $ disjunctMultiListener c (rc1:rc2:(fst <$> rms))
+      void $ namedWatch rc2 "rc2mult" $ disjunctMultiListener c (rc1:rc2:(fst <$> rms))
+      forM_ ms (\(rc, m) -> namedFork "rcf" (\lft -> do
+        namedWatch c "c->rc" (lft.(write rc))
+        m
+        ))
+    _ -> error "list should have at least two elements!"
 
 disjunctFork :: (Monad m, PropagatorMonad m, Forkable m, BoundedLattice a, Value a) => Cell m a -> m () -> m () -> m ()
-disjunctFork r m1 m2 = do
-  rc1 <- newEmptyCell "rc1"
-  rc2 <- newEmptyCell "rc2"
-  disjunct rc1 rc2 r
-  namedFork "f1" $ \lft -> do
-    namedWatch r (show r ++ " -> " ++ show rc1) (lft . write rc1)
-    m1
-  namedFork "f2" $ \lft -> do
-    namedWatch r (show r ++ " -> " ++ show rc2) (lft . write rc2)
-    m2
+disjunctFork r m1 m2 = disjunctForkList r [m1,m2]
 
---If one of the values becomes bot, the output it set equal to the other value
-disjunct :: (Monad m, PropagatorMonad m, BoundedLattice a, Value a) => Cell m a -> Cell m a -> Cell m a -> m (Subscriptions m)
-disjunct a b r = do
-  unsub1 <- namedWatch a ("disjunct " ++ show a ++ " " ++ show b) (disjunctListener r b)
-  unsub2 <- namedWatch b ("disjunct " ++ show b ++ " " ++ show a) (disjunctListener r a)
-  return (unsub1 <> unsub2)
 
 --TODO: does not remove subscriptions
 disjunctListener :: (Monad m, PropagatorMonad m, BoundedJoin a, Value a) => Cell m a -> Cell m a -> a -> m ()
 disjunctListener r ca b
   | b == bot =  void $ eq r ca
   | otherwise = return ()
+
+--actually observes a list of cells, but as it only needs to be triggered by one it looks like a normal listener linked to one variable
+disjunctMultiListener :: (Monad m, PropagatorMonad m, BoundedJoin a, Value a) => Cell m a -> [Cell m a] -> a -> m ()
+disjunctMultiListener res cells _ = do
+  rds <- mapM (\c -> readCell c >>= \c' -> return (c',c)) cells
+  let valids = filter (not.(== bot).fst) rds
+  if isSingleton valids
+    then void $ eq res (snd $ head valids)
+    else return ()

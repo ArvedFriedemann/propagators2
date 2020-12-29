@@ -9,3 +9,7 @@ m <**< m' = do
 safeHead :: [a] -> [a]
 safeHead [] = []
 safeHead (x : _) = [x]
+
+isSingleton :: [a] -> Bool
+isSingleton [_] = True
+isSingleton _ = False
