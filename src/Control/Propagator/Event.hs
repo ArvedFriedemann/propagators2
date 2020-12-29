@@ -265,22 +265,25 @@ handleEvent (Write s i a) = do
     let a' =  old /\ a
     unless (a' == old) $ do
         lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.adjust (setValue a') (SEBId s $ cellId i) cx
-        mapM_ ($ a') ls
+        mapM_ (execListener s a') ls
   where
     setValue a' (SEBC _ ls) = SEBC (fromJust $ cast a') ls
 handleEvent (Watch s c i act) = do
     Just (v, _) <- searchCell s c . cells <$> lift (SEB get)
     lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.alter (addListener v) (SEBId s (cellId c)) cx
-    act v
+    execListener s v act
   where
     addListener v Nothing = pure $ SEBC v (Map.singleton i act)
     addListener _ (Just (SEBC v ls)) = pure $ SEBC v $ Map.insert i (fromJust $ cast act) ls
 handleEvent (Cancel _) = pure ()
 handleEvent (Fork parent@(Scope s) i act) = do
-    lift $ runReaderT (runEventT $ act lft) (Scope (i <| s))
-  where
-    lft :: forall a. SEB a -> SEB a
-    lft = EventT . local (const parent) . runEventT
+    lift $ runReaderT (runEventT $ act (inScope parent)) (Scope (i <| s))
+
+inScope :: Scope -> (forall a. SEB a -> SEB a)
+inScope s = EventT . local (const s) . runEventT
+
+execListener :: Value a => Scope -> a -> (a -> SEB ()) -> SEB ()
+execListener s a m = inScope s (m a)
 
 maybeMerge :: (a -> a -> a) -> Maybe a -> Maybe a -> Maybe a
 maybeMerge f a b = liftA2 f a b <|> a <|> b

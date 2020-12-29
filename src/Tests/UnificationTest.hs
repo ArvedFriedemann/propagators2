@@ -48,6 +48,7 @@ test4 = runTestSEB $ do
     orig <- fromVarsAsCells (ls [var sv1, ccon "a"])
     t1 <- fromVarsAsCells (ls [ccon "b", ccon "a"])
     t2 <- fromVarsAsCells (ls [ccon "b", ccon "b"])
+
     disjunctFork orig
       (void $ do
         watch orig (\r -> (show <$> fromTermSetString r) >>= (\r' -> traceM $ "branch A:" ++ (show r')) )

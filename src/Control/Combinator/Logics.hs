@@ -14,10 +14,10 @@ disjunctFork r m1 m2 = do
   rc2 <- newEmptyCell "rc2"
   disjunct rc1 rc2 r
   namedFork "f1" $ \lft -> do
-    namedWatch r "r -> rc1" (lft . write rc1)
+    namedWatch r (show r ++ " -> " ++ show rc1) (lft . write rc1)
     m1
   namedFork "f2" $ \lft -> do
-    namedWatch r "r -> rc2" (lft . write rc2)
+    namedWatch r (show r ++ " -> " ++ show rc2) (lft . write rc2)
     m2
 
 --If one of the values becomes bot, the output it set equal to the other value
