@@ -33,13 +33,6 @@ disjunctForkList c mlst = do
 disjunctFork :: (Monad m, PropagatorMonad m, Forkable m, BoundedLattice a, Value a) => Cell m a -> m () -> m () -> m ()
 disjunctFork r m1 m2 = disjunctForkList r [m1,m2]
 
-
---TODO: does not remove subscriptions
-disjunctListener :: (Monad m, PropagatorMonad m, BoundedJoin a, Value a) => Cell m a -> Cell m a -> a -> m ()
-disjunctListener r ca b
-  | b == bot =  void $ eq r ca
-  | otherwise = return ()
-
 --actually observes a list of cells, but as it only needs to be triggered by one it looks like a normal listener linked to one variable
 disjunctMultiListener :: (Monad m, PropagatorMonad m, BoundedJoin a, Value a) => Cell m a -> [Cell m a] -> a -> m ()
 disjunctMultiListener res cells _ = do
