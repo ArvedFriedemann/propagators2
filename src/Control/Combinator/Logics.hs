@@ -1,6 +1,7 @@
 module Control.Combinator.Logics where
 
 import "base" Control.Monad
+import "base" Debug.Trace
 
 import "this" Control.Propagator.Class
 import "this" Data.Lattice
@@ -27,6 +28,7 @@ disjunctForkList c mlst = do
         m
         ))
     _ -> error "list should have at least two elements!"
+
 
 disjunctFork :: (Monad m, PropagatorMonad m, Forkable m, BoundedLattice a, Value a) => Cell m a -> m () -> m () -> m ()
 disjunctFork r m1 m2 = disjunctForkList r [m1,m2]

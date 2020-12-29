@@ -35,7 +35,6 @@ import "this" Data.ShowM
 import "this" Control.Propagator.Class
 import "this" Data.Lattice
 import "this" Data.Id
-import "this" Data.Typed
 import "this" Data.MutList ( MutList )
 import "this" Data.MutList qualified as MutList
 
@@ -208,11 +207,9 @@ instance NFData (Cell Par a)
 -- Sub
 
 instance Eq (Subscription Par) where
-    a == b = compare a b == EQ
-instance Ord (Subscription Par) where
-    Sub cA lA `compare` Sub cB lB
-        = compareTyped cA cB
-        <> compareTyped lA lB
+    Sub cA lA == Sub cB lB = case testEquality cA cB of
+        Just Refl -> cA == cB && lA == lB
+        Nothing   -> False
 
 instance Show (Subscription Par) where
     showsPrec d (Sub c l)

@@ -65,15 +65,18 @@ instance NFData TD
 
 test5 :: IO ()
 test5 = flip runSEB (>> pure ()) $ do
-    orig <- newEmptyCell @(S.Set TD) "orig" 
+    orig <- newCell "orig" ([A, B, C] :: S.Set TD)
     c2 <- newCell "c2" ([A, C] :: S.Set TD)
 
+    orig `eq` c2
+
     namedFork "Fork" $ \ lft -> do
-        watch c2 $ lft . write orig
+        orig `eq` c2
+        write c2 [A]
+        watch orig $ lft . write orig
         pure ()
     
-    watch orig $ \ _ -> write c2 [A]
-      
+        
     pure $ do
         v <- readCell orig
         traceM $ show v
