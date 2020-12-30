@@ -2,16 +2,22 @@
 {-# LANGUAGE ApplicativeDo #-}
 module Data.Terms.Terms where
 
-import "base" GHC.Generics
+import "base" GHC.Generics hiding (to, from)
 import "base" Control.Monad
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as S
 
+import "containers" Data.Map ( Map )
+import "containers" Data.Map qualified as M
+
+import "base" Data.Maybe
+
 import "deepseq" Control.DeepSeq
 
 import "this" Data.Lattice
 import "this" Control.Propagator
+import "this" Control.Util
 
 
 data TermConst = TOP | BOT | AND | OR | IMPL | CUST String | ID Int | CUSTOM String
@@ -170,47 +176,53 @@ termListener this ts = do
 
   return ()
 
-copyTerm :: (PropagatorMonad m) =>
-  (Cell m (TermSet m) -> TermSet m -> m ()) ->
-  (Cell m (TermSet m) -> TermSet m -> m ()) ->
-  Cell m (TermSet m) -> Cell m (TermSet m) -> m ()
-copyTerm transCTo transCFrom orig cell = do
-  copyTerm' transCTo orig cell
-  copyTerm' transCFrom cell orig
+refreshVarsTbl :: forall m. (PropagatorMonad m) =>
+  [(TermConst, Cell m (TermSet m))] ->
+  (Cell m (TermSet m)) -> (Cell m (TermSet m)) -> m ()
+refreshVarsTbl tbl = refreshVars to from
+  where
+    mto = M.fromList tbl
+    mfrom = M.fromList ((\(x,y) -> (y,x)) <$> tbl)
+    to :: TermConst -> [Cell m (TermSet m)]
+    to = maybeToList. flip M.lookup mto
+    from :: Cell m (TermSet m) -> [TermConst]
+    from = maybeToList . flip M.lookup mfrom
 
-copyTerm' :: (PropagatorMonad m) =>
-  (Cell m (TermSet m) -> TermSet m -> m ()) ->
-  Cell m (TermSet m) -> Cell m (TermSet m) -> m ()
-copyTerm' transC orig ccell = do
-  apl1 <- newEmptyCell "cpyapl1"
-  apl2 <- newEmptyCell "cpyapl2"
-  copyTerm'' transC (termSetWithApls $ S.singleton (VTerm $ APPL apl1 apl2)) orig ccell
-
-copyTerm'' :: (PropagatorMonad m) =>
-  (Cell m (TermSet m) -> TermSet m -> m ()) ->
-  TermSet m -> Cell m (TermSet m) -> Cell m (TermSet m) -> m ()
-copyTerm'' transC newObj orig ccell = do
-  watch orig (transC ccell)
-  void $ namedWatch orig ("cpy-"++show orig++"-to-"++show ccell) (copyTermListener newObj ccell)
+refreshVars :: forall m. (PropagatorMonad m) =>
+  (TermConst -> [Cell m (TermSet m)]) ->
+  (Cell m (TermSet m) -> [TermConst]) ->
+  (Cell m (TermSet m)) -> (Cell m (TermSet m)) -> m ()
+refreshVars to from orig copy = void $ do
+    watch orig (copyTermListener to' copy)
+    watch copy (copyTermListener from' orig)
+  where
+    to' :: TermSet m -> TermSet m
+    to' ts = termSetWithVariables (S.fromList $ VVar <$> concatMap to (constantContents (S.toList $ constants ts)) )
+    from' :: TermSet m -> TermSet m
+    from' ts = termSetWithVariables (S.fromList $ (VTerm . CON) <$> concatMap from (variableContents (S.toList $ variables ts)) )
 
 copyTermListener :: (PropagatorMonad m) =>
-  TermSet m -> Cell m (TermSet m) -> TermSet m -> m ()
-copyTermListener newObj ccell orig = do
+  (TermSet m -> TermSet m) ->
+  (Cell m (TermSet m)) -> TermSet m -> m ()
+copyTermListener trans ccell orig = do
+
+  write ccell (trans orig)
 
   unless (null $ applications orig) $ do
-    write ccell newObj
-    let (VTerm (APPL v1 v2), VTerm (APPL v1' v2')) = (head $ S.toList $ applications $ newObj, head $ S.toList $ applications $ orig)
-      in do
-         copyTerm v1' v1
-         copyTerm v2' v2
+    let (VTerm (APPL v1 v2)) = S.findMin $ applications orig
+      in void $ do
+        v1' <- newEmptyCell "cpy1"
+        v2' <- newEmptyCell "cpy2"
+        write ccell (termSetWithApls $ S.singleton (VTerm (APPL v1' v2')))
+        watch v1 (copyTermListener trans v1')
+        watch v2 (copyTermListener trans v2')
 
-  when ((null $ constants orig) &&
-        (null $ applications orig) &&
-        ((not . null . variables) orig)) $
-    let var = head $ variableContent $ head $ S.toList $ variables orig
-      in do
-        copyTerm var ccell --TODO: current copy could be transferred
-
+  unless ((null $ constants orig) &&
+          (null $ applications orig) &&
+          (not $ null $ variables orig)) $ do
+    let (VVar v) = S.findMin $ variables orig
+      in void $ do
+        watch v (copyTermListener trans ccell) --WARNING: This spans infinitely many listeners unless no double listeners can be placed!
 
 {-
 unifyM :: PropagatorMonad m =>
