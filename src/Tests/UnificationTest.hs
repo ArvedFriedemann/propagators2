@@ -9,6 +9,7 @@ import "deepseq" Control.DeepSeq
 
 import "containers" Data.Set qualified as S
 
+import "this" Data.Terms.Terms
 import "this" Data.Terms.TermFunctions
 import "this" Control.Propagator
 import "this" Control.Propagator.Conc
@@ -58,6 +59,14 @@ test4 = runTestSEB $ do
         eq orig t2 )
     return [orig, t1, t2]
 
+testRefresh :: IO ()
+testRefresh = runTestSEB $ do
+  orig <- fromVarsAsCells (ls [ccon "b", ccon "a"])
+  copy <- newEmptyCell "copy"
+  v1 <- newEmptyCell "v1"
+  refreshVarsTbl [(CUSTOM "b",v1)] orig copy
+  return [orig, copy]
+
 data TD = A | B | C
   deriving (Eq, Ord, Show, Generic, Enum, Bounded)
 instance NFData TD
@@ -75,8 +84,8 @@ test5 = flip runSEB (>> pure ()) $ do
         write c2 [A]
         watch orig $ lft . write orig
         pure ()
-    
-        
+
+
     pure $ do
         v <- readCell orig
         traceM $ show v
@@ -86,6 +95,6 @@ runTestSEB p = (putStrLn =<<) (runSEB p showAll)
 
 runTest :: Par [TermCell Par] -> IO ()
 runTest p = (putStrLn =<<) (execPar p showAll)
-        
+
 showAll :: (Monad m, PropagatorMonad m) => [TermCell m] -> m String
 showAll = fmap (intercalate "\n\n") . traverse (fmap show . fromCellSize @String 100)
