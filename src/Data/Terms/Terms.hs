@@ -193,36 +193,48 @@ refreshVars :: forall m. (PropagatorMonad m) =>
   (Cell m (TermSet m) -> [TermConst]) ->
   (Cell m (TermSet m)) -> (Cell m (TermSet m)) -> m ()
 refreshVars to from orig copy = void $ do
-    watch orig (copyTermListener to' copy)
-    watch copy (copyTermListener from' orig)
+    placeCopyTermListener to' orig copy
+    placeCopyTermListener from' copy orig
   where
     to' :: TermSet m -> TermSet m
     to' ts = termSetWithVariables (S.fromList $ VVar <$> concatMap to (constantContents (S.toList $ constants ts)) )
     from' :: TermSet m -> TermSet m
     from' ts = termSetWithVariables (S.fromList $ (VTerm . CON) <$> concatMap from (variableContents (S.toList $ variables ts)) )
 
+placeCopyTermListener :: (PropagatorMonad m) =>
+  (TermSet m -> TermSet m) ->
+  (Cell m (TermSet m)) -> (Cell m (TermSet m)) ->  m ()
+placeCopyTermListener trans orig ccell = void $ do
+  v1' <- newEmptyCell "cpy1"
+  v2' <- newEmptyCell "cpy2"
+  watch orig (copyTermListener v1' v2' trans ccell)
+
 copyTermListener :: (PropagatorMonad m) =>
+  Cell m (TermSet m) -> Cell m (TermSet m) ->
   (TermSet m -> TermSet m) ->
   (Cell m (TermSet m)) -> TermSet m -> m ()
-copyTermListener trans ccell orig = do
+copyTermListener v1' v2' trans ccell orig = do
 
   write ccell (trans orig)
 
   unless (null $ applications orig) $ do
     let (VTerm (APPL v1 v2)) = S.findMin $ applications orig
       in void $ do
-        v1' <- newEmptyCell "cpy1"
-        v2' <- newEmptyCell "cpy2"
         write ccell (termSetWithApls $ S.singleton (VTerm (APPL v1' v2')))
-        watch v1 (copyTermListener trans v1')
-        watch v2 (copyTermListener trans v2')
-
+        placeCopyTermListener trans v1 v1'
+        placeCopyTermListener trans v2 v2'
+{-
+--don't do anything for variables yet. If the term gets a value at some point, it will propagate into the cell!
   when ((null $ constants orig) &&
           (null $ applications orig) &&
           (not $ null $ variables orig)) $ do
     let (VVar v) = S.findMin $ variables orig
       in void $ do
         watch v (copyTermListener trans ccell) --WARNING: This spans infinitely many listeners unless no double listeners can be placed!
+-}
+
+
+
 
 {-
 unifyM :: PropagatorMonad m =>
