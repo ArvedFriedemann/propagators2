@@ -48,7 +48,7 @@ fromVarsAsCells :: (Monad m, PropagatorMonad m) => TermStruc (TermCell m) -> m (
 fromVarsAsCells SBOT =  newEmptyCell "mpt_trm" <**< watchTerm <**< (flip write) TSBot
 fromVarsAsCells STOP =  newEmptyCell "mpt_trm" <**< watchTerm
 fromVarsAsCells (SCON c) = newCell "cnst" (termSetWithConstants $ S.singleton (VTerm $ CON c)) <**< watchTerm
-fromVarsAsCells (SVAR v) = pure v
+fromVarsAsCells (SVAR v) = newCell "var" (termSetWithVariables $ S.singleton (VVar v)) <**< watchTerm
 fromVarsAsCells (SAPPL a b) = do
   ca <- fromVarsAsCells a
   cb <- fromVarsAsCells b
