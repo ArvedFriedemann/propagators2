@@ -4,6 +4,7 @@ module Data.Terms.Terms where
 
 import "base" GHC.Generics hiding (to, from)
 import "base" Control.Monad
+import "base" Debug.Trace
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as S
@@ -197,16 +198,22 @@ refreshVars to from orig copy = void $ do
     placeCopyTermListener from' copy orig
   where
     to' :: TermSet m -> TermSet m
-    to' ts = termSetWithVariables (S.fromList $ VVar <$> concatMap to (constantContents (S.toList $ constants ts)) )
+    to' ts = emptyTermSet {
+      constants = S.fromList $ (VTerm . CON) <$> (filter (\c -> null $ to c) $ constantContents (S.toList $ constants ts) ) ,
+      variables = (S.fromList $ VVar <$> concatMap to (constantContents (S.toList $ constants ts)) )
+    }
     from' :: TermSet m -> TermSet m
-    from' ts = termSetWithVariables (S.fromList $ (VTerm . CON) <$> concatMap from (variableContents (S.toList $ variables ts)) )
+    from' ts = emptyTermSet {
+      constants = (S.fromList $ (VTerm . CON) <$> concatMap from (variableContents (S.toList $ variables ts)) ) ,
+      variables = S.fromList $ VVar <$> (filter (\c -> null $ from c) $ variableContents (S.toList $ variables ts) )
+    }
 
 placeCopyTermListener :: (PropagatorMonad m) =>
   (TermSet m -> TermSet m) ->
   (Cell m (TermSet m)) -> (Cell m (TermSet m)) ->  m ()
 placeCopyTermListener trans orig ccell = void $ do
-  v1' <- newEmptyCell "cpy1"
-  v2' <- newEmptyCell "cpy2"
+  v1' <- newEmptyCell "cpy1" <**< watchTerm
+  v2' <- newEmptyCell "cpy2" <**< watchTerm
   watch orig (copyTermListener v1' v2' trans ccell)
 
 copyTermListener :: (PropagatorMonad m) =>
@@ -215,7 +222,7 @@ copyTermListener :: (PropagatorMonad m) =>
   (Cell m (TermSet m)) -> TermSet m -> m ()
 copyTermListener v1' v2' trans ccell orig = do
 
-  write ccell (trans orig)
+  write ccell (trace ("transforming:\n "++show orig ++ " to\n " ++show (trans orig)) $ trans orig)
 
   unless (null $ applications orig) $ do
     let (VTerm (APPL v1 v2)) = S.findMin $ applications orig
