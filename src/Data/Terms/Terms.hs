@@ -217,7 +217,7 @@ copyTermListener trans ccell orig = do
         watch v1 (copyTermListener trans v1')
         watch v2 (copyTermListener trans v2')
 
-  unless ((null $ constants orig) &&
+  when ((null $ constants orig) &&
           (null $ applications orig) &&
           (not $ null $ variables orig)) $ do
     let (VVar v) = S.findMin $ variables orig
