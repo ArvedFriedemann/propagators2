@@ -34,6 +34,7 @@ test2 = runTest $ do
     eq t1 t2
     return [t1, t2, sv1, sv2]
 
+
 test3 :: IO ()
 test3 = runTest $ do
     sv <- newEmptyCell "sv"
@@ -83,10 +84,12 @@ testRefreshUnification = runTestSEB $ do
   v2 <- fromVarsAsCells (ls [])
   orig <- fromVarsAsCells (ls [ls [ccon "a", ccon "a"], var v2])
   rule <- fromVarsAsCells (ls [ls [ccon "b", ccon "a"], ccon "b"])
+  rulecpy <- fromVarsAsCells (ls [ls [var v1, ccon "a"], var v1])
   copy <- fromVarsAsCells (ls [])
+  --TODO: somehow, when adding the copy, something throws bot! Probably when the copied term is unified or something
   refreshVarsTbl [(CUSTOM "b",v1)] rule copy
-  eq orig copy
-  return [rule, copy, orig]
+  eq orig rulecpy
+  return [rule, rulecpy, copy, orig]
 
 data TD = A | B | C
   deriving (Eq, Ord, Show, Generic, Enum, Bounded)

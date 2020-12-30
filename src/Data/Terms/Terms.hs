@@ -217,10 +217,10 @@ refreshVars to from orig copy = void $ do
     }
     from' :: TermSet m -> TermSet m
     from' ts = emptyTermSet {
-      constants' = S.union
-        (S.fromList $ (VTerm . CON) <$> concatMap from (variableContents (S.toList $ variables ts)))
-        (constants ts) ,
-      variables' = S.fromList $ VVar <$> (filter (\c -> null $ from c) $ variableContents (S.toList $ variables ts) )
+      constants' = --S.union
+        (S.fromList $ (VTerm . CON) <$> concatMap from  (variableContents (S.toList $ variables ts)))
+        --This does not work because constants can come from somewhere outside the copy. In that case, they are pushed back into the old term, where the refreshed constant might lay, causing a conflict. Therefore, the constants cannot be propagated backwards. 
+        --(S.fromList $ (VTerm . CON) <$> (filter (\c -> null $ to c) $ constantContents (S.toList $ constants ts) ) )
     }
 
 placeCopyTermListener :: (PropagatorMonad m) =>
