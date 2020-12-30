@@ -204,7 +204,9 @@ refreshVars to from orig copy = void $ do
     }
     from' :: TermSet m -> TermSet m
     from' ts = emptyTermSet {
-      constants = (S.fromList $ (VTerm . CON) <$> concatMap from (variableContents (S.toList $ variables ts)) ) ,
+      constants = S.union
+        (S.fromList $ (VTerm . CON) <$> concatMap from (variableContents (S.toList $ variables ts)))
+        (constants ts) ,
       variables = S.fromList $ VVar <$> (filter (\c -> null $ from c) $ variableContents (S.toList $ variables ts) )
     }
 

@@ -59,12 +59,21 @@ test4 = runTestSEB $ do
         eq orig t2 )
     return [orig, t1, t2]
 
-testRefresh :: IO ()
-testRefresh = runTestSEB $ do
+testRefreshTo :: IO ()
+testRefreshTo = runTestSEB $ do
   orig <- fromVarsAsCells (ls [ccon "b", ccon "a"])
   --so the term listeners are placed
   copy <- fromVarsAsCells (ls [])
   v1 <- fromVarsAsCells (ls [])
+  refreshVarsTbl [(CUSTOM "b",v1)] orig copy
+  return [orig, copy]
+
+testRefreshBack :: IO ()
+testRefreshBack = runTestSEB $ do
+  --so the term listeners are placed
+  orig <- fromVarsAsCells (ls [])
+  v1 <- fromVarsAsCells (ls [])
+  copy <- fromVarsAsCells (ls [var v1, ccon "a"])
   refreshVarsTbl [(CUSTOM "b",v1)] orig copy
   return [orig, copy]
 
