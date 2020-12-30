@@ -219,7 +219,7 @@ refreshVars to from orig copy = void $ do
     from' ts = emptyTermSet {
       constants' = --S.union
         (S.fromList $ (VTerm . CON) <$> concatMap from  (variableContents (S.toList $ variables ts)))
-        --This does not work because constants can come from somewhere outside the copy. In that case, they are pushed back into the old term, where the refreshed constant might lay, causing a conflict. Therefore, the constants cannot be propagated backwards. 
+        --This does not work because constants can come from somewhere outside the copy. In that case, they are pushed back into the old term, where the refreshed constant might lay, causing a conflict. Therefore, the constants cannot be propagated backwards.
         --(S.fromList $ (VTerm . CON) <$> (filter (\c -> null $ to c) $ constantContents (S.toList $ constants ts) ) )
     }
 
@@ -237,7 +237,7 @@ copyTermListener :: (PropagatorMonad m) =>
   (Cell m (TermSet m)) -> TermSet m -> m ()
 copyTermListener v1' v2' trans ccell orig = do
 
-  write ccell (trace ("transforming:\n "++show orig ++ " to\n " ++show (trans orig)) $ trans orig)
+  write ccell (trans orig)
 
   unless (null $ applications orig) $ do
     let (VTerm (APPL v1 v2)) = S.findMin $ applications orig
