@@ -83,37 +83,50 @@ aplRights ts = snd <$> applContents ts
 
 data TermSet m =   TSBot
                  | TS {
-                   constants :: Set (OpenVarTerm m),
-                   variables :: Set (OpenVarTerm m),
-                   applications :: Set (OpenVarTerm m)
+                 --these need to be helper because nothing can be selected from TSBot!
+                   constants' :: Set (OpenVarTerm m),
+                   variables' :: Set (OpenVarTerm m),
+                   applications' :: Set (OpenVarTerm m)
                  }
   deriving Generic
 deriving instance PropagatorMonad m => Show (TermSet m)
 deriving instance PropagatorMonad m => Eq (TermSet m)
 deriving instance PropagatorMonad m => Ord (TermSet m)
 
+constants :: (PropagatorMonad m) => TermSet m -> Set (OpenVarTerm m)
+constants TSBot = S.empty
+constants ts = constants' ts
+
+variables :: (PropagatorMonad m) => TermSet m -> Set (OpenVarTerm m)
+variables TSBot = S.empty
+variables ts = variables' ts
+
+applications :: (PropagatorMonad m) => TermSet m -> Set (OpenVarTerm m)
+applications TSBot = S.empty
+applications ts = applications' ts
+
 emptyTermSet :: PropagatorMonad m => TermSet m
 emptyTermSet = TS (S.empty) (S.empty) (S.empty)
 
 termSetWithConstants :: PropagatorMonad m => (Set (OpenVarTerm m)) -> TermSet m
 termSetWithConstants cvs = TS {
-  constants = cvs,
-  variables = S.empty,
-  applications = S.empty
+  constants' = cvs,
+  variables' = S.empty,
+  applications' = S.empty
 }
 
 termSetWithVariables :: PropagatorMonad m => (Set (OpenVarTerm m)) -> TermSet m
 termSetWithVariables cvs = TS {
-  constants = S.empty,
-  variables = cvs,
-  applications = S.empty
+  constants' = S.empty,
+  variables' = cvs,
+  applications' = S.empty
 }
 
 termSetWithApls :: PropagatorMonad m => (Set (OpenVarTerm m)) -> TermSet m
 termSetWithApls cvs = TS {
-  constants = S.empty,
-  variables = S.empty,
-  applications = cvs
+  constants' = S.empty,
+  variables' = S.empty,
+  applications' = cvs
 }
 
 cleanTermSet :: PropagatorMonad m => TermSet m -> TermSet m
@@ -130,9 +143,9 @@ instance PropagatorMonad m => Meet (TermSet m) where
   TSBot /\ _ = TSBot
   _ /\ TSBot = TSBot
   (ts1) /\ (ts2) = cleanTermSet $ TS {
-    constants = S.union (constants ts1) (constants ts2),
-    variables = S.union (variables ts1) (variables ts2),
-    applications = S.union (applications ts1) (applications ts2)
+    constants' = S.union (constants ts1) (constants ts2),
+    variables' = S.union (variables ts1) (variables ts2),
+    applications' = S.union (applications ts1) (applications ts2)
   }
 instance PropagatorMonad m => BoundedMeet (TermSet m) where
     top = emptyTermSet
@@ -141,9 +154,9 @@ instance PropagatorMonad m => Join (TermSet m) where
   a \/ TSBot = a
   --WARNING: This still needs to store which listeners should be removed!
   ts1 \/ ts2 = cleanTermSet $ TS {
-    constants = S.intersection (constants ts1) (constants ts2),
-    variables = S.intersection (variables ts1) (variables ts2),
-    applications = S.intersection (applications ts1) (applications ts2)
+    constants' = S.intersection (constants ts1) (constants ts2),
+    variables' = S.intersection (variables ts1) (variables ts2),
+    applications' = S.intersection (applications ts1) (applications ts2)
   }
 instance PropagatorMonad m => BoundedJoin (TermSet m) where
     bot = TSBot
@@ -199,15 +212,15 @@ refreshVars to from orig copy = void $ do
   where
     to' :: TermSet m -> TermSet m
     to' ts = emptyTermSet {
-      constants = S.fromList $ (VTerm . CON) <$> (filter (\c -> null $ to c) $ constantContents (S.toList $ constants ts) ) ,
-      variables = (S.fromList $ VVar <$> concatMap to (constantContents (S.toList $ constants ts)) )
+      constants' = S.fromList $ (VTerm . CON) <$> (filter (\c -> null $ to c) $ constantContents (S.toList $ constants ts) ) ,
+      variables' = (S.fromList $ VVar <$> concatMap to (constantContents (S.toList $ constants ts)) )
     }
     from' :: TermSet m -> TermSet m
     from' ts = emptyTermSet {
-      constants = S.union
+      constants' = S.union
         (S.fromList $ (VTerm . CON) <$> concatMap from (variableContents (S.toList $ variables ts)))
         (constants ts) ,
-      variables = S.fromList $ VVar <$> (filter (\c -> null $ from c) $ variableContents (S.toList $ variables ts) )
+      variables' = S.fromList $ VVar <$> (filter (\c -> null $ from c) $ variableContents (S.toList $ variables ts) )
     }
 
 placeCopyTermListener :: (PropagatorMonad m) =>
