@@ -77,6 +77,17 @@ testRefreshBack = runTestSEB $ do
   refreshVarsTbl [(CUSTOM "b",v1)] orig copy
   return [orig, copy]
 
+testRefreshUnification :: IO ()
+testRefreshUnification = runTestSEB $ do
+  v1 <- fromVarsAsCells (ls [])
+  v2 <- fromVarsAsCells (ls [])
+  orig <- fromVarsAsCells (ls [ls [ccon "a", ccon "a"], var v2])
+  rule <- fromVarsAsCells (ls [ls [ccon "b", ccon "a"], ccon "b"])
+  copy <- fromVarsAsCells (ls [])
+  refreshVarsTbl [(CUSTOM "b",v1)] rule copy
+  eq orig copy
+  return [rule, copy, orig]
+
 data TD = A | B | C
   deriving (Eq, Ord, Show, Generic, Enum, Bounded)
 instance NFData TD
