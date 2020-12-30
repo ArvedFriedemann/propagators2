@@ -62,8 +62,9 @@ test4 = runTestSEB $ do
 testRefresh :: IO ()
 testRefresh = runTestSEB $ do
   orig <- fromVarsAsCells (ls [ccon "b", ccon "a"])
-  copy <- newEmptyCell "copy"
-  v1 <- newEmptyCell "v1"
+  --so the term listeners are placed
+  copy <- fromVarsAsCells (ls [])
+  v1 <- fromVarsAsCells (ls [])
   refreshVarsTbl [(CUSTOM "b",v1)] orig copy
   return [orig, copy]
 
