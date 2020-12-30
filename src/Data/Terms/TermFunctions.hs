@@ -45,8 +45,8 @@ ls :: [TermStruc a] -> TermStruc a
 ls lst = foldl applts STOP lst
 
 fromVarsAsCells :: (Monad m, PropagatorMonad m) => TermStruc (TermCell m) -> m (TermCell m)
-fromVarsAsCells SBOT =  newEmptyCell "mpt_trm" <**< watchTerm <**< (flip write) TSBot
-fromVarsAsCells STOP =  newEmptyCell "mpt_trm" <**< watchTerm
+fromVarsAsCells SBOT =  newEmptyCell "cbot" <**< watchTerm <**< (flip write) TSBot
+fromVarsAsCells STOP =  newEmptyCell "ctop" <**< watchTerm
 fromVarsAsCells (SCON c) = newCell "cnst" (termSetWithConstants $ S.singleton (VTerm $ CON c)) <**< watchTerm
 fromVarsAsCells (SVAR v) = newCell "var" (termSetWithVariables $ S.singleton (VVar v)) <**< watchTerm
 fromVarsAsCells (SAPPL a b) = do
@@ -79,4 +79,7 @@ fromTermSet' n ts
     a' <- fromCellSize (n-1) a
     b' <- fromCellSize (n-1) b
     pure $ SAPPL a' b'--applts a' b' --if a variable is assigned top, it would just vanish
+  | otherwise = pure $ SCON $ CUSTOM $ show $ variableContents (S.toList $ variables ts)
+{- --Temporarily, I ust want to see the variable ids
   | otherwise = fromCellSize (n-1) $ head $ variableContents (S.toList $ variables ts) --TODO: This will recurse if there are cyclic equalities
+-}
