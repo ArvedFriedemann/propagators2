@@ -14,15 +14,15 @@ import "this" Control.Combinator.Logics
 import "this" Control.Propagator.Event
 
 test1 :: IO ()
-test1 = runTest $ do
-    sv <- newEmptyCell "sv"
+test1 = runTestSEB $ do
+    sv <- fromVarsAsCells (ls [])
     sv_a <- fromVarsAsCells (ls [var sv, ccon "a"])
     b_sv <- fromVarsAsCells (ls [ccon "b", var sv])
     eq sv_a b_sv
     return [sv_a, b_sv, sv]
 
 test2 :: IO ()
-test2 = runTest $ do
+test2 = runTestSEB $ do
     sv1 <- newEmptyCell "sv1"
     sv2 <- newEmptyCell "sv2"
 
@@ -33,7 +33,7 @@ test2 = runTest $ do
 
 
 test3 :: IO ()
-test3 = runTest $ do
+test3 = runTestSEB $ do
     sv <- newEmptyCell "sv"
     t1 <- fromVarsAsCells (var sv)
     t2 <- fromVarsAsCells (ls [ccon "a", var sv])
@@ -81,12 +81,10 @@ testRefreshUnification = runTestSEB $ do
   v2 <- fromVarsAsCells (ls [])
   orig <- fromVarsAsCells (ls [ls [ccon "a", ccon "a"], var v2])
   rule <- fromVarsAsCells (ls [ls [ccon "b", ccon "a"], ccon "b"])
-  rulecpy <- fromVarsAsCells (ls [ls [var v1, ccon "a"], var v1])
   copy <- fromVarsAsCells (ls [])
-  --TODO: somehow, when adding the copy, something throws bot! Probably when the copied term is unified or something
   refreshVarsTbl [(CUSTOM "b",v1)] rule copy
-  eq orig rulecpy
-  return [rule, rulecpy, copy, orig]
+  eq orig copy
+  return [rule, copy, orig]
 
 data TD = A | B | C
   deriving (Eq, Ord, Show, Enum, Bounded)
