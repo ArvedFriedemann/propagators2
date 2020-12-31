@@ -1,6 +1,5 @@
 module Control.Util where
 
-import "base" Data.Maybe
 
 (<**<) :: (Monad m) => m a -> (a -> m b) -> m a
 m <**< m' = do

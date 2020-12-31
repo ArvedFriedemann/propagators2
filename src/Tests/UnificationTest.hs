@@ -1,20 +1,17 @@
 module Tests.UnificationTest where
 
-import "base" GHC.Generics
-import "base" Data.List
+import "containers" Data.Set qualified as S
 import "base" Data.Functor
 import "base" Debug.Trace
 
-import "deepseq" Control.DeepSeq
-
-import "containers" Data.Set qualified as S
+import "this" Tests.TestLogic
 
 import "this" Data.Terms.Terms
 import "this" Data.Terms.TermFunctions
-import "this" Control.Propagator
-import "this" Control.Propagator.Conc
-import "this" Control.Propagator.Event
+
+import "this" Control.Propagator.Class
 import "this" Control.Combinator.Logics
+import "this" Control.Propagator.Event
 
 test1 :: IO ()
 test1 = runTest $ do
@@ -92,8 +89,7 @@ testRefreshUnification = runTestSEB $ do
   return [rule, rulecpy, copy, orig]
 
 data TD = A | B | C
-  deriving (Eq, Ord, Show, Generic, Enum, Bounded)
-instance NFData TD
+  deriving (Eq, Ord, Show, Enum, Bounded)
 
 
 test5 :: IO ()
@@ -113,12 +109,3 @@ test5 = flip runSEB (>> pure ()) $ do
     pure $ do
         v <- readCell orig
         traceM $ show v
-
-runTestSEB :: SEB [TermCell SEB] -> IO ()
-runTestSEB p = (putStrLn =<<) (runSEB p showAll)
-
-runTest :: Par [TermCell Par] -> IO ()
-runTest p = (putStrLn =<<) (execPar p showAll)
-
-showAll :: (Monad m, PropagatorMonad m) => [TermCell m] -> m String
-showAll = fmap (intercalate "\n\n") . traverse (fmap show . fromCellSize @String 100)
