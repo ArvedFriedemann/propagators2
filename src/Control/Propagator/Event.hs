@@ -88,7 +88,7 @@ viaType _ f a b = case cast b of
 instance Ord (Event m) => Eq (Event m) where
     a == b = compare a b == EQ
 instance (Ord1 (Cell m), Ord (Subscription m)) => Ord (Event m) where
-    Create sa ia a `compare` Create sb ib b 
+    Create sa ia a `compare` Create sb ib b
         = compare sa sb
         <> compare ia ib
         <> viaType (Proxy @Ord) compare a b
@@ -229,7 +229,7 @@ type SEB = EventT SimpleEventBus
 data SEBState = SEBS
     { unSEBS :: Set (Evt SimpleEventBus)
     , cells :: Map SEBId SEBCell
-    } 
+    }
 newtype SimpleEventBus a = SEB
     { unSEB :: StateT SEBState IO a
     }
@@ -256,22 +256,28 @@ flushSEB = do
             traceM $ show evt
             handleEvent evt
         flushSEB
-    
+
 handleEvent :: Evt SimpleEventBus -> SEB ()
 handleEvent (Create s i a) = lift $ do
     SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.insert (SEBId s i) (SEBC a Map.empty) cx
-handleEvent (Write s i a) = do
-    Just (old, ls) <- searchCell s i . cells <$> lift (SEB get) 
-    let a' =  old /\ a
-    unless (a' == old) $ do
-        lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.adjust (setValue a') (SEBId s $ cellId i) cx
-        mapM_ (execListener s a') ls
+handleEvent e@(Write s i a) = do
+    cs <- searchCell s i . cells <$> lift (SEB get)
+    case cs of
+      Nothing -> lift $ fire e
+      Just (old, ls) -> do
+        let a' =  old /\ a
+        unless (a' == old) $ do
+            lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.adjust (setValue a') (SEBId s $ cellId i) cx
+            mapM_ (execListener s a') ls
   where
     setValue a' (SEBC _ ls) = SEBC (fromJust $ cast a') ls
-handleEvent (Watch s c i act) = do
-    Just (v, _) <- searchCell s c . cells <$> lift (SEB get)
-    lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.alter (addListener v) (SEBId s (cellId c)) cx
-    execListener s v act
+handleEvent e@(Watch s c i act) = do
+    sc <- searchCell s c . cells <$> lift (SEB get)
+    case sc of
+      Nothing -> lift $ fire e
+      Just (v,_) -> do
+        lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.alter (addListener v) (SEBId s (cellId c)) cx
+        execListener s v act
   where
     addListener v Nothing = pure $ SEBC v (Map.singleton i act)
     addListener _ (Just (SEBC v ls)) = pure $ SEBC v $ Map.insert i (fromJust $ cast act) ls
@@ -295,7 +301,7 @@ searchCell s i cx = maybeMerge mergeCell fromThisScope fromParentScope
     fromThisScope = do
         SEBC a lsA <- Map.lookup (SEBId s $ cellId i) cx
         liftA2 (,) (cast a) (cast $ Map.elems lsA)
-    fromParentScope = do 
+    fromParentScope = do
         s' <- popScope s
         searchCell s' i cx
 
