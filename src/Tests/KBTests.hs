@@ -10,7 +10,8 @@ kbtest1 = runTestSEB $ do
   a <- fromVarsAsCells (ls [ccon "A"])
   b <- fromVarsAsCells (ls [ccon "B"])
   c <- fromVarsAsCells (ls [ccon "C"])
+  goal <- fromVarsAsCells (ls [])
   kb <- pure [([],[a]),([],[a,b]),([],[c,b])]
   --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.
-  recursiveCall $ simpleKBNetwork kb b
-  return [a]
+  recursiveCall $ simpleKBNetwork' 3 kb goal
+  return [goal]

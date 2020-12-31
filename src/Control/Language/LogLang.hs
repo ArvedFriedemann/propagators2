@@ -25,13 +25,17 @@ refreshClause (binds, trms) = do
     refreshVarsTbl vartbl t cpy
     return cpy
 
---TODO, WARNING: empty clauses!
 simpleKBNetwork :: (Forkable m, PropagatorMonad m) => KB m -> Cell m (TermSet m) -> m ()
-simpleKBNetwork kb goal = do
+simpleKBNetwork = simpleKBNetwork' (-1)
+
+--TODO, WARNING: empty clauses!
+simpleKBNetwork' :: (Forkable m, PropagatorMonad m) => Int ->  KB m -> Cell m (TermSet m) -> m ()
+simpleKBNetwork' 0 _ _ = return ()
+simpleKBNetwork' fuel kb goal = do
   g <- readCell goal
   unless (g==bot) $
     disjunctForkList goal [do
       (splitClause -> (pres, post)) <- refreshClause cls
       eq post goal
-      forM_ pres (void . recursiveCall . simpleKBNetwork kb)
+      forM_ pres (void . recursiveCall . simpleKBNetwork' (fuel-1) kb)
       |cls <- kb]
