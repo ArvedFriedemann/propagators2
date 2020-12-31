@@ -40,6 +40,9 @@ data OVTConstructor = OVTVar | OVTCon | OVTAppl
   deriving (Show, Eq, Ord, Generic)
 instance NFData OVTConstructor
 
+scon :: String -> TermConst
+scon = CUSTOM 
+
 ovtToConstructor :: PropagatorMonad m => OpenVarTerm m -> OVTConstructor
 ovtToConstructor (VVar _) = OVTVar
 ovtToConstructor (VTerm (CON _)) = OVTCon
