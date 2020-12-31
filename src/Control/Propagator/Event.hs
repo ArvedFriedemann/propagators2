@@ -263,7 +263,7 @@ handleEvent (Create s i a) = lift $ do
 handleEvent e@(Write s i a) = do
     cs <- searchCell s i . cells <$> lift (SEB get)
     case cs of
-      Nothing -> lift $ fire e
+      Nothing -> error (show e ++" is an illegal write action!") --lift $ fire e
       Just (old, ls) -> do
         let a' =  old /\ a
         unless (a' == old) $ do
@@ -274,7 +274,7 @@ handleEvent e@(Write s i a) = do
 handleEvent e@(Watch s c i act) = do
     sc <- searchCell s c . cells <$> lift (SEB get)
     case sc of
-      Nothing -> lift $ fire e
+      Nothing -> error (show e ++" is an illegal watch action!")--lift $ fire e
       Just (v,_) -> do
         lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.alter (addListener v) (SEBId s (cellId c)) cx
         execListener s v act
