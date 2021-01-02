@@ -23,4 +23,7 @@ in pkgs.mkShell {
     repl
     watch
   ];
+  shellHook = ''
+    export HISTFILE=${toString ./.history}
+  '';
 }
