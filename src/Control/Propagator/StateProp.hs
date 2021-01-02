@@ -2,25 +2,72 @@ module Control.Propagator.StateProp where
 
 import "base" Control.Applicative
 
+import "containers" Data.Set ( Set )
+import "containers" Data.Set qualified as S
+
+import "containers" Data.Map ( Map )
+import "containers" Data.Map qualified as M
+
+import "transformers" Control.Monad.Trans.State.Lazy ( StateT(..), evalStateT, modify, get, put )
+
 import "this" Data.Lattice
 
+data Reason where
+  ID :: Int -> Reason
+  FORK :: Int -> Reason -> Reason
+  WATCH :: Reason -> Reason
+  deriving (Eq, Ord, Show)
 
-class MonadNewVal m v where
-  newVal :: a -> m (v a)
-  newEmptyVal :: (BoundedMeet a) => m (v a)
-  newEmptyVal = newVal top
+data MemCont where
+  MTOP :: MemCont
+  MBOT :: MemCont
+  --UNTYPED :: a -> MemCont
+  deriving (Eq, Ord, Show)
 
-class MonadReadVal m v where
-  readVal :: v a -> m a
+instance Meet MemCont where
+  _ /\ _ = undefined
+instance BoundedMeet MemCont where
+  top = MTOP
+instance Join MemCont where
+  _ \/ _ = undefined
+instance BoundedJoin MemCont where
+  bot = MBOT
 
-class MonadWriteVal m v where
-  writeVal :: (Meet a) => v a -> a -> m ()
+data RState = RS {
+  mem :: Map Reason MemCont
+}
 
---Problem here: how to create the lense lazily?
---e.g.: only create values once they are read. This changes the morphism depending on the executon order!
---solution: stateful morphisms.
-class (MonadReadVal m v) => MonadReadLense m v where
-  readValLense :: (v a -> v b) -> v a -> m b
-  readValLense trans r = readVal (trans r)
+type RPropagatorT = StateT RState
 
---TODO: Have stateful functions like functions. So when a function can be executed at any time, but it only gives the result of its first query, check whether the value already exists and if not create it.
+--Sidenote: Modify is not threadsafe.
+writeR :: (Monad m) => Reason -> MemCont -> RPropagatorT m ()
+writeR tr x = do
+  (mem -> mp) <- get
+  case M.lookup tr mp of
+    Nothing -> do
+      put $ RS $ M.insert tr x mp
+      notify tr
+    Just v -> do
+      let jn = (x /\ v) in
+        if x == jn
+          then return ()
+          else do
+            put $ RS $ M.insert tr jn mp
+            notify tr
+
+readR :: (Monad m) => Reason -> RPropagatorT m MemCont
+readR tr = do
+  (mem -> mp) <- get
+  case M.lookup tr mp of
+    Nothing -> do
+      put $ RS $ M.insert tr top mp
+      return top
+    Just v -> return v
+
+--TODO: here the events are needed for the thing to terminate.
+notify :: (Monad m) => Reason -> RPropagatorT m ()
+notify tr = do
+  _ <- readR (WATCH tr)
+  --TODO!
+  --sequence_ readers
+  return ()
