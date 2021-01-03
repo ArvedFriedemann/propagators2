@@ -6,7 +6,6 @@ import "base" Data.Functor
 
 import "this" Data.Terms.Terms
 import "this" Control.Propagator
-import "this" Control.Util
 import "this" Data.Lattice
 import qualified "containers" Data.Set as S
 
@@ -63,11 +62,11 @@ fromVarsAsCells p (SCON c) = do
     pure p
 fromVarsAsCells _ (SVAR v) = pure v
 fromVarsAsCells p (SAPPL a b) = do
-  watchTerm p
-  ca <- fromVarsAsCells (AppLeft p) a
-  cb <- fromVarsAsCells (AppRight p) b
-  write p (termSetWithApls $ S.singleton (ca, cb))
-  pure p
+    watchTerm p
+    ca <- fromVarsAsCells (AppLeft p) a
+    cb <- fromVarsAsCells (AppRight p) b
+    write p (termSetWithApls $ S.singleton (ca, cb))
+    pure p
 
 
 fromCell :: (MonadProp m, Ord i, Std i) => TermId i -> m (TermStruc i)

@@ -3,7 +3,6 @@
 {-# LANGUAGE ApplicativeDo        #-}
 module Control.Propagator.Event.Simple where
 
-import "base" GHC.Generics
 import "base" Data.Typeable
 import "base" Data.Maybe
 import "base" Data.Foldable
@@ -28,10 +27,15 @@ import "this" Control.Propagator.Class
 import "this" Control.Propagator.Event.Types
 import "this" Control.Propagator.Event.EventT
 import "this" Data.Lattice
+import "this" Data.Typed
 
 
 data SEBId where
     SEBId :: Identifier i a => Scope -> i -> SEBId
+instance Eq SEBId where
+    a == b = compare a b == EQ
+instance Ord SEBId where
+    SEBId s i `compare` SEBId t j = compare s t <> compareTyped i j
 
 data SEBCell where
     SEBC :: Value a => a -> Map SomeStd (a -> SEB ()) -> SEBCell
@@ -101,20 +105,16 @@ execListener :: Value a => Scope -> a -> (a -> SEB ()) -> SEB ()
 execListener s a m = inScope s (m a)
 
 searchCell :: forall a i. Identifier i a => Scope -> i -> Map SEBId SEBCell -> (a, [a -> SEB ()])
-searchCell s i cx = maybeMerge mergeCell fromThisScope fromParentScope
+searchCell s' i' cx = fromMaybe (top, []) $ searchCell' s' i' 
   where
-    mergeCell (a, lsA) (b, lsB) = (a /\ b, lsA ++ lsB)
-    fromThisScope = do
+    searchCell' Root i = getCell Root i
+    searchCell' s@(Scope _ p) i = getCell s i <|> searchCell' p i
+    getCell s i = do
         SEBC a lsA <- Map.lookup (SEBId s i) cx
         liftA2 (,) (cast a) (cast $ Map.elems lsA)
-    fromParentScope = do 
-        s' <- parentScope s
-        searchCell s' i cx
 
 instance MonadEvent (Evt SimpleEventBus) SimpleEventBus where
-    fire e = SEB $ modify (\(SEBS evts cx) -> SEBS (Set.insert e evts) cx)
+    fire e = SEB . modify $ \(SEBS evts cx) -> SEBS (Set.insert e evts) cx
 
 instance MonadRef SimpleEventBus where
-    getVal s i = SEB . gets $ orError . fmap fst . searchCell s (EventCell i) . cells
-      where
-        orError = fromMaybe (error $ "cell " ++ show i ++ " not found in scope " ++ show s)
+    getVal s i = SEB . gets $ fst . searchCell s i . cells

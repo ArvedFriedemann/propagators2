@@ -3,9 +3,6 @@ module Control.Propagator.Combinators where
 
 import "base" Prelude hiding ( (.), id, read )
 import "base" Data.Foldable
-import "base" Data.Typeable
-import "base" Data.Type.Equality
-import "base" Control.Applicative
 import "base" Control.Category
 
 import "this" Data.Iso

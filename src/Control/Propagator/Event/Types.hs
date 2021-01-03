@@ -1,12 +1,10 @@
 module Control.Propagator.Event.Types where
 
 import "base" GHC.Generics
-import "base" Data.Foldable
 import "base" Data.Typeable
 
 import "this" Control.Propagator.Class
 import "this" Data.Typed
-import "this" Data.Id
 
 -------------------------------------------------------------------------------
 -- Scope
