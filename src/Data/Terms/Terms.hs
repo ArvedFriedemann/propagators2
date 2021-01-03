@@ -2,6 +2,8 @@
 {-# LANGUAGE ApplicativeDo #-}
 module Data.Terms.Terms where
 
+import "base" Control.Monad
+
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
 
@@ -158,8 +160,35 @@ termListener this ts = do
     mapM_ propBotThis $ fst <$> appList
     mapM_ propBotThis $ snd <$> appList
 
+data CpyTermId w p =
+    Direct p
+  | Copy w p --id of the watch and the original
+  deriving (Eq, Ord, Show)
+instance (Ord p, Std p, Ord w, Std w) => Identifier (CpyTermId w p) (TermSet (CpyTermId w p))
+
+refreshVarListener :: (Ord i, MonadProp m, Identifier i (TermSet i), Std w) => w -> i -> TermSet i -> m ()
+refreshVarListener listId orig TSBot = write (Copy listId orig) bot
+refreshVarListener listId orig (TS constants' variables' applications') = do
+
+  --TODO: transfer constants
+
+  forM_ variables' $(\v -> do
+      write (Copy listId orig)
+        (termSetWithVariables $ Set.singleton (Copy listId v))
+      --TODO: it is correct to use the same listID here?
+      --listeners are local, so it should not remove other listeners of the kind, but I am not sure.
+      watch v listId (refreshVarListener listId v)
+    )
+
+  forM_ applications' $(\(a,b) -> do
+      write (Copy listId orig)
+        (termSetWithApls $ Set.singleton (Copy listId a, Copy listId b))
+      watch a listId (refreshVarListener listId a)
+      watch b listId (refreshVarListener listId b)
+    )
 
 
+{-
 refreshVarsTbl :: forall m. (PropagatorMonad m) =>
   [(TermConst, Cell m (TermSet m))] ->
   (Cell m (TermSet m)) -> (Cell m (TermSet m)) -> m ()
@@ -215,3 +244,4 @@ copyTermListener v1' v2' trans ccell orig = do
         write ccell (termSetWithApls $ S.singleton (VTerm (APPL v1' v2')))
         placeCopyTermListener trans v1 v1'
         placeCopyTermListener trans v2 v2'
+-}
