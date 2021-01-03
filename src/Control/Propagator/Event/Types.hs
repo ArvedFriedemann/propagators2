@@ -2,10 +2,7 @@ module Control.Propagator.Event.Types where
 
 import "base" GHC.Generics
 import "base" Data.Foldable
-import "base" Data.List.NonEmpty ( NonEmpty, (<|) )
-import "base" Data.List.NonEmpty qualified as NonEmpty
-
-import "deepseq" Control.DeepSeq
+import "base" Data.Typeable
 
 import "this" Control.Propagator.Class
 import "this" Data.Typed
@@ -15,109 +12,85 @@ import "this" Data.Id
 -- Scope
 -------------------------------------------------------------------------------
 
-newtype Scope = Scope (NonEmpty Id)
-  deriving stock (Eq, Ord, Generic)
-  deriving newtype (Semigroup, NFData)
+data Scope where
+    Root :: Scope
+    Scope :: Std i => i -> Scope -> Scope
+
+instance Eq Scope where
+    Root == Root = True
+    Scope i a == Scope j b = cast i == Just j && a == b
+    _ == _ = False
+instance Ord Scope where
+    Root `compare` Root = EQ
+    Root `compare` _ = GT
+    _ `compare` Root = LT
+    Scope i a `compare` Scope j b = compareTyped i j <> compare a b
 instance Show Scope where
-    show (Scope ids) = fold . NonEmpty.intersperse "/" . fmap show . NonEmpty.reverse $ ids
-
-parentScope :: Scope -> Maybe Scope
-parentScope (Scope p) = fmap Scope . snd . NonEmpty.uncons $ p
-
-appendScope :: Id -> Scope -> Scope
-appendScope i (Scope p) = Scope (i <| p)
+    showsPrec _ Root = showString "/"
+    showsPrec _ (Scope i s) = showString "/" . showsPrec 11 i . shows s
 
 -------------------------------------------------------------------------------
 -- Event
 -------------------------------------------------------------------------------
 
-data Create m where
-    Create :: Value a => Scope -> Cell m a -> a -> Create m
 
-deriving instance PropagatorMonad m => Show (Create m)
-instance PropagatorMonad m => Eq (Create m) where
+data Write where
+    Write :: Identifier i a => Scope -> i -> a -> Write
+
+deriving instance Show Write
+instance Eq Write where
     a == b = compare a b == EQ
-instance PropagatorMonad m => Ord (Create m) where
-    Create sA cA a `compare` Create sB cB b
+instance Ord Write where
+    Write sA i a `compare` Write sB j b
         = compare sA sB
-        <> compareTyped cA cB
-        <> compareTyped a b
-
-
-data Write m where
-    Write :: Value a => Scope -> Cell m a -> a -> Write m
-
-deriving instance PropagatorMonad m => Show (Write m)
-instance PropagatorMonad m => Eq (Write m) where
-    a == b = compare a b == EQ
-instance PropagatorMonad m => Ord (Write m) where
-    Write sA cA a `compare` Write sB cB b
-        = compare sA sB
-        <> compareTyped cA cB
+        <> compareTyped i j
         <> compareTyped a b
 
 
 data Watch m where
-    Watch :: Value a => Scope -> Cell m a -> Id -> (a -> m ()) -> Watch m
+    Watch :: (Identifier i a, Std j) => Scope -> i -> j -> (a -> m ()) -> Watch m
 
-instance PropagatorMonad m => Show (Watch m) where
-    showsPrec d (Watch s c i _)
+instance Show (Watch m) where
+    showsPrec d (Watch s i j _)
         = showParen (d >= 10)
         $ showString "Watch "
         . shows s
         . showString " "
-        . shows c
-        . showString " "
         . shows i
-instance PropagatorMonad m => Eq (Watch m) where
+        . showString " "
+        . shows j
+instance Eq (Watch m) where
     a == b = compare a b == EQ
-instance PropagatorMonad m => Ord (Watch m) where
-    Watch sA cA a _ `compare` Watch sB cB b _
+instance Ord (Watch m) where
+    Watch sA iA jA _ `compare` Watch sB iB jB _
         = compare sA sB
-        <> compareTyped cA cB
-        <> compare a b
+        <> compareTyped iA iB
+        <> compareTyped jA jB
 
 
 data Fork m where
-    Fork :: Scope -> Id -> (LiftParent m -> m ()) -> Fork m
+    Fork :: Std i => Scope -> i -> (LiftParent m -> m ()) -> Fork m
 
-instance PropagatorMonad m => Show (Fork m) where
+instance Show (Fork m) where
     showsPrec d (Fork s i _)
         = showParen (d >= 10)
         $ showString "Fork "
         . shows s
         . showString " "
         . shows i
-instance PropagatorMonad m => Eq (Fork m) where
+instance Eq (Fork m) where
     a == b = compare a b == EQ
-instance PropagatorMonad m => Ord (Fork m) where
-    Fork sA cA _ `compare` Fork sB cB _
-        = compare sA sB
-        <> compare cA cB
-
-
-data Cancel m where
-    Cancel :: Subscription m -> Cancel m
-
-deriving instance PropagatorMonad m => Show (Cancel m)
-instance PropagatorMonad m => Eq (Cancel m) where
-    a == b = compare a b == EQ
-instance PropagatorMonad m => Ord (Cancel m) where
-    Cancel sA `compare` Cancel sB
-        = compareTyped sA sB
+instance Ord (Fork m) where
+    Fork s i _ `compare` Fork s' j _ = compare s s' <> compareTyped i j
 
 
 data Event m
-    = CreateEvt (Create m)
-    | WriteEvt (Write m)
+    = WriteEvt Write
     | WatchEvt (Watch m)
     | ForkEvt (Fork m)
-    | CancelEvt (Cancel m)
   deriving (Eq, Ord, Generic)
 
-instance PropagatorMonad m => Show (Event m) where
-    showsPrec d (CreateEvt e) = showsPrec d e
+instance MonadProp m => Show (Event m) where
     showsPrec d (WriteEvt e) = showsPrec d e
     showsPrec d (WatchEvt e) = showsPrec d e
     showsPrec d (ForkEvt e) = showsPrec d e
-    showsPrec d (CancelEvt e) = showsPrec d e

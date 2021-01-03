@@ -1,10 +1,10 @@
 module Control.Util where
 
-(<**<) :: (Monad m) => m a -> (a -> m b) -> m a
-m <**< m' = do
-  r <- m
-  m' r
-  return r
+import "base" Control.Arrow
+
+
+(<**<) :: Monad m => m a -> (a -> m b) -> m a
+m <**< f = m >>= (uncurry (>>) . (f &&& pure))
 
 safeHead :: [a] -> [a]
 safeHead [] = []
