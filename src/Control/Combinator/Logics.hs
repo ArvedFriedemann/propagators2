@@ -1,9 +1,12 @@
-module Control.Combinator.Logics where
+module Control.Combinator.Logics
+    ( disjunctFork
+    ) where
 
 import "base" Control.Monad
 import "base" Debug.Trace
 
 import "this" Control.Propagator.Class
+import "this" Control.Propagator.Combinators
 import "this" Data.Lattice
 import "this" Control.Util
 
@@ -29,15 +32,17 @@ disjunctForkList c mlst = do
         ))
     _ -> error "list should have at least two elements!"
 
+data DisjunctFork i = Rc Int i deriving (Eq, Ord, Show)
+instance Identifier i a => Identifier (DisjunctFork i) a
 
-disjunctFork :: (Monad m, PropagatorMonad m, Forkable m, BoundedLattice a, Value a) => Cell m a -> m () -> m () -> m ()
-disjunctFork r m1 m2 = disjunctForkList r [m1,m2]
+disjunctFork :: (MonadProp m, Forkable m, BoundedJoin a, Identifier i a) => i -> [m ()] -> m ()
+disjunctFork r = sequence_ . zipWith disjunctFork' [Rc i r | i <- [0..]]
+  where
+    disjunctFork' i m = do
+        watch i ("disjunct" :: String, i) (disjunctListener r i)
+        fork ("disjunct" :: String, i) $ \lft -> watch r i (lft . write i) >> m
 
---actually observes a list of cells, but as it only needs to be triggered by one it looks like a normal listener linked to one variable
-disjunctMultiListener :: (Monad m, PropagatorMonad m, BoundedJoin a, Value a) => Cell m a -> [Cell m a] -> a -> m ()
-disjunctMultiListener res cells _ = do
-  rds <- mapM (\c -> readCell c >>= \c' -> return (c',c)) cells
-  let valids = filter (not.(== bot).fst) rds
-  if isSingleton valids
-    then void $ eq res (snd $ head valids)
-    else return ()
+disjunctListener :: (MonadProp m, BoundedJoin a, Identifier i a) => i -> DisjunctFork i -> a -> m ()
+disjunctListener r ca b
+    | b == bot  = void $ eq r ca
+    | otherwise = pure ()
