@@ -170,9 +170,11 @@ refreshVarListener :: (Ord i, MonadProp m, Identifier i (TermSet i), Std w) => w
 refreshVarListener listId orig _ TSBot = write (Copy listId orig) bot
 refreshVarListener listId orig trans (TS constants' variables' applications') = do
 
+  watchTerm (Copy listId orig)
+
   forM_ constants' $(\c -> do
-    write (Copy listId orig)
-      (termSetWithVariables $ Set.singleton (Direct $ trans c))
+      write (Copy listId orig)
+        (termSetWithVariables $ Set.singleton (Direct $ trans c))
     )
 
   forM_ variables' $(\v -> do
@@ -181,6 +183,7 @@ refreshVarListener listId orig trans (TS constants' variables' applications') = 
       --TODO: it is correct to use the same listID here?
       --listeners are local, so it should not remove other listeners of the kind, but I am not sure.
       watch v listId (refreshVarListener listId v trans)
+      watchTerm (Copy listId v)
     )
 
   forM_ applications' $(\(a,b) -> do
@@ -188,6 +191,8 @@ refreshVarListener listId orig trans (TS constants' variables' applications') = 
         (termSetWithApls $ Set.singleton (Copy listId a, Copy listId b))
       watch a listId (refreshVarListener listId a trans)
       watch b listId (refreshVarListener listId b trans)
+      watchTerm (Copy listId a)
+      watchTerm (Copy listId b)
     )
 
 
