@@ -31,55 +31,54 @@ instance Show Scope where
 -- Event
 -------------------------------------------------------------------------------
 
-
 data Write where
-    Write :: Identifier i a => Scope -> i -> a -> Write
+    Write :: Identifier i a => i -> a -> Scope -> Write
 
 deriving instance Show Write
 instance Eq Write where
     a == b = compare a b == EQ
 instance Ord Write where
-    Write sA i a `compare` Write sB j b
-        = compare sA sB
-        <> compareTyped i j
+    Write i a sA `compare` Write j b sB
+        = compareTyped i j
         <> compareTyped a b
+        <> compare sA sB
 
 
 data Watch m where
-    Watch :: (Identifier i a, Std j) => Scope -> i -> j -> (a -> m ()) -> Watch m
+    Watch :: (Identifier i a, Std j) => i -> j -> (a -> m ()) -> Scope -> Watch m
 
 instance Show (Watch m) where
-    showsPrec d (Watch s i j _)
+    showsPrec d (Watch i j _ s)
         = showParen (d >= 10)
         $ showString "Watch "
-        . shows s
-        . showString " "
         . shows i
         . showString " "
         . shows j
+        . showString " "
+        . shows s
 instance Eq (Watch m) where
     a == b = compare a b == EQ
 instance Ord (Watch m) where
-    Watch sA iA jA _ `compare` Watch sB iB jB _
-        = compare sA sB
-        <> compareTyped iA iB
+    Watch iA jA _ sA `compare` Watch iB jB _ sB
+        = compareTyped iA iB
         <> compareTyped jA jB
+        <> compare sA sB
 
 
 data Fork m where
-    Fork :: Std i => Scope -> i -> (LiftParent m -> m ()) -> Fork m
+    Fork :: Std i => i -> (LiftParent m -> m ()) -> Scope -> Fork m
 
 instance Show (Fork m) where
-    showsPrec d (Fork s i _)
+    showsPrec d (Fork i _ s)
         = showParen (d >= 10)
         $ showString "Fork "
-        . shows s
-        . showString " "
         . shows i
+        . showString " "
+        . shows s
 instance Eq (Fork m) where
     a == b = compare a b == EQ
 instance Ord (Fork m) where
-    Fork s i _ `compare` Fork s' j _ = compare s s' <> compareTyped i j
+    Fork i _ s `compare` Fork j _ s' = compareTyped i j <> compare s s'
 
 
 data Event m

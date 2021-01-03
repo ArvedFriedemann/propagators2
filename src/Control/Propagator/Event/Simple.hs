@@ -30,12 +30,20 @@ import "this" Data.Lattice
 import "this" Data.Typed
 
 
+-------------------------------------------------------------------------------
+-- SEBId
+-------------------------------------------------------------------------------
+
 data SEBId where
     SEBId :: Identifier i a => Scope -> i -> SEBId
 instance Eq SEBId where
     a == b = compare a b == EQ
 instance Ord SEBId where
     SEBId s i `compare` SEBId t j = compare s t <> compareTyped i j
+
+-------------------------------------------------------------------------------
+-- SEBCell
+-------------------------------------------------------------------------------
 
 data SEBCell where
     SEBC :: Value a => a -> Map SomeStd (a -> SEB ()) -> SEBCell
@@ -49,6 +57,10 @@ instance Show SEBCell where
 
 toVal :: Value a => SEBCell -> Maybe a
 toVal (SEBC a _) = cast a
+
+-------------------------------------------------------------------------------
+-- SimpleEventBus
+-------------------------------------------------------------------------------
 
 type SEB = EventT SimpleEventBus
 
@@ -80,7 +92,7 @@ flushSEB = do
         flushSEB
     
 handleEvent :: Evt SimpleEventBus -> SEB ()
-handleEvent (WriteEvt (Write s i a)) = do
+handleEvent (WriteEvt (Write i a s)) = do
     (old, ls) <- searchCell s i . cells <$> lift (SEB get) 
     let a' =  old /\ a
     unless (a' == old) $ do
@@ -88,14 +100,14 @@ handleEvent (WriteEvt (Write s i a)) = do
         mapM_ (execListener s a') ls
   where
     setValue a' (SEBC _ ls) = SEBC (fromJust $ cast a') ls
-handleEvent (WatchEvt (Watch s c i act)) = do
+handleEvent (WatchEvt (Watch c i act s)) = do
     (v, _) <- searchCell s c . cells <$> lift (SEB get)
     lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.alter (addListener v) (SEBId s c) cx
     execListener s v act
   where
     addListener v Nothing = pure $ SEBC v (Map.singleton (SomeStd i) act)
     addListener _ (Just (SEBC v ls)) = pure $ SEBC v $ Map.insert (SomeStd i) (fromJust $ cast act) ls
-handleEvent (ForkEvt (Fork s i act)) = do
+handleEvent (ForkEvt (Fork i act s)) = do
     lift $ runReaderT (runEventT $ act (inScope s)) (Scope i s)
 
 inScope :: Scope -> (forall a. SEB a -> SEB a)
