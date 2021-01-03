@@ -12,7 +12,9 @@ import "this" Control.Propagator.Class
 
 
 iso :: (MonadProp m, Identifier i a, Identifier j b, Std p) => i -> j -> p -> (a <-> b) -> m ()
-iso a b p i = link a b p (to i) *> link b a p (from i)
+iso a b p i = do
+      link a b p (embed i)
+      link b a p (project i)
 
 eq :: (MonadProp m, Identifier i a, Identifier j a) => i -> j -> m ()
 eq a b = iso a b () id
