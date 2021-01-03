@@ -1,5 +1,5 @@
 module Control.Propagator.StateProp where
-
+{-
 import "base" Control.Applicative
 
 import "containers" Data.Set ( Set )
@@ -84,3 +84,4 @@ watchR toWatch act_reason action = do
   writeR (WATCH toWatch) (ACTION act_reason action)
   --TODO!
   return ()
+-}
