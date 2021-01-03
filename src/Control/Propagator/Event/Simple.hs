@@ -1,6 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE StrictData           #-}
-{-# LANGUAGE ApplicativeDo        #-}
+{-# LANGUAGE StrictData #-}
 module Control.Propagator.Event.Simple where
 
 import "base" Data.Typeable
@@ -122,7 +120,7 @@ handleEvent (WatchEvt (Watch c i act s)) = do
         ( maybe v fst cv
         , Map.insert (SomeStd i) act $ maybe Map.empty snd cv
         )
-handleEvent (ForkEvt (Fork i act s)) = inScope (Scope i s) $ act (inScope s)
+handleEvent (ForkEvt (Fork i act s)) = void . inScope (Scope i s) $ act (inScope s)
 
 inScope :: Scope -> (forall a. SEB a -> SEB a)
 inScope = local . const

@@ -10,6 +10,7 @@ module Control.Propagator.Event.EventT
 
 import "base" Prelude hiding ( read )
 import "base" Data.Maybe
+import "base" Data.Functor
 
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
 import "transformers" Control.Monad.Trans.Class
@@ -47,9 +48,9 @@ fire' ctr = withScope $ fire . ctr
 
 instance (MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (EventT m) where
     
-    write i a = fire' $ WriteEvt . Write i a
+    write i a = i <$ (fire' $ WriteEvt . Write i a)
     
-    watch i j a = fire' $ WatchEvt . Watch i j a
+    watch i j a = i <$ (fire' $ WatchEvt . Watch i j (void . a))
 
     read = fmap (fromMaybe top) . withScope . flip getVal
 

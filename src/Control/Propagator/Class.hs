@@ -27,13 +27,13 @@ instance (BoundedMeet a, Ord a, Std a) => Value a
 
 class Monad m => MonadProp m where
 
-    write :: Identifier i a => i -> a -> m ()
+    write :: Identifier i a => i -> a -> m i
 
     read :: (Value a, Identifier i a) => i -> m a
 
-    watch :: (Identifier i a, Std j) => i -> j -> (a -> m ()) -> m ()
+    watch :: (Identifier i a, Std j) => i -> j -> (a -> m x) -> m i
 
 type LiftParent m = forall a. m a -> m a
 
 class Applicative m => Forkable m where
-    fork :: Std i => i -> (LiftParent m -> m ()) -> m ()
+    fork :: Std i => i -> (LiftParent m -> m x) -> m ()

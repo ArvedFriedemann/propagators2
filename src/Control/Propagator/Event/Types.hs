@@ -66,7 +66,7 @@ instance Ord (Watch m) where
 
 
 data Fork m where
-    Fork :: Std i => i -> (LiftParent m -> m ()) -> Scope -> Fork m
+    Fork :: Std i => i -> (LiftParent m -> m x) -> Scope -> Fork m
 
 instance Show (Fork m) where
     showsPrec d (Fork i _ s)

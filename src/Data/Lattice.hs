@@ -1,20 +1,16 @@
 {-# LANGUAGE StrictData #-}
-module Data.Lattice
-    {-( Meet(..), BoundedMeet(..)
-    , Join(..), BoundedJoin(..)
-    , Lattice, BoundedLattice
-    , meetAll, joinAll
-    , Monoidal(..)
-    , Ordered(..)
-    , Applied(..)
-    , WithTop( NotTop ), pattern Top
-    , WithBot( NotBot ), pattern Bot
-    )-} where
+module Data.Lattice where
 
 import "base" Data.Functor.Identity
+import "base" Data.Functor.Compose
+import "base" Data.Functor.Classes
 import "base" Data.Monoid ( Dual(..) )
-import "base" Control.Applicative
 import "base" Data.Coerce
+import "base" Data.String ( IsString(..) )
+import "base" Control.Applicative
+import "base" Control.Monad
+import "base" GHC.Exts ( IsList(..) )
+
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
 
@@ -23,9 +19,9 @@ import "containers" Data.Set qualified as Set
 
 Instances of 'Meet' should satisfy the following:
 
-[Associativity] @x /\ (y /\ z) = (x /\ y) /\ z@
-[Commutativity] @x /\ y = y /\ x@
-[Idempotency]  @x /\ x = x@
+[Associativity] @x ⋀ (y ⋀ z) = (x ⋀ y) ⋀ z@
+[Commutativity] @x ⋀ y = y ⋀ x@
+[Idempotency]  @x ⋀ x = x@
 -}
 class Meet l where
     (/\) :: l -> l -> l
@@ -36,7 +32,7 @@ class Meet l where
 
 Instances of 'BoundedMeet' should satisfy the following:
 
-[Identity] @x /\ top = x@
+[Identity] @x ⋀ top = x@
 -}
 class Meet l => BoundedMeet l where
     top :: l
@@ -46,9 +42,9 @@ class Meet l => BoundedMeet l where
 
 Instances of 'Join' should satisfy the following:
 
-[Associativity] @x \/ (y \/ z) = (x \/ y) \/ z@
-[Commutativity] @x \/ y = y \/ x@
-[Idempotency]  @x \/ x = x@
+[Associativity] @x ⋁ (y ⋁ z) = (x ⋁ y) ⋁ z@
+[Commutativity] @x ⋁ y = y ⋁ x@
+[Idempotency]  @x ⋁ x = x@
 -}
 class Join l where
     (\/) :: l -> l -> l
@@ -60,7 +56,7 @@ class Join l where
 
 Instances of 'BoundedJoin' should satisfy the following:
 
-[Identity] @x \/ bot = x@
+[Identity] @x ⋁ bot = x@
 -}
 class Join l => BoundedJoin l where
     bot :: l
@@ -69,7 +65,7 @@ class Join l => BoundedJoin l where
 
 Instances of 'Lattice' should satisfy the following:
 
-[Absorption] @a \/ (a /\ b) = a = a /\ (a \/ b)@
+[Absorption] @a ⋁ (a ⋀ b) = a = a ⋀ (a ⋁ b)@
 -}
 class (Meet l, Join l) => Lattice l
 
@@ -77,8 +73,8 @@ class (Meet l, Join l) => Lattice l
 
 Instances of 'BoundedLattice' should satisfy the following:
 
-[MeetIdentity] @bot /\ b = bot@
-[JoinIdentity] @top \/ b = top@
+[MeetIdentity] @bot ⋀ b = bot@
+[JoinIdentity] @top ⋁ b = top@
 -}
 class (BoundedMeet l, BoundedJoin l, Lattice l) => BoundedLattice l
 
@@ -108,7 +104,7 @@ newtype Monoidal a = Monoidal
     { getMonoidal :: a
     }
   deriving stock (Show, Read)
-  deriving newtype (Eq, Ord, Bounded, Enum)
+  deriving newtype (Eq, Ord, Bounded, Enum, IsList, IsString)
   deriving (Functor, Applicative, Monad) via Identity
 
 instance (Eq a, Semigroup a) => Meet (Monoidal a) where
@@ -124,21 +120,18 @@ instance BoundedMeet l => Monoid (Monoidal l) where
 
 instance Ord a => Meet (Set a) where
     (/\) = Set.intersection
-instance (Ord a, Bounded a, Enum a) => BoundedMeet (Set a) where
-    top = [minBound .. maxBound]
 instance Ord a => Join (Set a) where
     (\/) = Set.union
 instance Ord a => BoundedJoin (Set a) where
     bot = Set.empty
 instance Ord a => Lattice (Set a)
-instance (Ord a, Bounded a, Enum a) => BoundedLattice (Set a)
 
 
 newtype Ordered a = Ordered
     { getOrdered :: a
     }
   deriving stock (Show, Read)
-  deriving newtype (Eq, Ord, Bounded, Enum, Num)
+  deriving newtype (Eq, Ord, Bounded, Enum, Num, IsList, IsString)
   deriving (Functor, Applicative, Monad) via Identity
 
 instance Ord a => Meet (Ordered a) where
@@ -194,7 +187,7 @@ newtype Applied f a = Applied
     { getApplied :: f a
     }
   deriving stock (Show, Read)
-  deriving newtype (Eq, Ord, Bounded, Enum)
+  deriving newtype (Eq, Ord, Bounded, Enum, IsList, IsString)
   deriving (Functor, Applicative, Monad) via f
 
 instance (Applicative f, Meet a) => Meet (Applied f a) where
@@ -223,12 +216,38 @@ deriving via (Applied IO a) instance BoundedJoin a => BoundedJoin (IO a)
 instance Lattice a => Lattice (IO a)
 instance BoundedLattice a => BoundedLattice (IO a)
 
-{-
+
+pattern Bot :: (Eq a, BoundedJoin a) => a
+pattern Bot <- ((\x -> x == bot) -> True)
+  where Bot = bot
+
+pattern Top :: (Eq a, BoundedMeet a) => a
+pattern Top <- ((\x -> x == top) -> True)
+    where Top = top
+
+
 data WithTop a
     = SynthTop
     | NotTop a
   deriving (Eq, Ord, Show, Read, Functor)
-{-# COMPLETE Top, NotTop #-}
+{-# COMPLETE Bot, Value :: WithTop #-}
+
+instance Eq1 WithTop where
+    liftEq _ SynthTop SynthTop = True
+    liftEq f (NotTop a) (NotTop b) = f a b
+    liftEq _ _ _ = False
+instance Ord1 WithTop where
+    liftCompare f (NotTop a) (NotTop b) = f a b
+    liftCompare _ (NotTop _) _ = GT
+    liftCompare _ _ (NotTop _) = LT
+    liftCompare _ SynthTop SynthTop = EQ
+instance IsList a => IsList (WithTop a) where
+    type Item (WithTop a) = Item a
+    fromList = NotTop . fromList
+    toList SynthTop = []
+    toList (NotTop a) = toList a
+instance IsString a => IsString (WithTop a) where
+    fromString = NotTop . fromString
 
 instance Applicative WithTop where
     pure = NotTop
@@ -239,30 +258,78 @@ instance Meet a => Meet (WithTop a) where
     (/\) = liftA2 (/\)
 instance Meet a => BoundedMeet (WithTop a) where
     top = SynthTop
-
+instance Join a => Join (WithTop a) where
+    (\/) = liftA2 (\/)
+instance BoundedJoin a => BoundedJoin (WithTop a) where
+    bot = pure bot
+instance (Meet a, Join a) => Lattice (WithTop a)
+instance (Meet a, BoundedJoin a) => BoundedLattice (WithTop a)
+    
 
 data WithBot a
     = SynthBot
     | NotBot a
   deriving (Eq, Ord, Show, Read, Functor)
-{-# COMPLETE Bot, NotBot #-}
+{-# COMPLETE Bot, Value :: WithBot #-}
+
+instance Eq1 WithBot where
+    liftEq _ SynthBot SynthBot = True
+    liftEq f (NotBot a) (NotBot b) = f a b
+    liftEq _ _ _ = False
+instance Ord1 WithBot where
+    liftCompare _ SynthBot SynthBot = EQ
+    liftCompare _ SynthBot _ = GT
+    liftCompare _ _ SynthBot = LT
+    liftCompare f (NotBot a) (NotBot b) = f a b
+instance IsList a => IsList (WithBot a) where
+    type Item (WithBot a) = Item a
+    fromList = NotBot . fromList
+    toList SynthBot = []
+    toList (NotBot a) = toList a
+instance IsString a => IsString (WithBot a) where
+    fromString = NotBot . fromString
 
 instance Applicative WithBot where
     pure = NotBot
     NotBot f <*> NotBot a = NotBot $ f a
     _ <*> _ = SynthBot
 
-pattern Bot :: (Eq a, BoundedJoin a) => a
-pattern Bot <- ((\x -> x == bot) -> True)
-  where Bot = bot
-
 instance Join a => Join (WithBot a) where
     (\/) = liftA2 (\/)
 instance Join a => BoundedJoin (WithBot a) where
     bot = SynthBot
+instance Meet a => Meet (WithBot a) where
+    (/\) = liftA2 (/\)
+instance BoundedMeet a => BoundedMeet (WithBot a) where
+    top = pure top
+instance (Meet a, Join a) => Lattice (WithBot a)
+instance (BoundedMeet a, Join a) => BoundedLattice (WithBot a)
 
-pattern Top :: (Eq a, BoundedMeet a) => a
-pattern Top <- ((\x -> x == top) -> True)
-    where Top = top
+class HasValue f where
+    fromValue :: f a -> Maybe a
+    toValue :: a -> f a
+pattern Value :: HasValue f => a -> f a
+pattern Value v <- (fromValue -> Just v)
+  where Value v = toValue v
 
--}
+instance HasValue Maybe where
+    fromValue = id
+    toValue = Just
+instance HasValue WithTop where
+    fromValue (NotTop a) = Just a
+    fromValue _ = Nothing
+    toValue = NotTop
+instance HasValue WithBot where
+    fromValue (NotBot a) = Just a
+    fromValue _ = Nothing
+    toValue = NotBot
+instance (HasValue f, HasValue g) => HasValue (Compose f g) where
+    fromValue = (fromValue >=> fromValue) . getCompose
+    toValue = Compose . toValue . toValue
+
+deriving newtype instance Meet (f (g a)) => Meet (Compose f g a)
+deriving newtype instance BoundedMeet (f (g a)) => BoundedMeet (Compose f g a)
+deriving newtype instance Join (f (g a)) => Join (Compose f g a)
+deriving newtype instance BoundedJoin (f (g a)) => BoundedJoin (Compose f g a)
+instance (Meet (f (g a)), Join (f (g a))) => Lattice (Compose f g a)
+instance (BoundedMeet (f (g a)), BoundedJoin (f (g a))) => BoundedLattice (Compose f g a)
