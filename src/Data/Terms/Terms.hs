@@ -166,25 +166,28 @@ data CpyTermId w p =
   deriving (Eq, Ord, Show)
 instance (Ord p, Std p, Ord w, Std w) => Identifier (CpyTermId w p) (TermSet (CpyTermId w p))
 
-refreshVarListener :: (Ord i, MonadProp m, Identifier i (TermSet i), Std w) => w -> i -> TermSet i -> m ()
-refreshVarListener listId orig TSBot = write (Copy listId orig) bot
-refreshVarListener listId orig (TS constants' variables' applications') = do
+refreshVarListener :: (Ord i, MonadProp m, Identifier i (TermSet i), Std w) => w -> i -> (TermConst -> i) -> TermSet i -> m ()
+refreshVarListener listId orig _ TSBot = write (Copy listId orig) bot
+refreshVarListener listId orig trans (TS constants' variables' applications') = do
 
-  --TODO: transfer constants
+  forM_ constants' $(\c -> do
+    write (Copy listId orig)
+      (termSetWithVariables $ Set.singleton (Direct $ trans c))
+    )
 
   forM_ variables' $(\v -> do
       write (Copy listId orig)
         (termSetWithVariables $ Set.singleton (Copy listId v))
       --TODO: it is correct to use the same listID here?
       --listeners are local, so it should not remove other listeners of the kind, but I am not sure.
-      watch v listId (refreshVarListener listId v)
+      watch v listId (refreshVarListener listId v trans)
     )
 
   forM_ applications' $(\(a,b) -> do
       write (Copy listId orig)
         (termSetWithApls $ Set.singleton (Copy listId a, Copy listId b))
-      watch a listId (refreshVarListener listId a)
-      watch b listId (refreshVarListener listId b)
+      watch a listId (refreshVarListener listId a trans)
+      watch b listId (refreshVarListener listId b trans)
     )
 
 
