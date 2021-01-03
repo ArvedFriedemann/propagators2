@@ -21,8 +21,14 @@ data Reason where
 data MemCont where
   MTOP :: MemCont
   MBOT :: MemCont
+  ACTION :: forall m. Reason -> RPropagatorT m () -> MemCont
   --UNTYPED :: a -> MemCont
-  deriving (Eq, Ord, Show)
+
+instance Eq MemCont where
+  MTOP == MTOP = True
+  MBOT == MBOT = True
+  (ACTION r1 _) == (ACTION r2 _) = r1 == r2
+  _ == _ = False
 
 instance Meet MemCont where
   _ /\ _ = undefined
@@ -70,4 +76,11 @@ notify tr = do
   _ <- readR (WATCH tr)
   --TODO!
   --sequence_ readers
+  return ()
+
+
+watchR :: (Monad m) => Reason -> Reason -> RPropagatorT m () -> RPropagatorT m ()
+watchR toWatch act_reason action = do
+  writeR (WATCH toWatch) (ACTION act_reason action)
+  --TODO!
   return ()
