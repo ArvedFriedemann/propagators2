@@ -42,12 +42,14 @@ data TermSet a
         }
   deriving (Eq, Ord, Show)
 
+constTerm :: Ord a => TermConst -> TermSet a
+constTerm c = top {constant = Just c}
 
-constTerms :: Ord a => TermConst -> TermSet a
-constTerms c = top {constant = Just c}
+varTerm :: Ord a => a -> TermSet a
+varTerm v = top {variables = Set.singleton v}
 
-appTerms :: Ord a => (a, a) -> TermSet a
-appTerms app = top {applications = Set.singleton app}
+aplTerm :: Ord a => (a, a) -> TermSet a
+aplTerm app = top {applications = Set.singleton app}
 
 liftTS2 :: Ord a => (forall b. Ord b => Set b -> Set b -> Set b) -> TermSet a -> TermSet a -> TermSet a
 liftTS2 _ Bot _ = Bot
@@ -129,7 +131,7 @@ refreshVarListener ::
   , CopyTermId w i
   , Std w) =>
   w -> i -> (TermConst -> Maybe i) -> TermSet i -> m ()
-refreshVarListener listId orig _ TSBot = write (copy listId orig) bot
+refreshVarListener listId orig _ TSBot = void $ write (copy listId orig) bot
 refreshVarListener listId orig trans (TS constants' variables' applications') = do
 
   watchTerm (copy listId orig)
@@ -138,15 +140,15 @@ refreshVarListener listId orig trans (TS constants' variables' applications') = 
       let mc = trans c in do
         case mc of
           Nothing -> write (copy listId orig)
-            (termSetWithConstants $ Set.singleton c)
+                            (constTerm c)
           Just tc-> write (copy listId orig)
-            (termSetWithVariables $ Set.singleton tc)
+                            (varTerm tc)
           --important! The tc cannot be wrapped in a copy because it is not a copy!
     )
 
   forM_ variables' $(\v -> do
       write (copy listId orig)
-        (termSetWithVariables $ Set.singleton (copy listId v))
+        (varTerm (copy listId v))
       --TODO: it is correct to use the same listID here?
       --listeners are local, so it should not remove other listeners of the kind, but I am not sure.
       watch v listId (refreshVarListener listId v trans)
@@ -156,7 +158,7 @@ refreshVarListener listId orig trans (TS constants' variables' applications') = 
 
   forM_ applications' $(\(a,b) -> do
       write (copy listId orig)
-        (termSetWithApls $ Set.singleton (copy listId a, copy listId b))
+        (aplTerm (copy listId a, copy listId b))
       watch a listId (refreshVarListener listId a trans)
       watch b listId (refreshVarListener listId b trans)
       --done in the upper listener
@@ -173,7 +175,7 @@ refreshVarListener' ::
   , CopyTermId w i
   , Std w) =>
   w -> i -> (i -> Maybe TermConst) -> TermSet i -> m ()
-refreshVarListener' _ orig _ TSBot = write orig bot
+refreshVarListener' _ orig _ TSBot = void $ write orig bot
 refreshVarListener' listId orig trans (TS _ variables' applications') = do
 
   watchTerm orig
@@ -187,12 +189,10 @@ refreshVarListener' listId orig trans (TS _ variables' applications') = do
           Nothing -> case copyTermIdContents v of
             Just (listId', p') ->
               if listId == listId'
-              then write orig
-                (termSetWithVariables $ Set.singleton p')
+              then void $ write orig (varTerm p')
               else pure ()
             _ -> pure ()
-          Just c -> write orig
-            (termSetWithConstants $ Set.singleton c)
+          Just c -> void $ write orig (constTerm c)
       --more cannot be deduced from variables as new ones might have been added after a unification. Only deducible variables are thos directly created by this constraint
 
     )
@@ -203,9 +203,10 @@ refreshVarListener' listId orig trans (TS _ variables' applications') = do
           if listId'  == listId &&
              listId'' == listId
           then do
-            write orig (termSetWithApls $ Set.singleton (a', b'))
+            write orig (aplTerm (a', b'))
             watch a listId (refreshVarListener' listId a' trans)
             watch b listId (refreshVarListener' listId b' trans)
+            pure ()
           else pure ()
         _ -> pure ()
       --watchTerm (Copy listId a)

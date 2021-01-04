@@ -28,7 +28,7 @@ import "transformers" Control.Monad.Trans.Class
 import "mtl" Control.Monad.Reader.Class
 import "mtl" Control.Monad.State.Class
 
-import "deepseq" Control.DeepSeq
+--import "deepseq" Control.DeepSeq
 
 import "this" Control.Propagator.Class
 import "this" Data.Lattice

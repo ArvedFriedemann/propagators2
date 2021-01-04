@@ -4,6 +4,7 @@ module Data.Terms.TermFunctions where
 import "base" Prelude hiding ( read )
 import "base" Data.Foldable ( fold )
 import "base" GHC.Exts
+import "base" Data.Functor
 
 import "this" Data.Terms.Terms
 import "this" Control.Propagator
@@ -44,8 +45,8 @@ instance IsList (TermStruc a) where
 instance IsString (TermStruc a) where
     fromString = SCON . CUSTOM
 
-var :: a -> TermStruc (TermId a)
-var = SVAR . Direct
+var :: a -> TermStruc a
+var = SVAR
 
 class PosTermId i where
   appLeft :: i -> i
@@ -60,14 +61,14 @@ fromVarsAsCells p SBOT = write p bot $> p
 fromVarsAsCells p STOP = watchTerm p $> p
 fromVarsAsCells p (SCON c) = do
     watchTerm p
-    write p (termSetWithConstants $ S.singleton c)
+    write p (constTerm c)
     pure p
 fromVarsAsCells _ (SVAR v) = pure v
 fromVarsAsCells p (SAPPL a b) = do
   watchTerm p
   ca <- fromVarsAsCells (appLeft p) a
   cb <- fromVarsAsCells (appRight p) b
-  write p (termSetWithApls $ S.singleton (ca, cb))
+  write p (aplTerm (ca, cb))
   pure p
 
 
