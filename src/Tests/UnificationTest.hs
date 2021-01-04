@@ -19,21 +19,21 @@ test1 :: IO ()
 test1 = runTestSEB $ do
     sv_a <- fromVarsAsCells A $ var (Sv 0) <> "a"
     b_sv <- fromVarsAsCells B $ "b" <> var (Sv 0)
-    eq sv_a b_sv
+    sv_a `eq` b_sv
     return [sv_a, b_sv, Direct (Sv 0)]
 
 test2 :: IO ()
 test2 = runTestSEB $ do
     t1 <- fromVarsAsCells A [var $ Sv 1, "a", var $ Sv 1]
     t2 <- fromVarsAsCells B $ var (Sv 2) <> "a"
-    eq t1 t2
+    t1 `eq` t2
     return [t1, t2, Direct $ Sv 1, Direct $ Sv 2]
 
 test3 :: IO ()
 test3 = runTestSEB $ do
     t1 <- fromVarsAsCells A $ var $ Sv 0
     t2 <- fromVarsAsCells B $ "a" <> var (Sv 0)
-    eq t1 t2
+    t1 `eq` t2
     return [t1, t2, Direct $ Sv 0]
 
 test4 :: IO ()
@@ -45,10 +45,10 @@ test4 = runTestSEB $ do
     disjunctFork orig
         [ do
             watch orig () (\r -> (show <$> fromTermSet r) >>= (\r' -> traceM $ "branch A:" ++ (show r')) )
-            eq orig t1
+            orig `eq` t1
         , do
             watch orig () (\r -> (show <$> fromTermSet r) >>= (\r' -> traceM $ "branch B:" ++ (show r')) )
-            eq orig t2
+            orig `eq` t2
         ]
     return [orig, t1, t2]
 
