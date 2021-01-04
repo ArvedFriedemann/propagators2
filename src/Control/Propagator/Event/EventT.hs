@@ -1,66 +1,58 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude    #-}
 {-# LANGUAGE StrictData           #-}
-{-# LANGUAGE ApplicativeDo        #-}
-module Control.Propagator.Event.EventT where
+module Control.Propagator.Event.EventT
+    ( Evt
+    , EventT(..)
+    , MonadEvent(..)
+    , MonadRef(..)
+    ) where
 
 import "base" Prelude hiding ( read )
-import "base" GHC.Generics
-import "base" Data.Typeable
-import "base" Data.Functor.Classes
-import "base" Data.Type.Equality
-import "base" Unsafe.Coerce
+import "base" Data.Maybe
+import "base" Data.Functor
 
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
 import "transformers" Control.Monad.Trans.Class
 
 import "mtl" Control.Monad.Reader.Class
+import "mtl" Control.Monad.State.Class
 
 import "this" Control.Propagator.Class
 import "this" Control.Propagator.Event.Types
-import "this" Data.Typed
-import "this" Data.Id
+import "this" Data.Lattice
 
 
 type Evt m = Event (EventT m)
 
-class MonadEvent e m | m -> e where
+class Monad m => MonadEvent e m | m -> e where
     fire :: e -> m ()
 
-class MonadRef m where
-    getVal :: Identifier i a => Scope -> i -> m a
+class Monad m => MonadRef m where
+    getVal :: Identifier i a => Scope -> i -> m (Maybe a)
 
 newtype EventT m a = EventT
     { runEventT :: ReaderT Scope m a
     }
-  deriving newtype (Functor, Applicative, Monad, MonadFail)
+  deriving newtype (Functor, Applicative, Monad, MonadFail, MonadReader Scope)
+deriving newtype instance MonadState s m => MonadState s (EventT m)
 
 instance MonadTrans EventT where
     lift = EventT . lift
 
-instance MonadId m => MonadId (EventT m) where
-    newId = EventT . ReaderT . const . newId
+withScope :: Monad m => (Scope -> m a) -> EventT m a
+withScope f = ask >>= lift . f
 
-instance ( Typeable m
-         , MonadId m
-         , MonadRef m
-         , MonadEvent (Evt m) m
-         , Monad m
-         ) => MonadProp (EventT m) where
+fire' :: MonadEvent (Evt m) m => (Scope -> Evt m) -> EventT m ()
+fire' ctr = withScope $ fire . ctr
 
-    write i a = do
-        s <- EventT ask
-        lift . fire . WriteEvt $ Write s i a
-
-    watch i j a = do
-        s <- EventT ask
-        lift . fire . WatchEvt $ Watch s i j a
+instance (MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (EventT m) where
     
-    read i = do
-        s <- EventT ask    
-        lift $ getVal s i
+    write i a = i <$ (fire' $ WriteEvt . Write i a)
+    
+    watch i j a = i <$ (fire' $ WatchEvt . Watch i j (void . a))
 
-instance (Monad m, MonadId m, MonadEvent (Evt m) m) => Forkable (EventT m) where
-    fork i m = do
-        s <- EventT ask
-        lift . fire . ForkEvt $ Fork s i m
+    read = fmap (fromMaybe top) . withScope . flip getVal
+
+instance (Monad m, MonadEvent (Evt m) m) => Forkable (EventT m) where
+    fork i m = fire' $ ForkEvt . Fork i m

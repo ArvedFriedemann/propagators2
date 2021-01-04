@@ -2,11 +2,11 @@
 module Data.Terms.TermFunctions where
 
 import "base" Prelude hiding ( read )
-import "base" Data.Functor
+import "base" Data.Foldable ( fold )
+import "base" GHC.Exts
 
 import "this" Data.Terms.Terms
 import "this" Control.Propagator
-import "this" Control.Util
 import "this" Data.Lattice
 import qualified "containers" Data.Set as S
 
@@ -17,9 +17,9 @@ data TermStruc a
     | SCON TermConst
     | SVAR a
     | SAPPL (TermStruc a) (TermStruc a)
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Functor)
 
-instance (Show a) => Show (TermStruc a) where
+instance Show a => Show (TermStruc a) where
     showsPrec _ STOP = showString "top"
     showsPrec _ SBOT = showString "bot"
     showsPrec _ (SCON (CUSTOM s)) = showString s
@@ -28,24 +28,24 @@ instance (Show a) => Show (TermStruc a) where
     showsPrec n (SAPPL s c@(SAPPL _ _)) = (showString "(").(showsPrec n s).(showString ")").(showsPrec n c)
     showsPrec n (SAPPL s c) = (showsPrec n s).(showString " ").(showsPrec n c)
 
+instance Semigroup (TermStruc a) where
+    STOP <> a = a
+    a <> STOP = a
+    a <> b = SAPPL a b
+instance Monoid (TermStruc a) where
+    mempty = STOP
 
-applts :: TermStruc a -> TermStruc a -> TermStruc a
-applts STOP a = a
-applts a STOP = a
-applts a b = SAPPL a b
+instance IsList (TermStruc a) where
+    type Item (TermStruc a) = TermStruc a
+    fromList = fold
+    toList (SAPPL a b) = toList a ++ toList b
+    toList a = pure a
 
-con :: TermConst -> TermStruc a
-con = SCON
+instance IsString (TermStruc a) where
+    fromString = SCON . CUSTOM
 
-ccon :: String -> TermStruc a
-ccon s = SCON (CUSTOM s)
-
-var :: a -> TermStruc a
-var a = SVAR a
-
-ls :: [TermStruc a] -> TermStruc a
-ls lst = foldl applts STOP lst
-
+var :: a -> TermStruc (TermId a)
+var = SVAR . Direct
 
 class PosTermId i where
   appLeft :: i -> i
@@ -87,11 +87,10 @@ fromTermSet' :: (MonadProp m, Ord i, Std i,
   Identifier i (TermSet i)) =>
   Int -> TermSet i -> m (TermStruc i)
 fromTermSet' 0 _ = pure STOP
-fromTermSet' _ TSBot = pure SBOT
+fromTermSet' _ Bot = pure SBOT
+fromTermSet' _ Top = pure STOP
+fromTermSet' _ (TS (Just c) _ _) = pure . SCON $ c
 fromTermSet' n ts
-    | ts == top = pure STOP
-    | not . null . constants $ ts = do
-        pure . con . head . S.toList . constants $ ts
     | not $ null (applications ts) = do
         (a,b) <- pure . head . S.toList . applications $ ts
         a' <- fromCellSize (n-1) a

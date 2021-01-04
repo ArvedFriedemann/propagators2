@@ -9,7 +9,7 @@ import "containers" Data.Set qualified as Set
 import "this" Data.Lattice
 
 
-newtype Domain a = Domain (Set a)
+newtype Domain a = Domain (WithTop (Set a))
   deriving newtype (Eq, Ord, IsList, Meet, Join, BoundedMeet, BoundedJoin, Lattice, BoundedLattice)
   deriving stock (Show, Read)
 
@@ -21,14 +21,19 @@ pattern AsList l <- (toList -> l)
 {-# COMPLETE AsList :: [] #-}
 
 binOp :: Ord a => (a -> a -> a) -> Domain a -> Domain a -> Domain a
-binOp f (Domain a) (Domain b) = Domain . Set.map (uncurry f) $ Set.cartesianProduct a b
+binOp f (Domain (Value a)) (Domain (Value b)) = Domain . Value . Set.map (uncurry f) $ Set.cartesianProduct a b
+binOp _ _ _ = Top
 
 mapD :: Ord b => (a -> b) -> Domain a -> Domain b
-mapD f (Domain s) = Domain . Set.map f $ s
+mapD f (Domain (Value s)) = Domain . Value . Set.map f $ s
+mapD _ _ = Top
 
 fromSingleton :: Ord a => String -> Domain a -> a
 fromSingleton _ (AsList [a]) = a
 fromSingleton e (AsList _) = error $ e ++ ": expected singleton domain"
+
+singleton :: Ord a => a -> Domain a
+singleton = Domain . Value . Set.singleton
 
 instance (Ord a, Num a) => Num (Domain a) where
     (+) = binOp (+)
@@ -37,10 +42,10 @@ instance (Ord a, Num a) => Num (Domain a) where
     abs = mapD abs
     signum = mapD signum
     negate = mapD negate
-    fromInteger = Domain . Set.singleton . fromInteger
+    fromInteger = singleton . fromInteger
 
 instance (Ord a, Fractional a) => Fractional (Domain a) where
-    fromRational = Domain . Set.singleton . fromRational
+    fromRational = singleton . fromRational
     (/) = binOp (/)
 
 instance (Ord a, Real a) => Real (Domain a) where

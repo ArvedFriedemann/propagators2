@@ -1,9 +1,6 @@
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE StrictData           #-}
-{-# LANGUAGE ApplicativeDo        #-}
+{-# LANGUAGE StrictData #-}
 module Control.Propagator.Event.Simple where
 
-import "base" GHC.Generics
 import "base" Data.Typeable
 import "base" Data.Maybe
 import "base" Data.Foldable
@@ -28,10 +25,23 @@ import "this" Control.Propagator.Class
 import "this" Control.Propagator.Event.Types
 import "this" Control.Propagator.Event.EventT
 import "this" Data.Lattice
+import "this" Data.Typed
 
+
+-------------------------------------------------------------------------------
+-- SEBId
+-------------------------------------------------------------------------------
 
 data SEBId where
     SEBId :: Identifier i a => Scope -> i -> SEBId
+instance Eq SEBId where
+    a == b = compare a b == EQ
+instance Ord SEBId where
+    SEBId s i `compare` SEBId t j = compare s t <> compareTyped i j
+
+-------------------------------------------------------------------------------
+-- SEBCell
+-------------------------------------------------------------------------------
 
 data SEBCell where
     SEBC :: Value a => a -> Map SomeStd (a -> SEB ()) -> SEBCell
@@ -46,16 +56,20 @@ instance Show SEBCell where
 toVal :: Value a => SEBCell -> Maybe a
 toVal (SEBC a _) = cast a
 
+-------------------------------------------------------------------------------
+-- SimpleEventBus
+-------------------------------------------------------------------------------
+
 type SEB = EventT SimpleEventBus
 
 data SEBState = SEBS
-    { unSEBS :: Set (Evt SimpleEventBus)
+    { events :: Set (Evt SimpleEventBus)
     , cells :: Map SEBId SEBCell
     } 
 newtype SimpleEventBus a = SEB
     { unSEB :: StateT SEBState IO a
     }
-  deriving newtype (Functor, Applicative, Monad, MonadFail)
+  deriving newtype (Functor, Applicative, Monad, MonadFail, MonadState SEBState)
 
 runSEB :: SEB a -> (a -> SEB b) -> IO b
 runSEB start end = do
@@ -66,7 +80,7 @@ runSEB start end = do
 
 flushSEB :: SEB ()
 flushSEB = do
-    evts <- lift . SEB . gets $ unSEBS
+    evts <- gets events
     unless (Set.null evts) $ do
         traceM "flushSEB"
         lift . SEB . modify $ \ (SEBS _ cx) -> SEBS Set.empty cx
@@ -74,47 +88,57 @@ flushSEB = do
             traceM $ show evt
             handleEvent evt
         flushSEB
+
+alterCell :: Identifier i a
+          => Scope -> i 
+          -> (Maybe (a, Map SomeStd (a -> SEB ())) -> (a, Map SomeStd (a -> SEB ())))
+          -> SEB ()
+alterCell s i f = modify $ \ st -> st{ cells = Map.alter f' (SEBId s i) . cells $ st }
+  where
+    f' Nothing = pure . uncurry SEBC . f $ Nothing
+    f' (Just (SEBC a ls)) = pure . uncurry SEBC . f $ cast (a, ls)
+
     
 handleEvent :: Evt SimpleEventBus -> SEB ()
-handleEvent (WriteEvt (Write s i a)) = do
-    (old, ls) <- searchCell s i . cells <$> lift (SEB get) 
-    let a' =  old /\ a
-    unless (a' == old) $ do
-        lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.adjust (setValue a') (SEBId s i) cx
-        mapM_ (execListener s a') ls
+handleEvent (WriteEvt (Write i a s)) = do
+    v <- getCell s i
+    case v of
+        Just (old, ls) -> do
+            let a' =  old /\ a
+            unless (a' == old) $ do
+                alterCell s i . setValue $ a'
+                mapM_ (execListener s a') ls
+        Nothing -> alterCell s i . setValue $ a
   where
-    setValue a' (SEBC _ ls) = SEBC (fromJust $ cast a') ls
-handleEvent (WatchEvt (Watch s c i act)) = do
-    (v, _) <- searchCell s c . cells <$> lift (SEB get)
-    lift . SEB . modify $ \ (SEBS evt cx) -> SEBS evt $ Map.alter (addListener v) (SEBId s c) cx
+    setValue a' = (a',) . maybe [] snd
+handleEvent (WatchEvt (Watch c i act s)) = do
+    v <- fromMaybe top <$> lift (getVal s c)
+    alterCell s c . addListener $ v
     execListener s v act
   where
-    addListener v Nothing = pure $ SEBC v (Map.singleton (SomeStd i) act)
-    addListener _ (Just (SEBC v ls)) = pure $ SEBC v $ Map.insert (SomeStd i) (fromJust $ cast act) ls
-handleEvent (ForkEvt (Fork s i act)) = do
-    lift $ runReaderT (runEventT $ act (inScope s)) (Scope i s)
+    addListener v cv =
+        ( maybe v fst cv
+        , Map.insert (SomeStd i) act $ maybe Map.empty snd cv
+        )
+handleEvent (ForkEvt (Fork i act s)) = void . inScope (Scope i s) $ act (inScope s)
 
 inScope :: Scope -> (forall a. SEB a -> SEB a)
-inScope s = EventT . local (const s) . runEventT
+inScope = local . const
 
 execListener :: Value a => Scope -> a -> (a -> SEB ()) -> SEB ()
 execListener s a m = inScope s (m a)
 
-searchCell :: forall a i. Identifier i a => Scope -> i -> Map SEBId SEBCell -> (a, [a -> SEB ()])
-searchCell s i cx = maybeMerge mergeCell fromThisScope fromParentScope
+getCell :: (MonadState SEBState m, Identifier i a) => Scope -> i -> m (Maybe (a, [a -> SEB ()]))
+getCell s' i' = gets $ searchCell' s' i' . cells
   where
-    mergeCell (a, lsA) (b, lsB) = (a /\ b, lsA ++ lsB)
-    fromThisScope = do
+    searchCell' Root i cx = getCell' Root i cx
+    searchCell' s@(Scope _ p) i cx = getCell' s i cx <|> searchCell' p i cx
+    getCell' s i cx = do
         SEBC a lsA <- Map.lookup (SEBId s i) cx
         liftA2 (,) (cast a) (cast $ Map.elems lsA)
-    fromParentScope = do 
-        s' <- parentScope s
-        searchCell s' i cx
 
 instance MonadEvent (Evt SimpleEventBus) SimpleEventBus where
-    fire e = SEB $ modify (\(SEBS evts cx) -> SEBS (Set.insert e evts) cx)
+    fire e = SEB . modify $ \(SEBS evts cx) -> SEBS (Set.insert e evts) cx
 
 instance MonadRef SimpleEventBus where
-    getVal s i = SEB . gets $ orError . fmap fst . searchCell s (EventCell i) . cells
-      where
-        orError = fromMaybe (error $ "cell " ++ show i ++ " not found in scope " ++ show s)
+    getVal s i = fmap fst <$> getCell s i

@@ -1,7 +1,8 @@
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ApplicativeDo #-}
 module Data.Terms.Terms where
 
+import "base" Data.Maybe
+import "base" Data.Function
 import "base" Control.Monad
 
 import "containers" Data.Set ( Set )
@@ -31,106 +32,48 @@ data Term a
     | App a a
   deriving (Show, Eq, Ord, Functor, Foldable)
 
-data OVTConstructor
-    = OVTVar
-    | OVTCon
-    | OVTApp
-  deriving (Show, Eq, Ord)
-
-ovtToConstructor :: Term a -> OVTConstructor
-ovtToConstructor (Var _) = OVTVar
-ovtToConstructor (Con _) = OVTCon
-ovtToConstructor (App _ _) = OVTApp
-
-ovtIsVar ::  Term a -> Bool
-ovtIsVar t = ovtToConstructor t == OVTVar
-
-ovtIsCon ::  Term a -> Bool
-ovtIsCon t = ovtToConstructor t == OVTCon
-
-ovtIsApl ::  Term a -> Bool
-ovtIsApl t = ovtToConstructor t == OVTApp
-
-constantContent :: Term a -> [TermConst]
-constantContent (Con c) = [c]
-constantContent _ = []
-
-constantContents :: [Term a] -> [TermConst]
-constantContents ts = concatMap constantContent ts
-
-variableContent :: Term a -> [a]
-variableContent (Var v) = [v]
-variableContent _ = []
-
-variableContents :: [Term a] -> [a]
-variableContents ts = concatMap variableContent ts
-
-applContent :: Term a -> [(a, a)]
-applContent (App a b) = [(a,b)]
-applContent _ = []
-
-applContents :: [Term a] -> [(a, a)]
-applContents ts = concatMap applContent ts
-
-applLefts :: [Term a] -> [a]
-applLefts ts = fst <$> applContents ts
-
-aplRights :: [Term a] -> [a]
-aplRights ts = snd <$> applContents ts
-
-
 
 data TermSet a
     = TSBot
     | TS
-        { constants :: Set TermConst
+        { constant :: Maybe TermConst
         , variables :: Set a
         , applications :: Set (a, a)
         }
   deriving (Eq, Ord, Show)
 
 
-emptyTermSet :: TermSet a
-emptyTermSet = TS Set.empty Set.empty Set.empty
+constTerms :: Ord a => TermConst -> TermSet a
+constTerms c = top {constant = Just c}
 
-termSetWithConstants :: Set TermConst -> TermSet a
-termSetWithConstants cvs = emptyTermSet {constants = cvs}
+appTerms :: Ord a => (a, a) -> TermSet a
+appTerms app = top {applications = Set.singleton app}
 
-termSetWithVariables :: Set a -> TermSet a
-termSetWithVariables cvs = emptyTermSet {variables = cvs}
-
-termSetWithApls :: Set (a, a) -> TermSet a
-termSetWithApls cvs = emptyTermSet {applications = cvs}
-
-cleanTermSet :: TermSet a -> TermSet a
-cleanTermSet TSBot = TSBot
-cleanTermSet ts
-    --the value cannot be application and constant atst.
-    | (not $ Set.null (applications ts)) &&
-      (not $ Set.null (constants ts)) = TSBot
-    --no more than one constant allowed
-    | length (constants ts) > 1 = TSBot
-    | otherwise = ts
+liftTS2 :: Ord a => (forall b. Ord b => Set b -> Set b -> Set b) -> TermSet a -> TermSet a -> TermSet a
+liftTS2 _ Bot _ = Bot
+liftTS2 _ _ Bot = Bot
+liftTS2 f a b
+    | on (==) constant a b = cleanTermSet TS
+        { constant = constant a
+        , variables = on f variables a b
+        , applications = on f applications a b
+        }
+    | otherwise = Bot
+  where
+    cleanTermSet ts@(TS cs _ as)
+        --the value cannot be application and constant atst.
+        | (not $ Set.null as) && isJust cs = Bot
+        --no more than one constant allowed
+        | length cs > 1 = Bot
+        | otherwise = ts
+    cleanTermSet _ = Bot
 
 instance Ord a => Meet (TermSet a) where
-    TSBot /\ _ = TSBot
-    _ /\ TSBot = TSBot
-    ts1 /\ ts2 = cleanTermSet $ TS {
-        constants = Set.union (constants ts1) (constants ts2),
-        variables = Set.union (variables ts1) (variables ts2),
-        applications = Set.union (applications ts1) (applications ts2)
-    }
+    (/\) = liftTS2 Set.union
 instance Ord a => BoundedMeet (TermSet a) where
-    top = emptyTermSet
+    top = TS Nothing Set.empty Set.empty
 instance Ord a => Join (TermSet a) where
-    TSBot \/ a = a
-    a \/ TSBot = a
-    --WARNING: This still needs to store which listeners should be removed!
-    ts1 \/ ts2 = cleanTermSet $ TS {
-        constants = Set.intersection (constants ts1) (constants ts2),
-        variables = Set.intersection (variables ts1) (variables ts2),
-        applications = Set.intersection (applications ts1) (applications ts2)
-    }
+    (\/) = liftTS2 Set.intersection
 instance Ord a => BoundedJoin (TermSet a) where
     bot = TSBot
 instance Ord a => Lattice (TermSet a)
@@ -141,16 +84,14 @@ propBot :: ( MonadProp m
            , Eq a, BoundedJoin a
            )
         => i -> a -> m ()
-propBot i a
-    | a == bot  = write i bot
-    | otherwise = pure ()
+propBot i a = when (a == Bot) . void $ write i Bot
 
-watchTerm :: (Ord i, MonadProp m, Identifier i (TermSet i)) => i -> m ()
+watchTerm :: (Ord i, MonadProp m, Identifier i (TermSet i)) => i -> m i
 watchTerm ct = watch ct ("term" :: String, ct) $ termListener ct
 
 --WARNING: Does not remove listeners after join!
 termListener :: (Ord i, MonadProp m, Identifier i (TermSet i)) => i -> TermSet i -> m ()
-termListener _ TSBot = pure ()
+termListener _ Bot = pure ()
 termListener this ts = do
     --equality for variables
     mapM_ (eq this) (Set.toList $ variables ts)

@@ -33,7 +33,7 @@ dependencies:
   - unordered-containers
   - vector
   - constraints
-  - deepseq
+  - semigroupoids
 
 # enable modern Haskell
 default-extensions:

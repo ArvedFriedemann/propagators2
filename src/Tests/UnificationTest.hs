@@ -1,60 +1,57 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 module Tests.UnificationTest where
 
-import "containers" Data.Set qualified as S
-import "base" Data.Functor
+import "base" Prelude hiding ( read )
+import "base" GHC.Generics
+import "base" Data.List
 import "base" Debug.Trace
 
-import "this" Tests.TestLogic
-
-import "this" Data.Terms.Terms
 import "this" Data.Terms.TermFunctions
-
-import "this" Control.Propagator.Class
+import "this" Data.Domain
+import "this" Control.Propagator
+import "this" Control.Propagator.Event
 import "this" Control.Combinator.Logics
 import "this" Control.Propagator.Event
 
+
+data Cell = Sv Int | A | B | C deriving (Eq, Ord, Show)
+
 test1 :: IO ()
 test1 = runTestSEB $ do
-    sv <- fromVarsAsCells (ls [])
-    sv_a <- fromVarsAsCells (ls [var sv, ccon "a"])
-    b_sv <- fromVarsAsCells (ls [ccon "b", var sv])
+    sv_a <- fromVarsAsCells A $ var (Sv 0) <> "a"
+    b_sv <- fromVarsAsCells B $ "b" <> var (Sv 0)
     eq sv_a b_sv
-    return [sv_a, b_sv, sv]
+    return [sv_a, b_sv, Direct (Sv 0)]
 
 test2 :: IO ()
 test2 = runTestSEB $ do
-    sv1 <- newEmptyCell "sv1"
-    sv2 <- newEmptyCell "sv2"
-
-    t1 <- fromVarsAsCells (ls [var sv1, ccon "a", var sv1])
-    t2 <- fromVarsAsCells (ls [var sv2, ccon "a"])
+    t1 <- fromVarsAsCells A [var $ Sv 1, "a", var $ Sv 1]
+    t2 <- fromVarsAsCells B $ var (Sv 2) <> "a"
     eq t1 t2
-    return [t1, t2, sv1, sv2]
+    return [t1, t2, Direct $ Sv 1, Direct $ Sv 2]
 
 
 test3 :: IO ()
 test3 = runTestSEB $ do
-    sv <- newEmptyCell "sv"
-    t1 <- fromVarsAsCells (var sv)
-    t2 <- fromVarsAsCells (ls [ccon "a", var sv])
+    t1 <- fromVarsAsCells A $ var $ Sv 0
+    t2 <- fromVarsAsCells B $ "a" <> var (Sv 0)
     eq t1 t2
-    return [t1, t2, sv]
+    return [t1, t2, Direct $ Sv 0]
 
 test4 :: IO ()
 test4 = runTestSEB $ do
-    sv1 <- newEmptyCell "sv1"
-
-    orig <- fromVarsAsCells (ls [var sv1, ccon "a"])
-    t1 <- fromVarsAsCells (ls [ccon "b", ccon "a"])
-    t2 <- fromVarsAsCells (ls [ccon "b", ccon "b"])
+    orig <- fromVarsAsCells A $ var (Sv 1) <> "A"
+    t1 <- fromVarsAsCells B $ "B" <> "A"
+    t2 <- fromVarsAsCells C $ "B" <> "B"
 
     disjunctFork orig
-      (void $ do
-        watch orig (\r -> (show <$> fromTermSetString r) >>= (\r' -> traceM $ "branch A:" ++ (show r')) )
-        eq orig t1 )
-      (void $ do
-        watch orig (\r -> (show <$> fromTermSetString r) >>= (\r' -> traceM $ "branch B:" ++ (show r')) )
-        eq orig t2 )
+        [ do
+            watch orig () (\r -> (show <$> fromTermSet r) >>= (\r' -> traceM $ "branch A:" ++ (show r')) )
+            eq orig t1
+        , do
+            watch orig () (\r -> (show <$> fromTermSet r) >>= (\r' -> traceM $ "branch B:" ++ (show r')) )
+            eq orig t2
+        ]
     return [orig, t1, t2]
 
 testRefreshTo :: IO ()
@@ -86,24 +83,20 @@ testRefreshUnification = runTestSEB $ do
   eq orig copy
   return [rule, copy, orig]
 
-data TD = A | B | C
-  deriving (Eq, Ord, Show, Enum, Bounded)
+data TD = TD_A | TD_B | TD_C
+  deriving (Eq, Ord, Show, Generic, Enum, Bounded)
 
+data TC = Orig | TC Int deriving (Eq, Ord, Show)
+instance Identifier TC (Domain TD)
 
 test5 :: IO ()
 test5 = flip runSEB (>> pure ()) $ do
-    orig <- newCell "orig" ([A, B, C] :: S.Set TD)
-    c2 <- newCell "c2" ([A, C] :: S.Set TD)
+    write (TC 2) [TD_A, TD_C]
 
-    orig `eq` c2
+    fork () $ \ lft -> watch (TC 2) () $ lft . write Orig
 
-    namedFork "Fork" $ \ lft -> do
-        orig `eq` c2
-        write c2 [A]
-        watch orig $ lft . write orig
-        pure ()
-
+    watch Orig () $ \ _ -> write (TC 2) [TD_A]
 
     pure $ do
-        v <- readCell orig
+        v <- read Orig
         traceM $ show v
