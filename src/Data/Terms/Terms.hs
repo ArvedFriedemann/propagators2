@@ -163,41 +163,49 @@ termListener this ts = do
     mapM_ propBotThis $ fst <$> appList
     mapM_ propBotThis $ snd <$> appList
 
-data CpyTermId w p =
-    Direct p
-  | Copy w p --id of the watch and the original
-  deriving (Eq, Ord, Show)
-instance (Ord p, Std p, Ord w, Std w) => Identifier (CpyTermId w p) (TermSet (CpyTermId w p))
 
-origTerm :: CpyTermId w p -> p
-origTerm (Direct p) = p
-origTerm (Copy _ p) = p
+class CopyTermId w i where
+  --copy listId origTerm
+  copy :: w -> i -> i
+  copyTermIdContents :: i -> Maybe (w,i)
 
-refreshVarsTbl :: (Ord i, MonadProp m, Identifier i (TermSet i), Std w) => w -> [(TermConst, i)] -> i -> m (CpyTermId w i)
+refreshVarsTbl ::
+  ( Ord i
+  , MonadProp m
+  , Identifier i (TermSet i)
+  , CopyTermId w i
+  , Std w) =>
+  w -> [(TermConst, i)] -> i -> m i
 refreshVarsTbl listId tbl orig = do
-    watch listId orig (refreshVarListener listId orig trans)
-    return (Copy listId orig)
+    watch orig listId (refreshVarListener listId orig trans)
+    return (copy listId orig)
   where trans = flip Map.lookup (Map.fromList tbl)
 
-refreshVarListener :: (Ord i, MonadProp m, Identifier i (TermSet i), Std w) => w -> i -> (TermConst -> Maybe i) -> TermSet i -> m ()
-refreshVarListener listId orig _ TSBot = write (Copy listId orig) bot
+refreshVarListener ::
+  (Ord i
+  , MonadProp m
+  , Identifier i (TermSet i)
+  , CopyTermId w i
+  , Std w) =>
+  w -> i -> (TermConst -> Maybe i) -> TermSet i -> m ()
+refreshVarListener listId orig _ TSBot = write (copy listId orig) bot
 refreshVarListener listId orig trans (TS constants' variables' applications') = do
 
-  watchTerm (Copy listId orig)
+  watchTerm (copy listId orig)
 
   forM_ constants' $(\c ->
       let mc = trans c in do
         case mc of
-          Nothing -> write (Copy listId orig)
+          Nothing -> write (copy listId orig)
             (termSetWithConstants $ Set.singleton c)
-          Just c'-> write (Copy listId orig)
-            (termSetWithVariables $ Set.singleton (c'))
-          --TODO: This is how it should be. A variable pointing to a real world location. Problem is that the type system does not allow that!
+          Just tc-> write (copy listId orig)
+            (termSetWithVariables $ Set.singleton tc)
+          --important! The tc cannot be wrapped in a copy because it is not a copy!
     )
 
   forM_ variables' $(\v -> do
-      write (Copy listId orig)
-        (termSetWithVariables $ Set.singleton (Copy listId v))
+      write (copy listId orig)
+        (termSetWithVariables $ Set.singleton (copy listId v))
       --TODO: it is correct to use the same listID here?
       --listeners are local, so it should not remove other listeners of the kind, but I am not sure.
       watch v listId (refreshVarListener listId v trans)
@@ -206,8 +214,8 @@ refreshVarListener listId orig trans (TS constants' variables' applications') = 
     )
 
   forM_ applications' $(\(a,b) -> do
-      write (Copy listId orig)
-        (termSetWithApls $ Set.singleton (Copy listId a, Copy listId b))
+      write (copy listId orig)
+        (termSetWithApls $ Set.singleton (copy listId a, copy listId b))
       watch a listId (refreshVarListener listId a trans)
       watch b listId (refreshVarListener listId b trans)
       --done in the upper listener
@@ -217,20 +225,26 @@ refreshVarListener listId orig trans (TS constants' variables' applications') = 
 
 
 --TODO: Technically this thing is BS. The only values that could be retrieved were the ones specifically implanted by the first listener. However, in the general use case, these are never created by other listeners, wherefore the creation direction really is always one directional. As an example: The original term could just be one constant creating a variable. The created variable could be merged with any term, wherefore the resulted term does not contain any information about its origin except that it exists.
-refreshVarListener' :: (Ord i, MonadProp m, Identifier (CpyTermId w i) (TermSet (CpyTermId w i)), Std w) => w -> i -> (i -> Maybe TermConst) -> TermSet (CpyTermId w i) -> m ()
+refreshVarListener' ::
+  (Ord i
+  , MonadProp m
+  , Identifier i (TermSet i)
+  , CopyTermId w i
+  , Std w) =>
+  w -> i -> (i -> Maybe TermConst) -> TermSet i -> m ()
 refreshVarListener' _ orig _ TSBot = write orig bot
-refreshVarListener' listId orig trans (TS constants' variables' applications') = do
+refreshVarListener' listId orig trans (TS _ variables' applications') = do
 
   watchTerm orig
 
-  --cannot deduce anything from constants because they might be more after a unification. I can derive that there has to be an empty term in this case, but that is already given through the existance of the original term
+  --can't deduce anything from the pure constants as they do not carry the copy reason with them
 
   forM_ variables' $(\v ->
       --this should check whether the thing is a "Direct" id first. Grrr...this smells of casting
       let mv = trans v in do
         case mv of
-          Nothing -> case v of
-            (Copy listId' p') ->
+          Nothing -> case copyTermIdContents v of
+            Just (listId', p') ->
               if listId == listId'
               then write orig
                 (termSetWithVariables $ Set.singleton p')
@@ -243,8 +257,8 @@ refreshVarListener' listId orig trans (TS constants' variables' applications') =
     )
   --technically can't know stuff here either...except that there should be some application, but never its destinations. Only those specifically created by this copy listener could be deduced back.
   forM_ applications' $(\(a,b) -> do
-      case (a,b) of
-        (Copy listId' a', Copy listId'' b') ->
+      case (copyTermIdContents a,copyTermIdContents b) of
+        (Just(listId', a'), Just(listId'', b')) ->
           if listId'  == listId &&
              listId'' == listId
           then do
