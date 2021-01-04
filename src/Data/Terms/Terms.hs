@@ -7,6 +7,9 @@ import "base" Control.Monad
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
 
+import "containers" Data.Map ( Map )
+import "containers" Data.Map qualified as Map
+
 import "this" Data.Lattice
 import "this" Control.Propagator
 import "this" Control.Util
@@ -170,6 +173,12 @@ origTerm :: CpyTermId w p -> p
 origTerm (Direct p) = p
 origTerm (Copy _ p) = p
 
+refreshVarsTbl :: (Ord i, MonadProp m, Identifier i (TermSet i), Std w) => w -> [(TermConst, i)] -> i -> m (CpyTermId w i)
+refreshVarsTbl listId tbl orig = do
+    watch listId orig (refreshVarListener listId orig trans)
+    return (Copy listId orig)
+  where trans = flip Map.lookup (Map.fromList tbl)
+
 refreshVarListener :: (Ord i, MonadProp m, Identifier i (TermSet i), Std w) => w -> i -> (TermConst -> Maybe i) -> TermSet i -> m ()
 refreshVarListener listId orig _ TSBot = write (Copy listId orig) bot
 refreshVarListener listId orig trans (TS constants' variables' applications') = do
@@ -182,7 +191,8 @@ refreshVarListener listId orig trans (TS constants' variables' applications') = 
           Nothing -> write (Copy listId orig)
             (termSetWithConstants $ Set.singleton c)
           Just c'-> write (Copy listId orig)
-            (termSetWithVariables $ Set.singleton (Copy listId c'))
+            (termSetWithVariables $ Set.singleton (c'))
+          --TODO: This is how it should be. A variable pointing to a real world location. Problem is that the type system does not allow that!
     )
 
   forM_ variables' $(\v -> do
@@ -206,6 +216,7 @@ refreshVarListener listId orig trans (TS constants' variables' applications') = 
     )
 
 
+--TODO: Technically this thing is BS. The only values that could be retrieved were the ones specifically implanted by the first listener. However, in the general use case, these are never created by other listeners, wherefore the creation direction really is always one directional. As an example: The original term could just be one constant creating a variable. The created variable could be merged with any term, wherefore the resulted term does not contain any information about its origin except that it exists.
 refreshVarListener' :: (Ord i, MonadProp m, Identifier (CpyTermId w i) (TermSet (CpyTermId w i)), Std w) => w -> i -> (i -> Maybe TermConst) -> TermSet (CpyTermId w i) -> m ()
 refreshVarListener' _ orig _ TSBot = write orig bot
 refreshVarListener' listId orig trans (TS constants' variables' applications') = do
@@ -215,6 +226,7 @@ refreshVarListener' listId orig trans (TS constants' variables' applications') =
   --cannot deduce anything from constants because they might be more after a unification. I can derive that there has to be an empty term in this case, but that is already given through the existance of the original term
 
   forM_ variables' $(\v ->
+      --this should check whether the thing is a "Direct" id first. Grrr...this smells of casting
       let mv = trans v in do
         case mv of
           Nothing -> case v of
@@ -224,7 +236,7 @@ refreshVarListener' listId orig trans (TS constants' variables' applications') =
                 (termSetWithVariables $ Set.singleton p')
               else pure ()
             _ -> pure ()
-          Just c -> write p
+          Just c -> write orig
             (termSetWithConstants $ Set.singleton c)
       --more cannot be deduced from variables as new ones might have been added after a unification. Only deducible variables are thos directly created by this constraint
 
@@ -236,9 +248,9 @@ refreshVarListener' listId orig trans (TS constants' variables' applications') =
           if listId'  == listId &&
              listId'' == listId
           then do
-            write p (termSetWithApls $ Set.singleton (a', b'))
-            watch a listId (refreshVarListener' listId a trans)
-            watch b listId (refreshVarListener' listId b trans)
+            write orig (termSetWithApls $ Set.singleton (a', b'))
+            watch a listId (refreshVarListener' listId a' trans)
+            watch b listId (refreshVarListener' listId b' trans)
           else pure ()
         _ -> pure ()
       --watchTerm (Copy listId a)
