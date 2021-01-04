@@ -37,29 +37,27 @@ disjunctForkList c mlst = do
     _ -> error "list should have at least two elements!"
 -}
 
-data DisjunctFork i = Rc Int i deriving (Eq, Ord, Show)
-instance Identifier i a => Identifier (DisjunctFork i) a
+data DisjunctFork w i = Rc w Int i deriving (Eq, Ord, Show)
+instance (Std w, Identifier i a) => Identifier (DisjunctFork w i) a
 
---WARNING, TODO: The whole disjunctFork needs a reason on its own
-disjunctFork :: (MonadProp m, Forkable m, BoundedJoin a, Identifier i a) => i -> [m ()] -> m ()
-disjunctFork _ [] = pure ()
-disjunctFork tg [m] =
-  fork ("disjunct" :: String, Rc 0 tg) (\lft -> do
-      watch tg ("disjunct" :: String, Rc 0 tg) (void.lft.(write tg))
-      m
+disjunctFork :: (MonadProp m, Forkable m, BoundedJoin a, Identifier i a, Std w) => w -> i -> [m ()] -> m ()
+disjunctFork _ _ [] = pure ()
+disjunctFork idfr tg [m] =
+  fork ("disjunct" :: String, Rc idfr 0 tg) (\lft -> do
+      watch tg ("disjunct" :: String, Rc idfr 0 tg) (void.lft.(write tg)) >> m
     )
-disjunctFork tg ms = do --ms has at least 2 elements
-    watch (Rc 0 tg) ()
+disjunctFork idfr tg ms = do --ms has at least 2 elements
+    watch (Rc idfr 0 tg) ()
       (disjunctForkMultiListener tg rcs)
-    watch (Rc 1 tg) ()
+    watch (Rc idfr 1 tg) ()
       (disjunctForkMultiListener tg rcs)
     sequence_ $ zipWith disjunctFork' rcs ms
-  where rcs = [Rc i tg | i <- [0..]]
+  where rcs = [Rc idfr i tg | i <- [0..]]
         disjunctFork' i m = do
             fork ("disjunct" :: String, i) $ \lft ->
               watch i () (lft . write i) >> m
 
-disjunctForkMultiListener :: (MonadProp m, BoundedJoin a, Identifier i a) => i -> [DisjunctFork i] -> a -> m ()
+disjunctForkMultiListener :: (MonadProp m, BoundedJoin a, Identifier i a, Std w) => i -> [DisjunctFork w i] -> a -> m ()
 disjunctForkMultiListener _ [] _ = pure ()
 disjunctForkMultiListener tg forks _ = do
   fconts <- mapM read forks
