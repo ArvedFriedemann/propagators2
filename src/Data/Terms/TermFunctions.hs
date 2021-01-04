@@ -47,14 +47,15 @@ ls :: [TermStruc a] -> TermStruc a
 ls lst = foldl applts STOP lst
 
 
-data TermId p
-    = Direct p
-    | AppLeft (TermId p)
-    | AppRight (TermId p)
-  deriving (Eq, Ord, Show)
-instance (Ord p, Std p) => Identifier (TermId p) (TermSet (TermId p))
+class PosTermId i where
+  appLeft :: i -> i
+  appRight :: i -> i
 
-fromVarsAsCells :: (Ord p, Std p, MonadProp m) => TermId p -> TermStruc (TermId p) -> m (TermId p)
+fromVarsAsCells ::
+  (Ord i, Std i, MonadProp m,
+  Identifier i (TermSet i),
+  PosTermId i) =>
+  i -> TermStruc i -> m i
 fromVarsAsCells p SBOT = write p bot $> p
 fromVarsAsCells p STOP = watchTerm p $> p
 fromVarsAsCells p (SCON c) = do
@@ -64,22 +65,27 @@ fromVarsAsCells p (SCON c) = do
 fromVarsAsCells _ (SVAR v) = pure v
 fromVarsAsCells p (SAPPL a b) = do
   watchTerm p
-  ca <- fromVarsAsCells (AppLeft p) a
-  cb <- fromVarsAsCells (AppRight p) b
+  ca <- fromVarsAsCells (appLeft p) a
+  cb <- fromVarsAsCells (appRight p) b
   write p (termSetWithApls $ S.singleton (ca, cb))
   pure p
 
 
-fromCell :: (MonadProp m, Ord i, Std i) => TermId i -> m (TermStruc i)
+fromCell :: (MonadProp m, Ord i, Std i,
+  Identifier i (TermSet i)) => i -> m (TermStruc i)
 fromCell c = read c >>= fromTermSet
 
-fromCellSize :: (MonadProp m, Ord i, Std i) => Int -> TermId i -> m (TermStruc i)
+fromCellSize :: (MonadProp m, Ord i, Std i,
+  Identifier i (TermSet i)) => Int -> i -> m (TermStruc i)
 fromCellSize s c = read c >>= fromTermSet' s
 
-fromTermSet :: (MonadProp m, Ord i, Std i) => TermSet (TermId i) -> m (TermStruc i)
+fromTermSet :: (MonadProp m, Ord i, Std i,
+  Identifier i (TermSet i)) => TermSet i -> m (TermStruc i)
 fromTermSet = fromTermSet' (-1)
 
-fromTermSet' :: (MonadProp m, Ord i, Std i) => Int -> TermSet (TermId i) -> m (TermStruc i)
+fromTermSet' :: (MonadProp m, Ord i, Std i,
+  Identifier i (TermSet i)) =>
+  Int -> TermSet i -> m (TermStruc i)
 fromTermSet' 0 _ = pure STOP
 fromTermSet' _ TSBot = pure SBOT
 fromTermSet' n ts
