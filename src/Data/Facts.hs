@@ -4,7 +4,8 @@ module Data.Facts where
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as S
 
-import "this" Data.Lattice
+--import "this" Data.Lattice qualified as L
+import "this" Data.Lattice hiding (Top, Bot)
 
 data UnitFact = UnitFact
   deriving (Eq, Ord, Show)
