@@ -52,6 +52,8 @@ class PosTermId i where
   appLeft :: i -> i
   appRight :: i -> i
 
+
+
 fromVarsAsCells ::
   (Ord i, Std i, MonadProp m,
   Identifier i (TermSet i),

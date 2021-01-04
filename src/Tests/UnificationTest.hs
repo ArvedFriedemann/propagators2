@@ -8,27 +8,29 @@ import "base" Debug.Trace
 
 import "this" Data.Terms.TermFunctions
 import "this" Data.Domain
+import "this" Control.Combinator.Logics
 import "this" Control.Propagator
 import "this" Control.Propagator.Event
-import "this" Control.Combinator.Logics
-import "this" Control.Propagator.Event
+import "this" Tests.TestLogic
+import "this" Data.Terms.Terms
 
 
 data Cell = Sv Int | A | B | C deriving (Eq, Ord, Show)
+instance Identifier Cell (TermSet Cell)
 
 test1 :: IO ()
 test1 = runTestSEB $ do
     sv_a <- fromVarsAsCells A $ var (Sv 0) <> "a"
     b_sv <- fromVarsAsCells B $ "b" <> var (Sv 0)
     sv_a `eq` b_sv
-    return [sv_a, b_sv, Direct (Sv 0)]
+    return [sv_a, b_sv, Sv 0]
 
 test2 :: IO ()
 test2 = runTestSEB $ do
     t1 <- fromVarsAsCells A [var $ Sv 1, "a", var $ Sv 1]
     t2 <- fromVarsAsCells B $ var (Sv 2) <> "a"
     t1 `eq` t2
-    return [t1, t2, Direct $ Sv 1, Direct $ Sv 2]
+    return [t1, t2, Sv 1, Sv 2]
 
 
 test3 :: IO ()
@@ -36,7 +38,7 @@ test3 = runTestSEB $ do
     t1 <- fromVarsAsCells A $ var $ Sv 0
     t2 <- fromVarsAsCells B $ "a" <> var (Sv 0)
     t1 `eq` t2
-    return [t1, t2, Direct $ Sv 0]
+    return [t1, t2, Sv 0]
 
 test4 :: IO ()
 test4 = runTestSEB $ do
@@ -44,7 +46,7 @@ test4 = runTestSEB $ do
     t1 <- fromVarsAsCells B $ "B" <> "A"
     t2 <- fromVarsAsCells C $ "B" <> "B"
 
-    disjunctFork orig
+    disjunctFork orig orig
         [ do
             watch orig () (\r -> (show <$> fromTermSet r) >>= (\r' -> traceM $ "branch A:" ++ (show r')) )
             orig `eq` t1
@@ -53,36 +55,36 @@ test4 = runTestSEB $ do
             orig `eq` t2
         ]
     return [orig, t1, t2]
-
+{-
 testRefreshTo :: IO ()
 testRefreshTo = runTestSEB $ do
-  orig <- fromVarsAsCells (ls [ccon "b", ccon "a"])
-  --so the term listeners are placed
-  copy <- fromVarsAsCells (ls [])
-  v1 <- fromVarsAsCells (ls [])
-  refreshVarsTbl [(CUSTOM "b",v1)] orig copy
-  return [orig, copy]
+    orig <- fromVarsAsCells A ["b", "a"]
+    --so the term listeners are placed
+    copy <- fromVarsAsCells B []
+    v1 <- fromVarsAsCells C []
+    refreshVarsTbl [(CUSTOM "b",v1)] orig copy
+    return [orig, copy]
 
 testRefreshBack :: IO ()
 testRefreshBack = runTestSEB $ do
   --so the term listeners are placed
-  orig <- fromVarsAsCells (ls [])
-  v1 <- fromVarsAsCells (ls [])
-  copy <- fromVarsAsCells (ls [var v1, ccon "a"])
+  orig <- fromVarsAsCells []
+  v1 <- fromVarsAsCells []
+  copy <- fromVarsAsCells [var v1, "a"]
   refreshVarsTbl [(CUSTOM "b",v1)] orig copy
   return [orig, copy]
 
 testRefreshUnification :: IO ()
 testRefreshUnification = runTestSEB $ do
-  v1 <- fromVarsAsCells (ls [])
-  v2 <- fromVarsAsCells (ls [])
-  orig <- fromVarsAsCells (ls [ls [ccon "a", ccon "a"], var v2])
-  rule <- fromVarsAsCells (ls [ls [ccon "b", ccon "a"], ccon "b"])
-  copy <- fromVarsAsCells (ls [])
+  v1 <- fromVarsAsCells []
+  v2 <- fromVarsAsCells []
+  orig <- fromVarsAsCells [["a", "a"], var v2]
+  rule <- fromVarsAsCells [["b", "a"], "b"]
+  copy <- fromVarsAsCells []
   refreshVarsTbl [(CUSTOM "b",v1)] rule copy
   eq orig copy
   return [rule, copy, orig]
-
+-}
 data TD = TD_A | TD_B | TD_C
   deriving (Eq, Ord, Show, Generic, Enum, Bounded)
 

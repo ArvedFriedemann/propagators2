@@ -31,23 +31,24 @@ refreshClause ::
   , CopyTermId w i
   , BoundId w i) =>
   w -> ([TermConst], Clause i) -> m (Clause i)
-refreshClause lsid (binds, trms) =
-  forM trms (\t -> do
-      refreshVarsTbl (Idx lsid t) [(b,boundConst lsid b) | b <- binds] t
-      )
-
+refreshClause _ _ = undefined
+{-refreshClause lsid (binds, trms) = 
+    forM trms $ \t -> do
+        refreshVarsTbl (Idx lsid t) [(b,boundConst lsid b) | b <- binds] t
+-}
 simpleKBNetwork :: (Forkable m, MonadProp m, Identifier i (TermSet i)) => KB i -> i -> m ()
 simpleKBNetwork = simpleKBNetwork' (-1)
 
 --TODO, WARNING: empty clauses!
 --TODO: Proper indices!
 simpleKBNetwork' :: (Forkable m, MonadProp m, Identifier i (TermSet i)) => Int ->  KB i -> i -> m ()
-simpleKBNetwork' 0 _ _ = return ()
-simpleKBNetwork' fuel kb goal = do
-  g <- read goal
-  unless (g==bot) $
-    disjunctFork () goal [do
-      (splitClause -> (pres, post)) <- refreshClause () cls
-      eq post goal
-      forM_ pres (void . recursiveCall . simpleKBNetwork' (fuel-1) kb)
-      |cls <- kb]
+simpleKBNetwork' _ _ _ = return ()
+{-simpleKBNetwork' 0 _ _ = return ()
+simpleKBNetwork' fuel kb goal = undefined do
+    g <- read goal
+    unless (g==bot) $
+        disjunctFork () goal [do
+            (splitClause -> (pres, post)) <- refreshClause () cls
+            eq post goal
+            forM_ pres (void . recursiveCall . simpleKBNetwork' (fuel-1) kb)
+            |cls <- kb]-}
