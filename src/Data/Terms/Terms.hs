@@ -166,15 +166,23 @@ data CpyTermId w p =
   deriving (Eq, Ord, Show)
 instance (Ord p, Std p, Ord w, Std w) => Identifier (CpyTermId w p) (TermSet (CpyTermId w p))
 
-refreshVarListener :: (Ord i, MonadProp m, Identifier i (TermSet i), Std w) => w -> i -> (TermConst -> i) -> TermSet i -> m ()
+origTerm :: CpyTermId w p -> p
+origTerm (Direct p) = p
+origTerm (Copy _ p) = p
+
+refreshVarListener :: (Ord i, MonadProp m, Identifier i (TermSet i), Std w) => w -> i -> (TermConst -> Maybe i) -> TermSet i -> m ()
 refreshVarListener listId orig _ TSBot = write (Copy listId orig) bot
 refreshVarListener listId orig trans (TS constants' variables' applications') = do
 
   watchTerm (Copy listId orig)
 
-  forM_ constants' $(\c -> do
-      write (Copy listId orig)
-        (termSetWithVariables $ Set.singleton (Direct $ trans c))
+  forM_ constants' $(\c ->
+      let mc = trans c in do
+        case mc of
+          Nothing -> write (Copy listId orig)
+            (termSetWithConstants $ Set.singleton c)
+          Just c'-> write (Copy listId orig)
+            (termSetWithVariables $ Set.singleton (Copy listId c'))
     )
 
   forM_ variables' $(\v -> do
@@ -183,7 +191,8 @@ refreshVarListener listId orig trans (TS constants' variables' applications') = 
       --TODO: it is correct to use the same listID here?
       --listeners are local, so it should not remove other listeners of the kind, but I am not sure.
       watch v listId (refreshVarListener listId v trans)
-      watchTerm (Copy listId v)
+      --done in the upper listener
+      --watchTerm (Copy listId v)
     )
 
   forM_ applications' $(\(a,b) -> do
@@ -191,8 +200,49 @@ refreshVarListener listId orig trans (TS constants' variables' applications') = 
         (termSetWithApls $ Set.singleton (Copy listId a, Copy listId b))
       watch a listId (refreshVarListener listId a trans)
       watch b listId (refreshVarListener listId b trans)
-      watchTerm (Copy listId a)
-      watchTerm (Copy listId b)
+      --done in the upper listener
+      --watchTerm (Copy listId a)
+      --watchTerm (Copy listId b)
+    )
+
+
+refreshVarListener' :: (Ord i, MonadProp m, Identifier (CpyTermId w i) (TermSet (CpyTermId w i)), Std w) => w -> i -> (i -> Maybe TermConst) -> TermSet (CpyTermId w i) -> m ()
+refreshVarListener' _ orig _ TSBot = write orig bot
+refreshVarListener' listId orig trans (TS constants' variables' applications') = do
+
+  watchTerm orig
+
+  --cannot deduce anything from constants because they might be more after a unification. I can derive that there has to be an empty term in this case, but that is already given through the existance of the original term
+
+  forM_ variables' $(\v ->
+      let mv = trans v in do
+        case mv of
+          Nothing -> case v of
+            (Copy listId' p') ->
+              if listId == listId'
+              then write orig
+                (termSetWithVariables $ Set.singleton p')
+              else pure ()
+            _ -> pure ()
+          Just c -> write p
+            (termSetWithConstants $ Set.singleton c)
+      --more cannot be deduced from variables as new ones might have been added after a unification. Only deducible variables are thos directly created by this constraint
+
+    )
+  --technically can't know stuff here either...except that there should be some application, but never its destinations. Only those specifically created by this copy listener could be deduced back.
+  forM_ applications' $(\(a,b) -> do
+      case (a,b) of
+        (Copy listId' a', Copy listId'' b') ->
+          if listId'  == listId &&
+             listId'' == listId
+          then do
+            write p (termSetWithApls $ Set.singleton (a', b'))
+            watch a listId (refreshVarListener' listId a trans)
+            watch b listId (refreshVarListener' listId b trans)
+          else pure ()
+        _ -> pure ()
+      --watchTerm (Copy listId a)
+      --watchTerm (Copy listId b)
     )
 
 
