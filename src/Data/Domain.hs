@@ -12,13 +12,10 @@ import "this" Data.Lattice
 newtype Domain a = Domain (WithTop (Set a))
   deriving newtype (Eq, Ord, IsList, Meet, Join, BoundedMeet, BoundedJoin, Lattice, BoundedLattice)
   deriving stock (Show, Read)
-
-pattern AsList :: IsList l => [Item l] -> l
-pattern AsList l <- (toList -> l)
-  where AsList l = fromList l
-{-# COMPLETE AsList :: Domain #-}
-{-# COMPLETE AsList :: Set #-}
-{-# COMPLETE AsList :: [] #-}
+instance HasValue Domain where
+    fromValue (Domain (Value (Value v))) = pure v
+    fromValue _ = Nothing
+    toValue = Domain . Value . Set.singleton
 
 binOp :: Ord a => (a -> a -> a) -> Domain a -> Domain a -> Domain a
 binOp f (Domain (Value a)) (Domain (Value b)) = Domain . Value . Set.map (uncurry f) $ Set.cartesianProduct a b
@@ -29,8 +26,8 @@ mapD f (Domain (Value s)) = Domain . Value . Set.map f $ s
 mapD _ _ = Top
 
 fromSingleton :: Ord a => String -> Domain a -> a
-fromSingleton _ (AsList [a]) = a
-fromSingleton e (AsList _) = error $ e ++ ": expected singleton domain"
+fromSingleton _ (Value a) = a
+fromSingleton e _ = error $ e ++ ": expected singleton domain"
 
 singleton :: Ord a => a -> Domain a
 singleton = Domain . Value . Set.singleton

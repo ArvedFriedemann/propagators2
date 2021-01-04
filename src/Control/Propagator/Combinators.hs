@@ -2,7 +2,6 @@
 module Control.Propagator.Combinators where
 
 import "base" Prelude hiding ( (.), id, read )
-import "base" Data.Foldable
 import "base" Data.Functor
 import "base" Control.Category
 
@@ -23,9 +22,11 @@ iso a b p i = do
 eq :: (MonadProp m, Identifier i a, Identifier j a) => i -> j -> m ()
 eq a b = iso a b () id
 
-eqAll :: (MonadProp m, Identifier i a) => [i] -> m ()
-eqAll [] = pure mempty
-eqAll (a : as) = fold <$> traverse (eq a) as
+eqAll :: (MonadProp m, Foldable t, Identifier i a) => t i -> m ()
+eqAll t = maybe (pure ()) void $ foldr eqAll' Nothing t
+  where
+    eqAll' i Nothing  = Just (pure i)
+    eqAll' i (Just j) = Just (j >>= eq i) $> j
 
 linkM :: (MonadProp m, Identifier i a, Identifier j b, Std l)
       => i -> j -> l -> (a -> m b) -> m ()

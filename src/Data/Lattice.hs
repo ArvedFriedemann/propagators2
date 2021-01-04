@@ -25,8 +25,10 @@ Instances of 'Meet' should satisfy the following:
 -}
 class Meet l where
     (/\) :: l -> l -> l
+    (/\) = (⋀)
     (⋀) :: l -> l -> l
     (⋀) = (/\)
+    {-# MINIMAL (⋀) | (/\) #-}
 
 {- | A Bounded meet-semilattice
 
@@ -48,8 +50,10 @@ Instances of 'Join' should satisfy the following:
 -}
 class Join l where
     (\/) :: l -> l -> l
+    (\/) = (⋁)
     (⋁) :: l -> l -> l
     (⋁) = (\/)
+    {-# MINIMAL (⋁) | (\/) #-}
 
 
 {- | A Bounded join-semilattice
@@ -153,6 +157,7 @@ deriving via (Dual ()) instance BoundedJoin ()
 instance Lattice ()
 instance BoundedLattice ()
 
+
 instance (Meet a, Meet b) => Meet (a, b) where
     (a, b) /\ (a', b') = (a /\ a', b /\ b')
 instance (BoundedMeet a, BoundedMeet b) => BoundedMeet (a, b) where
@@ -187,8 +192,8 @@ newtype Applied f a = Applied
     { getApplied :: f a
     }
   deriving stock (Show, Read)
-  deriving newtype (Eq, Ord, Bounded, Enum, IsList, IsString)
-  deriving (Functor, Applicative, Monad) via f
+  deriving newtype (Eq, Ord, Bounded, Enum, IsList, IsString, Semigroup, Monoid)
+  deriving (Functor, Applicative, Alternative, Monad, MonadPlus, Eq1, Ord1) via f
 
 instance (Applicative f, Meet a) => Meet (Applied f a) where
     (/\) = liftA2 (/\)
@@ -229,7 +234,7 @@ pattern Top <- ((\x -> x == top) -> True)
 data WithTop a
     = SynthTop
     | NotTop a
-  deriving (Eq, Ord, Show, Read, Functor)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 {-# COMPLETE Bot, Value :: WithTop #-}
 
 instance Eq1 WithTop where
@@ -241,6 +246,9 @@ instance Ord1 WithTop where
     liftCompare _ (NotTop _) _ = GT
     liftCompare _ _ (NotTop _) = LT
     liftCompare _ SynthTop SynthTop = EQ
+instance Show1 WithTop where
+    liftShowsPrec _ _ _ SynthTop = showString "Top"
+    liftShowsPrec f _ d (NotTop a) = f d a
 instance IsList a => IsList (WithTop a) where
     type Item (WithTop a) = Item a
     fromList = NotTop . fromList
@@ -253,6 +261,9 @@ instance Applicative WithTop where
     pure = NotTop
     NotTop f <*> NotTop a = NotTop $ f a
     _ <*> _ = SynthTop
+instance Monad WithTop where
+    SynthTop >>= _ = SynthTop
+    NotTop a >>= f = f a
 
 instance Meet a => Meet (WithTop a) where
     (/\) = liftA2 (/\)
@@ -269,7 +280,7 @@ instance (Meet a, BoundedJoin a) => BoundedLattice (WithTop a)
 data WithBot a
     = SynthBot
     | NotBot a
-  deriving (Eq, Ord, Show, Read, Functor)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
 {-# COMPLETE Bot, Value :: WithBot #-}
 
 instance Eq1 WithBot where
@@ -281,6 +292,9 @@ instance Ord1 WithBot where
     liftCompare _ SynthBot _ = GT
     liftCompare _ _ SynthBot = LT
     liftCompare f (NotBot a) (NotBot b) = f a b
+instance Show1 WithBot where
+    liftShowsPrec _ _ _ SynthBot = showString "Bot"
+    liftShowsPrec f _ d (NotBot a) = f d a
 instance IsList a => IsList (WithBot a) where
     type Item (WithBot a) = Item a
     fromList = NotBot . fromList
@@ -293,6 +307,15 @@ instance Applicative WithBot where
     pure = NotBot
     NotBot f <*> NotBot a = NotBot $ f a
     _ <*> _ = SynthBot
+instance Alternative WithBot where
+    empty = SynthBot
+    a <|> SynthBot = a
+    SynthBot <|> a = a
+    _ <|> _ = SynthBot
+instance Monad WithBot where
+    SynthBot >>= _ = SynthBot
+    NotBot a >>= f = f a
+instance MonadPlus WithBot
 
 instance Join a => Join (WithBot a) where
     (\/) = liftA2 (\/)
@@ -326,6 +349,10 @@ instance HasValue WithBot where
 instance (HasValue f, HasValue g) => HasValue (Compose f g) where
     fromValue = (fromValue >=> fromValue) . getCompose
     toValue = Compose . toValue . toValue
+instance HasValue Set where
+    fromValue s | Set.size s == 1 = Set.lookupMax s
+    fromValue _ = Nothing
+    toValue = Set.singleton
 
 deriving newtype instance Meet (f (g a)) => Meet (Compose f g a)
 deriving newtype instance BoundedMeet (f (g a)) => BoundedMeet (Compose f g a)
@@ -333,3 +360,31 @@ deriving newtype instance Join (f (g a)) => Join (Compose f g a)
 deriving newtype instance BoundedJoin (f (g a)) => BoundedJoin (Compose f g a)
 instance (Meet (f (g a)), Join (f (g a))) => Lattice (Compose f g a)
 instance (BoundedMeet (f (g a)), BoundedJoin (f (g a))) => BoundedLattice (Compose f g a)
+
+newtype WithBounds a = WithBounds (Compose WithTop WithBot a)
+  deriving newtype (Eq, Ord, Functor, Applicative, HasValue, Eq1, Ord1, Foldable)
+{-# COMPLETE Bot, Value, Top :: WithBounds #-}
+instance Show1 WithBounds where
+    liftShowsPrec _ _ _ (WithBounds (Compose (SynthTop))) = showString "Top"
+    liftShowsPrec _ _ _ (WithBounds (Compose (NotTop SynthBot))) = showString "Bot"
+    liftShowsPrec f _ d (WithBounds (Compose (NotTop (NotBot a))))
+        = showParen (d >= 10)
+        $ showString "Value "
+        . f 11 a
+instance Show a => Show (WithBounds a) where
+    showsPrec = liftShowsPrec showsPrec undefined
+instance Monad WithBounds where
+    Value a >>= f = f a
+    a >>= _ = undefined <$> a
+instance Alternative WithBounds where
+    empty = WithBounds . Compose $ SynthTop
+    WithBounds (Compose (NotTop (SynthBot))) <|> _ = empty
+    _ <|> WithBounds (Compose (NotTop (SynthBot))) = empty
+    WithBounds (Compose SynthTop) <|> a = a
+    a <|> WithBounds (Compose SynthTop) = a
+    _ <|> _ = WithBounds . Compose . NotTop $ SynthBot
+instance MonadPlus WithBounds
+
+instance Traversable WithBounds where
+    sequenceA (Value f) = Value <$> f
+    sequenceA f = pure $ fmap undefined f
