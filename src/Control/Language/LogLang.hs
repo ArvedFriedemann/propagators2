@@ -1,41 +1,53 @@
+{-# LANGUAGE NoImplicitPrelude #-}
+
 module Control.Language.LogLang where
 
+import "base" Prelude hiding ( read )
 import "base" Control.Monad
 
 import "this" Data.Terms.Terms
 import "this" Data.Terms.TermFunctions
 import "this" Control.Combinator.Logics
 import "this" Control.Propagator.Class
+import "this" Control.Propagator.Combinators
 import "this" Data.Lattice
 
-type Clause m = [Cell m (TermSet m)]
+type Clause i = [i]
 --clauses need to memorise their universal variables
-type KB m = [([TermConst], Clause m)]
+type KB i = [([TermConst], Clause i)]
 
-splitClause :: Clause m -> ([Cell m (TermSet m)], Cell m (TermSet m))
+splitClause :: Clause i -> ([i], i)
 splitClause cls = (init cls, last cls)
 
-refreshClause :: (PropagatorMonad m) => ([TermConst], Clause m) -> m (Clause m)
-refreshClause (binds, trms) = do
-  forM trms $ \t -> do
-    vartbl <- forM binds (\b -> do
-      c <- newEmptyCell "fresh"
-      return (b,c))
-    cpy <- newEmptyCell "freshTerm"
-    refreshVarsTbl vartbl t cpy
-    return cpy
+class BoundId w i where
+  boundConst :: w -> TermConst -> i
 
-simpleKBNetwork :: (Forkable m, PropagatorMonad m) => KB m -> Cell m (TermSet m) -> m ()
+data Indexed w i = Idx w i
+
+
+refreshClause ::
+  ( MonadProp m
+  , Identifier i (TermSet i)
+  , CopyTermId w i
+  , BoundId w i) =>
+  w -> ([TermConst], Clause i) -> m (Clause i)
+refreshClause lsid (binds, trms) =
+  forM trms (\t -> do
+      refreshVarsTbl (Idx lsid t) [(b,boundConst lsid b) | b <- binds] t
+      )
+
+simpleKBNetwork :: (Forkable m, MonadProp m, Identifier i (TermSet i)) => KB i -> i -> m ()
 simpleKBNetwork = simpleKBNetwork' (-1)
 
 --TODO, WARNING: empty clauses!
-simpleKBNetwork' :: (Forkable m, PropagatorMonad m) => Int ->  KB m -> Cell m (TermSet m) -> m ()
+--TODO: Proper indices!
+simpleKBNetwork' :: (Forkable m, MonadProp m, Identifier i (TermSet i)) => Int ->  KB i -> i -> m ()
 simpleKBNetwork' 0 _ _ = return ()
 simpleKBNetwork' fuel kb goal = do
-  g <- readCell goal
+  g <- read goal
   unless (g==bot) $
-    disjunctForkList goal [do
-      (splitClause -> (pres, post)) <- refreshClause cls
+    disjunctFork () goal [do
+      (splitClause -> (pres, post)) <- refreshClause () cls
       eq post goal
       forM_ pres (void . recursiveCall . simpleKBNetwork' (fuel-1) kb)
       |cls <- kb]

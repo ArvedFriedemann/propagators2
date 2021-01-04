@@ -9,7 +9,11 @@ import "base" Control.Category
 import "this" Data.Iso
 import "this" Data.Lattice
 import "this" Control.Propagator.Class
+import "this" Data.Facts
 
+--TODO: No idea whether I did this right
+recursiveCall :: (MonadProp m, Identifier w a) => w -> m () -> m ()
+recursiveCall i m = void $ watch i i (const m)
 
 iso :: (MonadProp m, Identifier i a, Identifier j b, Std p) => i -> j -> p -> (a <-> b) -> m ()
 iso a b p i = do
