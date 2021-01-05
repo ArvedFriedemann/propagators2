@@ -6,6 +6,7 @@ import "base" Data.Function
 import "base" Control.Applicative
 import "base" Control.Monad
 import "base" GHC.Exts
+import "base" Debug.Trace
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set

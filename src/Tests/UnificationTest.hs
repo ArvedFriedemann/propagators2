@@ -20,8 +20,8 @@ instance Identifier Cell (TermSet Cell)
 
 test1 :: IO ()
 test1 = runTestSEB @(TermId Cell) $ do
-    sv_a <- fromVarsAsCells (direct A) $ var (direct $ Sv 0) <> "a"
-    b_sv <- fromVarsAsCells (direct B) $ "b" <> var (direct $ Sv 0)
+    sv_a <- fromVarsAsCells (direct A) $ [var (direct $ Sv 0),"a"]
+    b_sv <- fromVarsAsCells (direct B) $ ["b", var (direct $ Sv 0)]
     sv_a `eq` b_sv
     return [sv_a, b_sv, direct $ Sv 0]
 
