@@ -27,13 +27,12 @@ refreshClause ::
   ( MonadProp m
   , Identifier i (TermSet i)
   , CopyTermId w i
-  , CopyTermId (RefreshClause w i) i
   , Bound w i
   , Std w) =>
   w -> ([TermConst], Clause i) -> m (Clause i)
 refreshClause lsid (binds, trms) =
     forM trms $ \t -> do
-        refreshVarsTbl (RC lsid t) [(b, bnd lsid b) | b <- binds] t
+        refreshVarsTbl lsid [(b, bnd lsid b) | b <- binds] t
 
 data SimpleKBNetwork w i = SBNC w i
   deriving (Eq, Ord, Show)
