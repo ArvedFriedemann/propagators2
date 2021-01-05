@@ -6,11 +6,24 @@ import Control.Propagator.Class
 
 data TermId w where
   EMPTY :: TermId w
-  Direct :: w -> TermId w
+  DIRECT :: w -> TermId w
   APPLLEFT :: TermId w -> TermId w
   APPLRIGHT :: TermId w -> TermId w
   COPY :: w -> TermId w -> TermId w
+  BOUND :: w -> TermConst -> TermId w
   deriving (Eq, Ord, Show)
+
+class Direct w i where
+  direct :: w -> i
+
+instance Direct w (TermId w) where
+  direct = DIRECT
+
+class Bound w i where
+  bnd :: w -> TermConst -> i
+
+instance Bound w (TermId w) where
+  bnd = BOUND
 
 instance (Std w) => Identifier (TermId w) (TermSet (TermId w))
 

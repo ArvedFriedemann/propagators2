@@ -19,32 +19,32 @@ data Cell = Sv Int | A | B | C deriving (Eq, Ord, Show)
 instance Identifier Cell (TermSet Cell)
 
 test1 :: IO ()
-test1 = runTestSEB $ do
-    sv_a <- fromVarsAsCells (Direct A) $ var (Direct $ Sv 0) <> "a"
-    b_sv <- fromVarsAsCells (Direct B) $ "b" <> var (Direct $ Sv 0)
+test1 = runTestSEB @(TermId Cell) $ do
+    sv_a <- fromVarsAsCells (direct A) $ var (direct $ Sv 0) <> "a"
+    b_sv <- fromVarsAsCells (direct B) $ "b" <> var (direct $ Sv 0)
     sv_a `eq` b_sv
-    return [sv_a, b_sv, Direct $ Sv 0]
+    return [sv_a, b_sv, direct $ Sv 0]
 
 test2 :: IO ()
-test2 = runTestSEB $ do
-    t1 <- fromVarsAsCells (Direct A) [var $ Direct $ Sv 1, "a", var $ Direct $ Sv 1]
-    t2 <- fromVarsAsCells (Direct B) $ var (Direct $ Sv 2) <> "a"
+test2 = runTestSEB @(TermId Cell) $ do
+    t1 <- fromVarsAsCells (direct A) [var $ direct $ Sv 1, "a", var $ direct $ Sv 1]
+    t2 <- fromVarsAsCells (direct B) $ var (direct $ Sv 2) <> "a"
     t1 `eq` t2
-    return [t1, t2, Direct $ Sv 1, Direct $ Sv 2]
+    return [t1, t2, direct $ Sv 1, direct $ Sv 2]
 
 
 test3 :: IO ()
-test3 = runTestSEB $ do
-    t1 <- fromVarsAsCells (Direct A) $ var $Direct $ Sv 0
-    t2 <- fromVarsAsCells (Direct B) $ "a" <> var (Direct $ Sv 0)
+test3 = runTestSEB @(TermId Cell) $ do
+    t1 <- fromVarsAsCells (direct A) $ var $direct $ Sv 0
+    t2 <- fromVarsAsCells (direct B) $ "a" <> var (direct $ Sv 0)
     t1 `eq` t2
-    return [t1, t2, Direct $ Sv 0]
+    return [t1, t2, direct $ Sv 0]
 
 test4 :: IO ()
-test4 = runTestSEB $ do
-    orig <- fromVarsAsCells (Direct A) $ var (Direct $ Sv 1) <> "A"
-    t1 <- fromVarsAsCells (Direct B) $ "B" <> "A"
-    t2 <- fromVarsAsCells (Direct C) $ "B" <> "B"
+test4 = runTestSEB @(TermId Cell) $ do
+    orig <- fromVarsAsCells (direct A) $ var (direct $ Sv 1) <> "A"
+    t1 <- fromVarsAsCells (direct B) $ "B" <> "A"
+    t2 <- fromVarsAsCells (direct C) $ "B" <> "B"
 
     disjunctFork orig orig
         [ do

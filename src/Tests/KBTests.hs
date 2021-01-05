@@ -14,11 +14,11 @@ instance Identifier Cell UnitFact
 instance Identifier (Cell, Cell) UnitFact
 
 kbtest1 :: IO ()
-kbtest1 = runTestSEB $ do
-  a <- fromVarsAsCells (Direct A) ["A"]
-  b <- fromVarsAsCells (Direct B) ["B"]
-  c <- fromVarsAsCells (Direct C) ["C"]
-  goal <- return (Direct $ Sv 0)
+kbtest1 = runTestSEB @(TermId Cell) $ do
+  a <- fromVarsAsCells (direct A) ["A"]
+  b <- fromVarsAsCells (direct B) ["B"]
+  c <- fromVarsAsCells (direct C) ["C"]
+  goal <- return (direct $ Sv 0)
   eq goal b
   kb <- pure [([],[a]),([],[a,b]),([],[c,b])]
   --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.
@@ -27,11 +27,11 @@ kbtest1 = runTestSEB $ do
 
 
 kbtest2 :: IO ()
-kbtest2 = runTestSEB $ do
-  a <- fromVarsAsCells (Direct A) ["A", "K"]
-  x <- fromVarsAsCells (Direct X) ["A", "X"]
-  b <- fromVarsAsCells (Direct B) ["X", "B"]
-  goal <- fromVarsAsCells (Direct G) [var (Direct $ Sv 1), "B"]
+kbtest2 = runTestSEB @(TermId Cell) $ do
+  a <- fromVarsAsCells (direct A) ["A", "K"]
+  x <- fromVarsAsCells (direct X) ["A", "X"]
+  b <- fromVarsAsCells (direct B) ["X", "B"]
+  goal <- fromVarsAsCells (direct G) [var (direct $ Sv 1), "B"]
   eq goal b
   kb <- pure [([],[a]),(["X"],[x,b])]
   --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.

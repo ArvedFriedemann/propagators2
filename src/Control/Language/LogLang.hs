@@ -6,6 +6,7 @@ import "base" Prelude hiding ( read )
 import "base" Control.Monad
 
 import "this" Data.Terms.Terms
+import "this" Data.Terms.TermId
 import "this" Data.Terms.TermFunctions
 import "this" Control.Combinator.Logics
 import "this" Control.Propagator.Class
@@ -19,23 +20,21 @@ type KB i = [([TermConst], Clause i)]
 splitClause :: Clause i -> ([i], i)
 splitClause cls = (init cls, last cls)
 
-class BoundId w i where
-  boundConst :: w -> TermConst -> i
-
-data Indexed w i = Idx w i
-
+data RefreshClause w i = RC w i
+  deriving (Eq, Ord, Show)
 
 refreshClause ::
   ( MonadProp m
   , Identifier i (TermSet i)
   , CopyTermId w i
-  , BoundId w i) =>
+  , CopyTermId (RefreshClause w i) i
+  , Bound w i
+  , Std w) =>
   w -> ([TermConst], Clause i) -> m (Clause i)
-refreshClause _ _ = undefined
-{-refreshClause lsid (binds, trms) =
+refreshClause lsid (binds, trms) =
     forM trms $ \t -> do
-        refreshVarsTbl (Idx lsid t) [(b,boundConst lsid b) | b <- binds] t
--}
+        refreshVarsTbl (RC lsid t) [(b, bnd lsid b) | b <- binds] t
+
 simpleKBNetwork :: (Forkable m, MonadProp m, Identifier i (TermSet i)) => KB i -> i -> m ()
 simpleKBNetwork = simpleKBNetwork' (-1)
 
