@@ -104,7 +104,7 @@ termListener this ts = do
     eqAll $ fst <$> appList
     eqAll $ snd <$> appList
     --as subvalues are not equivalent to this value, their bots have to be propagated as well
-    let propBotThis a = watch a ("propBot" :: String, a) $ propBot this
+    let propBotThis a = watch a ("propBot" :: String, this) $ propBot this
     mapM_ propBotThis $ fst <$> appList
     mapM_ propBotThis $ snd <$> appList
 
