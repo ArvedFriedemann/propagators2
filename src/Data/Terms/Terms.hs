@@ -5,16 +5,17 @@ import "base" Data.Maybe
 import "base" Data.Function
 import "base" Control.Applicative
 import "base" Control.Monad
+import "base" GHC.Exts
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
 
-import "containers" Data.Map ( Map )
+--import "containers" Data.Map ( Map )
 import "containers" Data.Map qualified as Map
 
 import "this" Data.Lattice
 import "this" Control.Propagator
-import "this" Control.Util
+--import "this" Control.Util
 
 
 data TermConst
@@ -42,6 +43,9 @@ data TermSet a
         , applications :: Set (a, a)
         }
   deriving (Eq, Ord, Show)
+
+instance IsString TermConst where
+  fromString = CUST
 
 constTerm :: Ord a => TermConst -> TermSet a
 constTerm c = top {constant = Just c}

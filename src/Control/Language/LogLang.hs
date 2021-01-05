@@ -32,7 +32,7 @@ refreshClause ::
   , BoundId w i) =>
   w -> ([TermConst], Clause i) -> m (Clause i)
 refreshClause _ _ = undefined
-{-refreshClause lsid (binds, trms) = 
+{-refreshClause lsid (binds, trms) =
     forM trms $ \t -> do
         refreshVarsTbl (Idx lsid t) [(b,boundConst lsid b) | b <- binds] t
 -}
