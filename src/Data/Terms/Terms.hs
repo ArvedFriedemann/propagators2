@@ -67,6 +67,9 @@ liftTS2 f a b = cleanTermSet TS
     }
   where
     cleanTermSet ts@(TS cs _ as)
+        --cannot have two different constants
+        | (on (&&) (isJust.constant) a b) &&
+          (on (/=) (fromJust.constant) a b) = Bot
         --the value cannot be application and constant atst.
         | (not $ Set.null as) && isJust cs = Bot
         | otherwise = ts
