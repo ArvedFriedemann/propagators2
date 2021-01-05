@@ -35,19 +35,42 @@ refreshClause lsid (binds, trms) =
     forM trms $ \t -> do
         refreshVarsTbl (RC lsid t) [(b, bnd lsid b) | b <- binds] t
 
-simpleKBNetwork :: (Forkable m, MonadProp m, Identifier i (TermSet i)) => KB i -> i -> m ()
+data SimpleKBNetwork w i = SBNC w i
+  deriving (Eq, Ord, Show)
+instance (Std w, Std i) => Identifier (SimpleKBNetwork w i) ()
+
+data Lower w i = LW w i | LWDirect w
+  deriving (Eq, Ord, Show)
+
+simpleKBNetwork ::
+  ( Forkable m
+  , MonadProp m
+  , Identifier i (TermSet i)
+  , Bound w i
+  , CopyTermId w i
+  , Identifier w a
+  , Std w) =>
+  w -> KB i -> i -> m ()
 simpleKBNetwork = simpleKBNetwork' (-1)
 
 --TODO, WARNING: empty clauses!
 --TODO: Proper indices!
-simpleKBNetwork' :: (Forkable m, MonadProp m, Identifier i (TermSet i)) => Int ->  KB i -> i -> m ()
-simpleKBNetwork' _ _ _ = return ()
-{-simpleKBNetwork' 0 _ _ = return ()
-simpleKBNetwork' fuel kb goal = undefined do
+simpleKBNetwork' ::
+  ( Forkable m
+  , MonadProp m
+  , Identifier i (TermSet i)
+  , Bound w i
+  , CopyTermId w i
+  , Identifier w a
+  , Std w) =>
+  Int -> w ->  KB i -> i -> m ()
+simpleKBNetwork' 0 _ _ _ = return ()
+simpleKBNetwork' fuel listId kb goal = do
     g <- read goal
     unless (g==bot) $
-        disjunctFork () goal [do
-            (splitClause -> (pres, post)) <- refreshClause () cls
+        disjunctFork listId goal [do
+            (splitClause -> (pres, post)) <- refreshClause listId cls
             eq post goal
-            forM_ pres (void . recursiveCall . simpleKBNetwork' (fuel-1) kb)
-            |cls <- kb]-}
+            --TODO: recursive Call on listId probably wrong
+            forM_ pres (void . recursiveCall listId . simpleKBNetwork' (fuel-1) listId kb)
+            |cls <- kb]

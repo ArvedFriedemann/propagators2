@@ -9,7 +9,7 @@ import "this" Control.Propagator.Class
 import "this" Control.Propagator.Combinators
 import "this" Data.Facts
 
-data Cell = Sv Int | A | B | C | G | H | I | J | X | Y | Z deriving (Eq, Ord, Show)
+data Cell = Sv Int | A | B | C | G | H | I | J | K | X | Y | Z deriving (Eq, Ord, Show)
 instance Identifier Cell UnitFact
 instance Identifier (Cell, Cell) UnitFact
 
@@ -22,7 +22,7 @@ kbtest1 = runTestSEB @(TermId Cell) $ do
   eq goal b
   kb <- pure [([],[a]),([],[a,b]),([],[c,b])]
   --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.
-  recursiveCall (C,C) $ simpleKBNetwork' 3 kb goal
+  recursiveCall (C,C) $ simpleKBNetwork' 3 K kb goal
   return [goal]
 
 
@@ -35,5 +35,5 @@ kbtest2 = runTestSEB @(TermId Cell) $ do
   eq goal b
   kb <- pure [([],[a]),(["X"],[x,b])]
   --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.
-  recursiveCall (C,C) $ simpleKBNetwork' 2 kb goal
+  recursiveCall (C,C) $ simpleKBNetwork' 2 K kb goal
   return [goal]
