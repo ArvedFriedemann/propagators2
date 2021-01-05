@@ -8,6 +8,7 @@ ghc-options:
   - -fshow-warning-groups
   - -Wwarn=unused-top-binds
   - -Wwarn=unused-imports
+  - -Wwarn=type-defaults
   - -rtsopts -threaded -O
 
 executable:
