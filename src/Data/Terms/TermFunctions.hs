@@ -36,6 +36,7 @@ instance Semigroup (TermStruc a) where
 instance Monoid (TermStruc a) where
     mempty = STOP
 
+--TODO: use a reader!
 instance IsList (TermStruc a) where
     type Item (TermStruc a) = TermStruc a
     fromList = fold
