@@ -26,7 +26,7 @@ eqAll :: (MonadProp m, Foldable t, Identifier i a) => t i -> m ()
 eqAll t = maybe (pure ()) void $ foldr eqAll' Nothing t
   where
     eqAll' i Nothing  = Just (pure i)
-    eqAll' i (Just j) = Just (j >>= eq i) $> j
+    eqAll' i (Just j) = Just (j >>= eq i >> pure i) -- $> j
 
 linkM :: (MonadProp m, Identifier i a, Identifier j b, Std l)
       => i -> j -> l -> (a -> m b) -> m ()
