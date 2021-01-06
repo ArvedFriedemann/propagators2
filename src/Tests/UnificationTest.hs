@@ -3,6 +3,7 @@ module Tests.UnificationTest where
 
 import "base" Prelude hiding ( read )
 import "base" GHC.Generics
+import "base" Control.Monad
 import "base" Debug.Trace
 
 import "this" Data.Terms.Terms
@@ -46,22 +47,22 @@ test4 :: IO ()
 test4 = runTestSEB @(TermId Cell) $ do
   fork () $ \lft -> do
     (watch :: (MonadProp m) => TermId Cell -> () -> (TermSet (TermId Cell) -> m (TermId Cell)) -> m (TermId Cell)) (direct A) () (lft.(write $ direct A))
-    (write :: (MonadProp m) => TermId Cell -> TermSet (TermId Cell) -> m (TermId Cell)) (direct A) $ constTerm (CUST "a")
+    (write :: (MonadProp m) => TermId Cell -> TermSet (TermId Cell) -> m (TermId Cell)) (direct A) $ constTerm "a"
   return [direct A]
 
 test4' :: IO ()
 test4' = runTestSEB @(TermId Cell) $ do
-    orig <- return (direct A)
+    orig <- return (direct A :: TermId Cell)
     t1 <- return (direct B)
     t2 <- return (direct C)
-    write (direct B :: TermId Cell) (constTerm (CUST "A"))
-    write (direct C :: TermId Cell) TSBot
+    write t1 (constTerm (CUST "A"))
+    write t2 TSBot
     disjunctFork () orig
         [ do
-            watch orig () (\r -> traceM $ "branch A:" ++ show r)
+            --void $ write orig (constTerm "A")
             orig `eq` t1
         , do
-            watch orig () (\r -> traceM $ "branch A:" ++ show r)
+            --void $ write orig TSBot
             orig `eq` t2
         ]
     return [orig, t1, t2]
