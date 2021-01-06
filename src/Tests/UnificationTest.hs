@@ -57,7 +57,7 @@ test4' = runTestSEB @(TermId Cell) $ do
     t2 <- return (direct C)
     write t1 (constTerm (CUST "A"))
     write t2 TSBot
-    TODO: When forking, it might not be the entire term that is being transferred, but only the top node!
+    --TODO: When forking, it might not be the entire term that is being transferred, but only the top node!
     disjunctFork () orig
         [ do
             --void $ write orig (constTerm "A")
@@ -67,16 +67,15 @@ test4' = runTestSEB @(TermId Cell) $ do
             orig `eq` t2
         ]
     return [orig, t1, t2]
-{-
+
 testRefreshTo :: IO ()
 testRefreshTo = runTestSEB $ do
-    orig <- fromVarsAsCells A ["b", "a"]
+    orig <- fromVarsAsCells (direct A) ["b", "a"]
     --so the term listeners are placed
-    copy <- fromVarsAsCells B []
-    v1 <- fromVarsAsCells C []
-    refreshVarsTbl [(CUSTOM "b",v1)] orig copy
-    return [orig, copy]
-
+    v1 <- fromVarsAsCells (direct C) []
+    cpy <- refreshVarsTbl B [("b",v1 :: TermId Cell)] orig
+    return [orig, cpy]
+{-
 testRefreshBack :: IO ()
 testRefreshBack = runTestSEB $ do
   --so the term listeners are placed
