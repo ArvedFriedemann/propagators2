@@ -52,9 +52,9 @@ disjunctFork idfr tg ms = do --ms has at least 2 elements
     watch (Rc idfr 1 tg) ()
       (disjunctForkMultiListener tg rcs)
     sequence_ $ zipWith disjunctFork' rcs ms
-  where rcs = [Rc idfr i tg | i <- [0..]]
+  where rcs = [Rc idfr i tg | i <- [0..length ms - 1]]
         disjunctFork' i m = do
-            fork ("disjunct" :: String, i) $ \lft ->
+            fork ("disjunct" :: String, i) $ \lft -> do
               watch i () (lft . write i) >> m
 
 disjunctForkMultiListener :: (MonadProp m, BoundedJoin a, Identifier i a, Std w) => i -> [DisjunctFork w i] -> a -> m ()
