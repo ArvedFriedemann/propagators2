@@ -28,6 +28,15 @@ eqAll t = maybe (pure ()) void $ foldr eqAll' Nothing t
     eqAll' i Nothing  = Just (pure i)
     eqAll' i (Just j) = Just (j >>= eq i >> pure i) -- $> j
 
+push :: (MonadProp m, Identifier i a) => i -> i -> m i
+push s t = watch s ("push" :: String, s) (write t)
+
+pushL :: (MonadProp m, Identifier i a) => LiftParent m -> i -> i -> m i
+pushL lft s t = watch s ("push" :: String, s) (lft. write t)
+
+promote :: (MonadProp m, Identifier i a) => LiftParent m -> i -> m i
+promote lft s = pushL lft s s
+
 linkM :: (MonadProp m, Identifier i a, Identifier j b, Std l)
       => i -> j -> l -> (a -> m b) -> m ()
 linkM ca cb l f = void . watch ca l $ \ a -> f a >>= write cb
