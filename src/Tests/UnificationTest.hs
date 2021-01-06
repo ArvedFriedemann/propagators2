@@ -57,6 +57,7 @@ test4' = runTestSEB @(TermId Cell) $ do
     t2 <- return (direct C)
     write t1 (constTerm (CUST "A"))
     write t2 TSBot
+    TODO: When forking, it might not be the entire term that is being transferred, but only the top node!
     disjunctFork () orig
         [ do
             --void $ write orig (constTerm "A")
