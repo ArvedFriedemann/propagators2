@@ -13,13 +13,13 @@ data TermId w where
   BOUND :: w -> TermConst -> TermId w
   deriving (Eq, Ord, Show)
 
-class Direct w i where
-  direct :: w -> i
+class Direct f where
+  direct :: w -> f w
 
-instance Direct w (TermId w) where
+instance Direct TermId where
   direct = DIRECT
 
-class Bound w i where
+class Bound w i | i -> w where
   bnd :: w -> TermConst -> i
 
 instance Bound w (TermId w) where

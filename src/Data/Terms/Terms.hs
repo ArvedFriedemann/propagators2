@@ -110,7 +110,7 @@ termListener this ts = do
     mapM_ propBotThis $ snd <$> appList
 
 
-class CopyTermId w i where
+class CopyTermId w i | i -> w where
   --copy listId origTerm
   copy :: w -> i -> i
   copyTermIdContents :: i -> Maybe (w,i)
