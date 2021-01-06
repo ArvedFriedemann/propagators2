@@ -46,7 +46,7 @@ test3 = runTestSEB @(TermId Cell) $ do
 test4 :: IO ()
 test4 = runTestSEB @(TermId Cell) $ do
   fork () $ \lft -> do
-    watch (DIRECT A) () (lft.(write $ DIRECT A))
+    promote lft (DIRECT A)
     write (DIRECT A) $ constTerm "a"
   return [DIRECT A]
 
