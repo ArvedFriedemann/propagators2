@@ -55,7 +55,7 @@ disjunctFork idfr tg ms = do --ms has at least 2 elements
   where rcs = [Rc idfr i tg | i <- [0..length ms - 1]]
         disjunctFork' i m = do
             fork ("disjunct" :: String, i) $ \lft -> do
-              watch i () (lft . write i) >> m
+              watch tg () (lft . write i) >> m
 
 disjunctForkMultiListener :: (MonadProp m, BoundedJoin a, Identifier i a, Std w) => i -> [DisjunctFork w i] -> a -> m ()
 disjunctForkMultiListener _ [] _ = pure ()
@@ -64,9 +64,11 @@ disjunctForkMultiListener tg forks _ = do
   let
     fctf = zip fconts forks
     sucf = filter ((/= bot).fst) fctf
-    in if isSingleton sucf
-        then eq tg (snd $ head sucf)
-        else pure ()
+    in do
+      traceM $ "sucf:" ++ (show sucf)
+      if isSingleton sucf
+          then eq tg (snd $ head sucf)
+          else pure ()
 
 {-
 disjunctFork r = sequence_ . zipWith disjunctFork' [Rc i r | i <- [0..]]
