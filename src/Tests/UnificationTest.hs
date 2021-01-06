@@ -5,6 +5,7 @@ import "base" Prelude hiding ( read )
 import "base" GHC.Generics
 import "base" Debug.Trace
 
+import "this" Data.Terms.Terms
 import "this" Data.Terms.TermFunctions
 import "this" Data.Terms.TermId
 import "this" Data.Domain
@@ -12,7 +13,8 @@ import "this" Control.Combinator.Logics
 import "this" Control.Propagator
 import "this" Control.Propagator.Event
 import "this" Tests.TestLogic
-import "this" Data.Terms.Terms
+import "this" Data.Lattice
+
 
 
 data Cell = Sv Int | A | B | C deriving (Eq, Ord, Show)
@@ -42,16 +44,24 @@ test3 = runTestSEB @(TermId Cell) $ do
 
 test4 :: IO ()
 test4 = runTestSEB @(TermId Cell) $ do
-    orig <- fromVarsAsCells (direct A) $ var (direct $ Sv 1) <> "A"
-    t1 <- fromVarsAsCells (direct B) $ "B" <> "A"
-    t2 <- fromVarsAsCells (direct C) $ "B" <> "B"
+  fork () $ \lft -> do
+    (watch :: (MonadProp m) => TermId Cell -> () -> (TermSet (TermId Cell) -> m (TermId Cell)) -> m (TermId Cell)) (direct A) () (lft.(write $ direct A))
+    (write :: (MonadProp m) => TermId Cell -> TermSet (TermId Cell) -> m (TermId Cell)) (direct A) $ constTerm (CUST "a")
+  return [direct A]
 
-    disjunctFork orig orig
+test4' :: IO ()
+test4' = runTestSEB @(TermId Cell) $ do
+    orig <- return (direct A)
+    t1 <- return (direct B)
+    t2 <- return (direct C)
+    write (direct B :: TermId Cell) (constTerm (CUST "A"))
+    write (direct C :: TermId Cell) TSBot
+    disjunctFork () orig
         [ do
-            watch orig () (\r -> (show <$> fromTermSet r) >>= (\r' -> traceM $ "branch A:" ++ (show r')) )
+            watch orig () (\r -> traceM $ "branch A:" ++ show r)
             orig `eq` t1
         , do
-            watch orig () (\r -> (show <$> fromTermSet r) >>= (\r' -> traceM $ "branch B:" ++ (show r')) )
+            watch orig () (\r -> traceM $ "branch A:" ++ show r)
             orig `eq` t2
         ]
     return [orig, t1, t2]
