@@ -28,7 +28,7 @@ test1 = runTestSEB @(TermId Cell) $ do
 test2 :: IO ()
 test2 = runTestSEB @(TermId Cell) $ do
     t1 <- fromVarsAsCells (direct A) [var $ direct $ Sv 1, "a", var $ direct $ Sv 1]
-    t2 <- fromVarsAsCells (direct B) $ var (direct $ Sv 2) <> "a"
+    t2 <- fromVarsAsCells (direct B) $ [var (direct $ Sv 2), "a"]
     t1 `eq` t2
     return [t1, t2, direct $ Sv 1, direct $ Sv 2]
 
