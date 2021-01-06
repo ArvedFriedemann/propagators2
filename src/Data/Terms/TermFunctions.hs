@@ -39,9 +39,10 @@ instance Monoid (TermStruc a) where
 --TODO: use a reader!
 instance IsList (TermStruc a) where
     type Item (TermStruc a) = TermStruc a
-    fromList = fold
-    toList (SAPPL a b) = toList a ++ toList b
-    toList a = pure a
+    fromList [] = STOP
+    fromList lst = foldl1 SAPPL lst
+    toList _ {-(SAPPL a b)-} = error "TODO: transform conversion to be left associative!"--toList a ++ toList b
+    --toList a = pure a
 
 instance IsString (TermStruc a) where
     fromString = SCON . CUSTOM
