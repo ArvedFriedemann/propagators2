@@ -122,7 +122,6 @@ refreshVarsTbl ::
   , Std w) =>
   w -> [(TermConst, i)] -> i -> m i
 refreshVarsTbl listId tbl orig = do
-    traceM $ show tbl
     watch orig listId (refreshVarListener listId orig trans)
     return (copy listId orig)
   where trans = flip Map.lookup (Map.fromList tbl)
@@ -140,7 +139,6 @@ refreshVarListener listId orig trans (TS constants' variables' applications') = 
   watchTerm (copy listId orig)
 
   forM_ constants' $(\c -> do
-      traceM $ "constant conversion: "++(show c)++ " goes to "++(show $ trans c)
       let mc = trans c in do
         case mc of
           Nothing -> write (copy listId orig)
