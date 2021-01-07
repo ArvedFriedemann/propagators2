@@ -23,7 +23,7 @@ data TermStruc a
 instance Show a => Show (TermStruc a) where
     showsPrec _ STOP = showString "top"
     showsPrec _ SBOT = showString "bot"
-    showsPrec _ (SCON (CUSTOM s)) = showString s
+    showsPrec _ (SCON (CUST s)) = showString s
     showsPrec n (SCON c) = showsPrec n c
     showsPrec n (SVAR v) = showsPrec n v
     showsPrec n (SAPPL s c@(SAPPL _ _)) = (showString "(").(showsPrec n s).(showString ")").(showsPrec n c)
@@ -44,7 +44,7 @@ instance IsList (TermStruc a) where
     toList  = pure
 
 instance IsString (TermStruc a) where
-    fromString = SCON . CUSTOM
+    fromString = SCON . CUST
 
 var :: a -> TermStruc a
 var = SVAR
@@ -77,24 +77,24 @@ fromVarsAsCells p (SAPPL a b) = do
 
 fromCell :: (MonadProp m, Ord i, Std i,
   Identifier i (TermSet i)) => i -> m (TermStruc i)
-fromCell c = read c >>= fromTermSet
+fromCell c = read c >>= fromTermSet c
 
 fromCellSize :: (MonadProp m, Ord i, Std i,
   Identifier i (TermSet i)) => Int -> i -> m (TermStruc i)
-fromCellSize s c = read c >>= fromTermSet' s
+fromCellSize s c = read c >>= fromTermSet' s c
 
 fromTermSet :: (MonadProp m, Ord i, Std i,
-  Identifier i (TermSet i)) => TermSet i -> m (TermStruc i)
+  Identifier i (TermSet i)) => i -> TermSet i -> m (TermStruc i)
 fromTermSet = fromTermSet' (-1)
 
 fromTermSet' :: (MonadProp m, Ord i, Std i,
   Identifier i (TermSet i)) =>
-  Int -> TermSet i -> m (TermStruc i)
-fromTermSet' 0 _ = pure STOP
-fromTermSet' _ Bot = pure SBOT
-fromTermSet' _ Top = pure STOP
-fromTermSet' _ (TS (Just c) _ _) = pure . SCON $ c
-fromTermSet' n ts
+  Int -> i -> TermSet i -> m (TermStruc i)
+fromTermSet' 0 _ _ = pure (SCON $ CUST $ "(...)")--pure STOP
+fromTermSet' _ _ Bot = pure SBOT
+fromTermSet' _ c Top = pure (SCON $ CUST $ "("++show c++")")--pure STOP
+fromTermSet' _ _ (TS (Just c) _ _) = pure . SCON $ c
+fromTermSet' n _ ts
     | not $ null (applications ts) = do
         (a,b) <- pure . head . S.toList . applications $ ts
         a' <- fromCellSize (n-1) a
