@@ -18,7 +18,7 @@ import "this" Data.Lattice
 
 
 
-data Cell = Sv Int | A | B | C deriving (Eq, Ord, Show)
+data Cell = STR String | Sv Int | A | B | C deriving (Eq, Ord, Show)
 instance Identifier Cell (TermSet Cell)
 
 test1 :: IO ()
@@ -84,18 +84,21 @@ testRefreshBack = runTestSEB $ do
   copy <- fromVarsAsCells [var v1, "a"]
   refreshVarsTbl [(CUSTOM "b",v1)] orig copy
   return [orig, copy]
+-}
 
 testRefreshUnification :: IO ()
-testRefreshUnification = runTestSEB $ do
-  v1 <- fromVarsAsCells []
-  v2 <- fromVarsAsCells []
-  orig <- fromVarsAsCells [["a", "a"], var v2]
-  rule <- fromVarsAsCells [["b", "a"], "b"]
-  copy <- fromVarsAsCells []
-  refreshVarsTbl [(CUSTOM "b",v1)] rule copy
-  eq orig copy
-  return [rule, copy, orig]
--}
+testRefreshUnification = runTestSEB @(TermId Cell) $ do
+  v1 <- fromVarsAsCells (direct A) []
+  v2 <- fromVarsAsCells (direct B) []
+  orig <- fromVarsAsCells (direct $ STR "orig")
+    [["a", "a"], var v2]
+  rule <- fromVarsAsCells (direct $ STR "rule")
+    [["b", "a"], "b"]
+  cpy <- refreshVarsTbl (STR "copy" ) [("b",v1 :: TermId Cell)] rule
+  eq orig cpy
+  return [rule, cpy, orig]
+
+
 data TD = TD_A | TD_B | TD_C
   deriving (Eq, Ord, Show, Generic, Enum, Bounded)
 
