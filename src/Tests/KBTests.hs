@@ -9,7 +9,7 @@ import "this" Control.Propagator.Class
 import "this" Control.Propagator.Combinators
 import "this" Data.Facts
 
-data Cell = Sv Int | A | B | C | G | H | I | J | K | X | Y | Z deriving (Eq, Ord, Show)
+data Cell = Sv Int | A | B | C | D | G | H | I | J | K | X | Y | Z deriving (Eq, Ord, Show)
 instance Identifier Cell UnitFact
 instance Identifier (Cell, Cell) UnitFact
 
@@ -32,7 +32,9 @@ kbtest2 = runTestSEB @(TermId Cell) $ do
   x <- fromVarsAsCells (direct X) ["A", "X"]
   b <- fromVarsAsCells (direct B) ["X", "B"]
   goal <- fromVarsAsCells (direct G) [var (direct $ Sv 1), "B"]
-  eq goal b
   kb <- pure [([],[a]),(["X"],[x,b])]
+
+  --test <- refreshVarsTbl D [("X", direct C)] b
+  --tests <- refreshClause D (["X"], [x,b])
   simpleKBNetwork' 2 K kb goal
-  return [goal]
+  return $ [goal] -- ++ tests

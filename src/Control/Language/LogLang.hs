@@ -4,6 +4,7 @@ module Control.Language.LogLang where
 
 import "base" Prelude hiding ( read )
 import "base" Control.Monad
+import "base" Debug.Trace
 
 import "this" Data.Terms.Terms
 import "this" Data.Terms.TermId
