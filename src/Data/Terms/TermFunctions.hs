@@ -25,7 +25,7 @@ instance Show a => Show (TermStruc a) where
     showsPrec _ SBOT = showString "bot"
     showsPrec _ (SCON (CUST s)) = showString s
     showsPrec n (SCON c) = showsPrec n c
-    showsPrec n (SVAR v) = showsPrec n v
+    showsPrec n (SVAR v) = (showString "(@").(showsPrec n v).(showString "@)")
     showsPrec n (SAPPL s c@(SAPPL _ _)) = (showString "(").(showsPrec n s).(showString ")").(showsPrec n c)
     showsPrec n (SAPPL s c) = (showsPrec n s).(showString " ").(showsPrec n c)
 
@@ -100,4 +100,6 @@ fromTermSet' n _ ts
         a' <- fromCellSize (n-1) a
         b' <- fromCellSize (n-1) b
         pure $ SAPPL a' b'--applts a' b' --if a variable is assigned top, it would just vanish
-    | otherwise = fromCellSize (n-1) . head . S.toList . variables $ ts --TODO: This will recurse if there are cyclic equalities
+    | otherwise =
+      --here we can safely assume that there cannot be a term hanging on this variable. If there was, it would have propagated here. Therefore this always is a dangling variable, so we just return the smallest variable of the equality cluster (so that all cluster show the same variable)
+      pure $ SVAR $ head . S.toList . variables $ ts
