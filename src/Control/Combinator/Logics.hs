@@ -65,7 +65,6 @@ disjunctForkMultiListener tg forks _ = do
     fctf = zip fconts forks
     sucf = filter ((/= bot).fst) fctf
     in do
-      traceM $ "sucf:" ++ (show sucf)
       if isSingleton sucf
           then eq tg (snd $ head sucf)
           else pure ()
