@@ -134,7 +134,7 @@ refreshVarListener ::
   , Std w) =>
   w -> i -> (TermConst -> Maybe i) -> TermSet i -> m ()
 refreshVarListener listId orig _ TSBot = void $ write (copy listId orig) bot
-refreshVarListener listId orig trans (TS constants' variables' applications') = do
+refreshVarListener listId orig trans (TS constants' _{-variables'-} applications') = do
 
   watchTerm (copy listId orig)
 
@@ -147,7 +147,8 @@ refreshVarListener listId orig trans (TS constants' variables' applications') = 
                             (varTerm tc)
           --important! The tc cannot be wrapped in a copy because it is not a copy!
     )
-
+  {-
+  --TODO: maybe variables not needed for the copy. Information from variables will eventually be passed here anyway.
   forM_ variables' $(\v -> do
       write (copy listId orig)
         (varTerm (copy listId v))
@@ -157,6 +158,7 @@ refreshVarListener listId orig trans (TS constants' variables' applications') = 
       --done in the upper listener
       --watchTerm (Copy listId v)
     )
+    -}
 
   forM_ applications' $(\(a,b) -> do
       write (copy listId orig)
