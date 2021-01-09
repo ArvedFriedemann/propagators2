@@ -2,7 +2,6 @@
 module Data.Terms.TermFunctions where
 
 import "base" Prelude hiding ( read )
-import "base" Data.Foldable ( fold )
 import "base" GHC.Exts
 import "base" Data.Functor
 

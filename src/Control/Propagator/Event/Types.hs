@@ -27,6 +27,21 @@ instance Show Scope where
     showsPrec _ Root = showString "/"
     showsPrec _ (Scope i s) = showString "/" . showsPrec 11 i . shows s
 
+
+data SomePropagator m a where
+    SomePropagator :: Propagator m p a => p -> SomePropagator m a
+instance Eq (SomePropagator m a) where
+    a == b = compare a b == EQ
+instance Ord (SomePropagator m a) where
+    SomePropagator a `compare` SomePropagator b = compareTyped a b
+instance Show (SomePropagator m a) where
+    showsPrec d (SomePropagator p)
+        = showParen (d >= 10)
+        $ showString "SomePropagator "
+        . showsPrec 11 p
+    showList = showList . fmap showElem
+      where showElem (SomePropagator p) = show p
+
 -------------------------------------------------------------------------------
 -- Event
 -------------------------------------------------------------------------------
@@ -45,31 +60,31 @@ instance Ord Write where
 
 
 data Watch m where
-    Watch :: (Identifier i a, Std j) => i -> j -> (a -> m ()) -> Scope -> Watch m
+    Watch :: (Identifier i a, Propagator m p a) => i -> p -> Scope -> Watch m
 
 instance Show (Watch m) where
-    showsPrec d (Watch i j _ s)
+    showsPrec d (Watch i p s)
         = showParen (d >= 10)
         $ showString "Watch "
         . shows i
         . showString " "
-        . shows j
+        . shows p
         . showString " "
         . shows s
 instance Eq (Watch m) where
     a == b = compare a b == EQ
 instance Ord (Watch m) where
-    Watch iA jA _ sA `compare` Watch iB jB _ sB
+    Watch iA pA sA `compare` Watch iB pB sB
         = compareTyped iA iB
-        <> compareTyped jA jB
+        <> compareTyped pA pB
         <> compare sA sB
 
 
 data Fork m where
-    Fork :: Std i => i -> (LiftParent m -> m x) -> Scope -> Fork m
+    Fork :: Forked m i => i -> Scope -> Fork m
 
 instance Show (Fork m) where
-    showsPrec d (Fork i _ s)
+    showsPrec d (Fork i s)
         = showParen (d >= 10)
         $ showString "Fork "
         . shows i
@@ -78,7 +93,7 @@ instance Show (Fork m) where
 instance Eq (Fork m) where
     a == b = compare a b == EQ
 instance Ord (Fork m) where
-    Fork i _ s `compare` Fork j _ s' = compareTyped i j <> compare s s'
+    Fork i s `compare` Fork j s' = compareTyped i j <> compare s s'
 
 
 data Event m

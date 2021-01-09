@@ -10,7 +10,6 @@ module Control.Propagator.Event.EventT
 
 import "base" Prelude hiding ( read )
 import "base" Data.Maybe
-import "base" Data.Functor
 
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
 import "transformers" Control.Monad.Trans.Class
@@ -50,9 +49,9 @@ instance (MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (EventT m) whe
     
     write i a = i <$ (fire' $ WriteEvt . Write i a)
     
-    watch i j a = i <$ (fire' $ WatchEvt . Watch i j (void . a))
+    watch i p = i <$ (fire' $ WatchEvt . Watch i p)
 
     read = fmap (fromMaybe top) . withScope . flip getVal
 
 instance (Monad m, MonadEvent (Evt m) m) => Forkable (EventT m) where
-    fork i m = fire' $ ForkEvt . Fork i m
+    fork i = fire' $ ForkEvt . Fork i

@@ -9,12 +9,12 @@ import "base" Debug.Trace
 import "this" Data.Terms.Terms
 import "this" Data.Terms.TermFunctions
 import "this" Data.Terms.TermId
-import "this" Data.Domain
 import "this" Control.Combinator.Logics
 import "this" Control.Propagator
 import "this" Control.Propagator.Event
 import "this" Tests.TestLogic
 import "this" Data.Lattice
+import "this" Data.Lattice.Domain
 
 
 
@@ -23,44 +23,47 @@ instance Identifier Cell (TermSet Cell)
 
 test1 :: IO ()
 test1 = runTestSEB @(TermId Cell) $ do
-    sv_a <- fromVarsAsCells (direct A) $ [var (direct $ Sv 0),"a"]
-    b_sv <- fromVarsAsCells (direct B) $ ["b", var (direct $ Sv 0)]
+    sv_a <- fromVarsAsCells (DIRECT A) $ [var (DIRECT $ Sv 0),"a"]
+    b_sv <- fromVarsAsCells (DIRECT B) $ ["b", var (DIRECT $ Sv 0)]
     sv_a `eq` b_sv
-    return [sv_a, b_sv, direct $ Sv 0]
+    return [sv_a, b_sv, DIRECT $ Sv 0]
 
 test2 :: IO ()
 test2 = runTestSEB @(TermId Cell) $ do
-    t1 <- fromVarsAsCells (direct A) [var $ direct $ Sv 1, "a", var $ direct $ Sv 1]
-    t2 <- fromVarsAsCells (direct B) $ [var (direct $ Sv 2), "a"]
+    t1 <- fromVarsAsCells (DIRECT A) [var $ DIRECT $ Sv 1, "a", var $ DIRECT $ Sv 1]
+    t2 <- fromVarsAsCells (DIRECT B) $ [var (DIRECT $ Sv 2), "a"]
     t1 `eq` t2
-    return [t1, t2, direct $ Sv 1, direct $ Sv 2]
+    return [t1, t2, DIRECT $ Sv 1, DIRECT $ Sv 2]
 
 
 test3 :: IO ()
 test3 = runTestSEB @(TermId Cell) $ do
-    t1 <- fromVarsAsCells (direct A) $ var $direct $ Sv 0
-    t2 <- fromVarsAsCells (direct B) $ "a" <> var (direct $ Sv 0)
+    t1 <- fromVarsAsCells (DIRECT A) $ var $ DIRECT $ Sv 0
+    t2 <- fromVarsAsCells (DIRECT B) $ "a" <> var (DIRECT $ Sv 0)
     t1 `eq` t2
-    return [t1, t2, direct $ Sv 0]
+    return [t1, t2, DIRECT $ Sv 0]
 
+data TestFork a = TestFork deriving (Eq, Ord, Show)
+instance Forked TestFork a where
+    inFork lft = do
+        promote lft (DIRECT A)
+        write (DIRECT A) "a"
 test4 :: IO ()
 test4 = runTestSEB @(TermId Cell) $ do
-  fork () $ \lft -> do
-    promote lft (DIRECT A)
-    write (DIRECT A) $ constTerm "a"
+  fork TestFork
   return [DIRECT A]
 
 test4' :: IO ()
 test4' = runTestSEB @(TermId Cell) $ do
-    orig <- return (direct A :: TermId Cell)
-    t1 <- return (direct B)
-    t2 <- return (direct C)
-    write t1 (constTerm (CUST "A"))
+    orig <- return (DIRECT A :: TermId Cell)
+    t1 <- return (DIRECT B)
+    t2 <- return (DIRECT C)
+    write t1 "A"
     write t2 TSBot
     --TODO: When forking, it might not be the entire term that is being transferred, but only the top node!
     disjunctFork () orig
         [ do
-            --void $ write orig (constTerm "A")
+            --void $ write orig "A"
             orig `eq` t1
         , do
             --void $ write orig TSBot
@@ -70,9 +73,9 @@ test4' = runTestSEB @(TermId Cell) $ do
 
 testRefreshTo :: IO ()
 testRefreshTo = runTestSEB $ do
-    orig <- fromVarsAsCells (direct A) ["b", "a"]
+    orig <- fromVarsAsCells (DIRECT A) ["b", "a"]
     --so the term listeners are placed
-    v1 <- fromVarsAsCells (direct C) []
+    v1 <- fromVarsAsCells (DIRECT C) []
     cpy <- refreshVarsTbl B [("b",v1 :: TermId Cell)] orig
     return [orig, cpy]
 {-
@@ -88,11 +91,11 @@ testRefreshBack = runTestSEB $ do
 
 testRefreshUnification :: IO ()
 testRefreshUnification = runTestSEB @(TermId Cell) $ do
-  v1 <- fromVarsAsCells (direct A) []
-  v2 <- fromVarsAsCells (direct B) []
-  orig <- fromVarsAsCells (direct $ STR "orig")
+  v1 <- fromVarsAsCells (DIRECT A) []
+  v2 <- fromVarsAsCells (DIRECT B) []
+  orig <- fromVarsAsCells (DIRECT $ STR "orig")
     [["a", "a"], var v2]
-  rule <- fromVarsAsCells (direct $ STR "rule")
+  rule <- fromVarsAsCells (DIRECT $ STR "rule")
     [["b", "a"], "b"]
   cpy <- refreshVarsTbl (STR "copy" ) [("b",v1 :: TermId Cell)] rule
   eq orig cpy

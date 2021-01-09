@@ -1,5 +1,10 @@
 {-# LANGUAGE StrictData #-}
-module Data.Lattice.Facts where
+module Data.Lattice.Facts
+    ( Facts
+    , pattern Facts
+    , pattern Bot
+    , getFacts
+    ) where
 
 import "base" Data.Functor.Compose
 import "base" Data.Monoid ( Dual(..) )
@@ -16,6 +21,7 @@ import "this" Data.Lattice.WithBot
 
 newtype Facts a = Fs (WithBot (Set a))
   deriving newtype (Eq, Ord)
+  deriving Foldable via (Compose WithBot Set)
   deriving
     ( HasTop, HasBot
     , Meet, BoundedMeet
@@ -27,6 +33,7 @@ pattern Facts s = Fs (NotBot s)
 getFacts :: Facts a -> Set a
 getFacts (Facts s) = s
 getFacts Bot = Set.empty
+
 instance HasValue Facts where
     fromValue (Fs x) = fromValue >=> fromValue $ x
     toValue = Fs . NotBot . toValue

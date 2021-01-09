@@ -6,7 +6,6 @@ import "base" Data.Functor.Classes
 import "base" Control.Applicative
 import "base" Control.Monad
 
-import "this" Data.Lattice.Class
 import "this" Data.Lattice.WithTop
 import "this" Data.Lattice.WithBot
 

@@ -49,6 +49,7 @@ default-extensions:
   - PatternSynonyms
   - ViewPatterns
   - InstanceSigs
+  - RecordWildCards
 
   # deriving
   - StandaloneDeriving

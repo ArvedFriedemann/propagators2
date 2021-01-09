@@ -1,38 +1,38 @@
 module Data.Terms.TermId where
 
-import Data.Terms.Terms
-import Data.Terms.TermFunctions
-import Control.Propagator.Class
+import "this" Data.Lattice
+import "this" Data.Terms.Terms
+import "this" Data.Terms.TermFunctions
+import "this" Control.Propagator.Class
 
-data TermId w where
-  EMPTY :: TermId w
-  DIRECT :: w -> TermId w
-  APPLLEFT :: TermId w -> TermId w
-  APPLRIGHT :: TermId w -> TermId w
-  COPY :: w -> TermId w -> TermId w
-  BOUND :: w -> TermConst -> TermId w
+
+data TermId w
+    = EMPTY
+    | DIRECT w
+    | APPLLEFT (TermId w)
+    | APPLRIGHT (TermId w)
+    | COPY w (TermId w)
+    | BOUND w (TermConst)
   deriving (Eq, Ord, Show)
 
-class Direct f where
-  direct :: w -> f w
-
-instance Direct TermId where
-  direct = DIRECT
+instance HasValue TermId where
+    toValue = DIRECT
+    fromValue (DIRECT w) = Just w
+    fromValue _ = Nothing
 
 class Bound w i | i -> w where
-  bnd :: w -> TermConst -> i
+    bound :: w -> TermConst -> i
 
 instance Bound w (TermId w) where
-  bnd = BOUND
+    bound = BOUND
 
 instance (Std w) => Identifier (TermId w) (TermSet (TermId w))
 
 instance PosTermId (TermId w) where
-  appLeft = APPLLEFT
-  appRight = APPLRIGHT
+    appLeft = APPLLEFT
+    appRight = APPLRIGHT
 
-instance CopyTermId w (TermId w) where
-  --copy listId origTerm
-  copy = COPY
-  copyTermIdContents (COPY w i) = Just (w,i)
-  copyTermIdContents _ = Nothing
+instance Std w => CopyTermId w (TermId w) where
+    copy = COPY
+    copyTermIdContents (COPY w i) = Just (w,i)
+    copyTermIdContents _ = Nothing

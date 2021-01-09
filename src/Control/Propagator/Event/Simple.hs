@@ -43,15 +43,16 @@ instance Ord SEBId where
 -- SEBCell
 -------------------------------------------------------------------------------
 
+type SEBPropagator = SomePropagator SEB
 data SEBCell where
-    SEBC :: Value a => a -> Map SomeStd (a -> SEB ()) -> SEBCell
+    SEBC :: Value a => a -> Set (SEBPropagator a) -> SEBCell
 instance Show SEBCell where
     showsPrec d (SEBC a m)
         = showParen (d >= 10)
         $ showString "SEBC "
         . showsPrec 10 a
         . showString " "
-        . shows (Map.keys m)
+        . shows (Set.toList m)
 
 toVal :: Value a => SEBCell -> Maybe a
 toVal (SEBC a _) = cast a
@@ -91,7 +92,7 @@ flushSEB = do
 
 alterCell :: Identifier i a
           => Scope -> i 
-          -> (Maybe (a, Map SomeStd (a -> SEB ())) -> (a, Map SomeStd (a -> SEB ())))
+          -> (Maybe (a, Set (SEBPropagator a)) -> (a, Set (SEBPropagator a)))
           -> SEB ()
 alterCell s i f = modify $ \ st -> st{ cells = Map.alter f' (SEBId s i) . cells $ st }
   where
@@ -111,31 +112,31 @@ handleEvent (WriteEvt (Write i a s)) = do
         Nothing -> alterCell s i . setValue $ a
   where
     setValue a' = (a',) . maybe [] snd
-handleEvent (WatchEvt (Watch c i act s)) = do
+handleEvent (WatchEvt (Watch c i s)) = do
     v <- fromMaybe top <$> lift (getVal s c)
     alterCell s c . addListener $ v
-    execListener s v act
+    execListener s v $ SomePropagator i
   where
     addListener v cv =
         ( maybe v fst cv
-        , Map.insert (SomeStd i) act $ maybe Map.empty snd cv
+        , SomePropagator i `Set.insert` maybe Set.empty snd cv
         )
-handleEvent (ForkEvt (Fork i act s)) = void . inScope (Scope i s) $ act (inScope s)
+handleEvent (ForkEvt (Fork i s)) = void . inScope (Scope i s) $ inFork i (inScope s)
 
 inScope :: Scope -> (forall a. SEB a -> SEB a)
 inScope = local . const
 
-execListener :: Value a => Scope -> a -> (a -> SEB ()) -> SEB ()
-execListener s a m = inScope s (m a)
+execListener :: Scope -> a -> SEBPropagator a -> SEB ()
+execListener s a (SomePropagator i) = inScope s (propagate i a)
 
-getCell :: (MonadState SEBState m, Identifier i a) => Scope -> i -> m (Maybe (a, [a -> SEB ()]))
+getCell :: (MonadState SEBState m, Identifier i a) => Scope -> i -> m (Maybe (a, Set (SEBPropagator a)))
 getCell s' i' = gets $ searchCell' s' i' . cells
   where
     searchCell' Root i cx = getCell' Root i cx
     searchCell' s@(Scope _ p) i cx = getCell' s i cx <|> searchCell' p i cx
     getCell' s i cx = do
         SEBC a lsA <- Map.lookup (SEBId s i) cx
-        liftA2 (,) (cast a) (cast $ Map.elems lsA)
+        liftA2 (,) (cast a) (cast lsA)
 
 instance MonadEvent (Evt SimpleEventBus) SimpleEventBus where
     fire e = SEB . modify $ \(SEBS evts cx) -> SEBS (Set.insert e evts) cx
