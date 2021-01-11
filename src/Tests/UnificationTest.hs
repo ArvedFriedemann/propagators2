@@ -8,7 +8,7 @@ import "base" Debug.Trace
 import "this" Data.Terms
 import "this" Control.Combinator.Logics
 import "this" Control.Propagator
-import "this" Control.Propagator.Event ( runSEB )
+import "this" Control.Propagator.Event ( evalSEB )
 import "this" Tests.TestLogic
 import "this" Data.Lattice
 
@@ -98,7 +98,7 @@ data TC = Orig | TC Int deriving (Eq, Ord, Show)
 instance Identifier TC (Domain TD)
 
 test5 :: IO ()
-test5 = flip runSEB (>> pure ()) $ do
+test5 = flip evalSEB (>> pure ()) $ do
     write (TC 2) [TD_A, TD_C]
 
     scoped () $ \s -> watch (TC 2) $ Scoped s $ Write $ TC 2

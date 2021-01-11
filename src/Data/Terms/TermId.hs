@@ -12,7 +12,7 @@ data TermId w
     | APPLLEFT (TermId w)
     | APPLRIGHT (TermId w)
     | COPY w (TermId w)
-    | BOUND w (TermConst)
+    | BOUND w TermConst
   deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance HasValue TermId where
@@ -26,7 +26,7 @@ class Bound w i | i -> w where
 instance Bound w (TermId w) where
     bound = BOUND
 
-instance (Std w) => Identifier (TermId w) (TermSet (TermId w))
+instance Std w => Identifier (TermId w) (TermSet (TermId w))
 
 instance PosTermId (TermId w) where
     appLeft = APPLLEFT

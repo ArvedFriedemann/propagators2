@@ -26,22 +26,22 @@ data IsoFrom i a = IsoFrom i a deriving (Eq, Ord, Show)
 instance (MonadProp m, Value b, Propagator m a i, IsIso j a b) => Propagator m b (IsoFrom j i) where
     propagate (IsoFrom i a) = propagate a . project (theIso i)
 
-iso :: (MonadProp m, Value a, Value b, Identifier i a, Identifier j b, IsIso p a b) => p -> i -> j -> m ()
+iso :: (MonadProp m, Identifier i a, Identifier j b, IsIso p a b) => p -> i -> j -> m ()
 iso i a b = void $ do
     watch a $ IsoTo i $ Write b
     watch b $ IsoFrom i $ Write a
 
-eq :: forall a i j m. (MonadProp m, Value a, Identifier i a, Identifier j a) => i -> j -> m ()
+eq :: forall a i j m. (MonadProp m, Identifier i a, Identifier j a) => i -> j -> m ()
 eq = iso $ Proxy @a
 
-eqAll :: (MonadProp m, Foldable t, Value a, Identifier i a) => t i -> m ()
+eqAll :: (MonadProp m, Foldable t, Identifier i a) => t i -> m ()
 eqAll t = maybe (pure ()) void $ foldr eqAll' Nothing t
   where
     eqAll' i Nothing  = Just (pure i)
     eqAll' i (Just j) = Just (j >>= eq i >> pure i)
 
 data SetEq i = SetEq i deriving (Eq, Ord, Show)
-instance (MonadProp m, Value a, Identifier i a, Identifier j a) => Propagator m j (SetEq i) where 
+instance (MonadProp m, Identifier i a, Identifier j a) => Propagator m j (SetEq i) where 
     propagate (SetEq i) = eq i
 
 newtype Write i = Write i deriving (Eq, Ord, Show)
@@ -62,7 +62,7 @@ promote s i = push s i i
 scoped :: (MonadProp m, Std i) => i -> (Scope -> m a) -> m a
 scoped i f = do
     s <- scope
-    inScope (pushScope i s) $ f s
+    inScope (s :/ i) $ f s
 
 data Const i a = Const a i deriving (Eq, Ord, Show)
 instance Propagator m a i => Propagator m a (Const i a) where

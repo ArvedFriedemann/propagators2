@@ -3,7 +3,6 @@ module Control.Propagator.Event.Types where
 import "base" GHC.Generics
 
 import "this" Control.Propagator.Base
-import "this" Control.Propagator.Class
 import "this" Control.Propagator.Scope
 import "this" Control.Propagator.Propagator
 import "this" Data.Typed
@@ -14,11 +13,11 @@ import "this" Data.Typed
 -------------------------------------------------------------------------------
 
 data Write where
-    Write :: (Value a, Identifier i a) => i -> a -> Scope -> Write
+    Write :: Identifier i a => i -> a -> Scope -> Write
 
 deriving instance Show Write
 instance Eq Write where
-    a == b = compare a b == EQ
+    Write i a s == Write j b t = i =~= j && a =~= b && s == t
 instance Ord Write where
     Write i a sA `compare` Write j b sB
         = compareTyped i j
@@ -27,7 +26,7 @@ instance Ord Write where
 
 
 data Watch m where
-    Watch :: (Value a, Identifier i a, Propagator m a p) => i -> p -> Scope -> Watch m
+    Watch :: (Identifier i a, Propagator m a p) => i -> p -> Scope -> Watch m
 
 instance Show (Watch m) where
     showsPrec d (Watch i p s)

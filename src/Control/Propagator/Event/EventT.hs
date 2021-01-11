@@ -17,7 +17,6 @@ import "transformers" Control.Monad.Trans.Class
 import "mtl" Control.Monad.Reader.Class
 import "mtl" Control.Monad.State.Class
 
-import "this" Control.Propagator.Class
 import "this" Control.Propagator.Base
 import "this" Control.Propagator.Scope
 import "this" Control.Propagator.Event.Types
@@ -30,7 +29,7 @@ class Monad m => MonadEvent e m | m -> e where
     fire :: e -> m ()
 
 class Monad m => MonadRef m where
-    getVal :: (Value a, Identifier i a) => Scope -> i -> m (Maybe a)
+    getVal :: Identifier i a => Scope -> i -> m (Maybe a)
 
 newtype EventT m a = EventT
     { runEventT :: ReaderT Scope m a

@@ -20,7 +20,7 @@ instance (Std p, Std n, Identifier i a) => Identifier (DisjunctFork i a n p) a
 
 disjunctFork :: forall i p n a m. 
              ( MonadProp m
-             , BoundedJoin a, Value a, Identifier i a
+             , BoundedJoin a, Identifier i a
              , Propagator m n p
              ) => i -> p -> [n] -> m ()
 disjunctFork i p ns = dfs `forM_` \df -> do

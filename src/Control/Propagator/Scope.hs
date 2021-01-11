@@ -1,5 +1,7 @@
 module Control.Propagator.Scope
     ( Scope
+    , pattern Root
+    , pattern (:/)
     , pushScope
     , popScope
     , lcp
@@ -13,8 +15,15 @@ import "this" Data.Some
 import "this" Control.Propagator.Class
 
 
-newtype Scope = Scope [Some Std]
+newtype Scope = Scope { segments :: [Some Std] }
   deriving newtype (Eq, Ord, Monoid)
+{-# COMPLETE Root, (:/) #-}
+pattern Root :: Scope
+pattern Root <- Scope []
+  where Root = Scope []
+pattern (:/) :: () => forall a. Std a => Scope -> a -> Scope
+pattern s :/ i <- (popScope -> Just (Some i, s))
+  where s :/ i = Scope (Some i : segments s)
 
 instance IsList Scope where
     type Item Scope = Some Std
@@ -28,9 +37,9 @@ instance Show Scope where
         showScope :: [Some Std] -> ShowS
         showScope [] = showString "/"
         showScope (i : s)
-            = showScope s
+            = showString "/"
             . extractSome (showsPrec 11) i
-            . showString "/"
+            . showScope s
 
 pushScope :: Std i => i -> Scope -> Scope
 pushScope = mappend . Scope . pure . Some

@@ -18,6 +18,10 @@ data TermStruc a
     | SVAR a
     | SAPPL (TermStruc a) (TermStruc a)
   deriving (Eq, Ord, Functor)
+instance HasTop (TermStruc a) where
+    top = STOP
+    isTop STOP = True
+    isTop _ = False
 
 instance Show a => Show (TermStruc a) where
     showsPrec _ STOP = showString "top"
@@ -99,6 +103,7 @@ fromTermSet' n _ ts
         a' <- fromCellSize (n-1) a
         b' <- fromCellSize (n-1) b
         pure $ SAPPL a' b'--applts a' b' --if a variable is assigned top, it would just vanish
-    | otherwise =
-      --here we can safely assume that there cannot be a term hanging on this variable. If there was, it would have propagated here. Therefore this always is a dangling variable, so we just return the smallest variable of the equality cluster (so that all cluster show the same variable)
-      pure $ SVAR $ head . S.toList . variables $ ts
+    | not $ null (variables ts) = do
+        --here we can safely assume that there cannot be a term hanging on this variable. If there was, it would have propagated here. Therefore this always is a dangling variable, so we just return the smallest variable of the equality cluster (so that all cluster show the same variable)
+        pure . SVAR . head . S.toList . variables $ ts
+    | otherwise = pure Top
