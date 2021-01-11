@@ -14,12 +14,19 @@ import "this" Control.Propagator.Class
 
 
 newtype Scope = Scope [Some Std]
-  deriving newtype (Eq, Ord, Semigroup, Monoid, IsList)
+  deriving newtype (Eq, Ord, Monoid, IsList)
+
+instance Semigroup Scope where
+    Scope a <> Scope b = Scope (b <> a)
 instance Show Scope where
     showsPrec _ = showScope . toList
       where
+        showScope :: [Some Std] -> ShowS
         showScope [] = showString "/"
-        showScope (i : s) = shows s . showsPrec 11 i . showString "/"
+        showScope (i : s)
+            = showScope s
+            . extractSome (showsPrec 11) i
+            . showString "/"
 
 pushScope :: Std i => i -> Scope -> Scope
 pushScope = mappend . Scope . pure . Some
@@ -32,7 +39,8 @@ popScope = fmap (fmap fromList) . uncons . toList
   Let @(l, r, p) = lcp a b@ then @a = p <> l@ and @b = p <> r@.
 -}
 lcp :: Scope -> Scope -> (Scope, Scope, Scope)
-lcp s t = fromList <$> on lcp' toList s t
+lcp s t = epocs <$> on lcp' (reverse . toList) s t
   where
+    epocs = fromList . reverse
     lcp' (i : a) (j : b) | i == j = (i :) <$> lcp' a b
-    lcp' a b = (fromList a, fromList b, mempty)
+    lcp' a b = (epocs a, epocs b, mempty)
