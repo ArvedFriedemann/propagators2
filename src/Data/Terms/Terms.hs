@@ -79,7 +79,7 @@ liftTS2 f a b = cleanTermSet TS
 instance Ord a => Meet (TermSet a) where
     (/\) = liftTS2 Set.union
 instance HasTop (TermSet a) where
-    isTop (TS Nothing v a) = Set.size v == 1 && Set.size a == 1
+    isTop (TS Nothing v a) = Set.null v && Set.null a
     isTop _ = False
     top = TS Nothing Set.empty Set.empty
 instance Ord a => Join (TermSet a) where

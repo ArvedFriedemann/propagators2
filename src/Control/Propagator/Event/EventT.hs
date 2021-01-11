@@ -52,7 +52,7 @@ instance (MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (EventT m) whe
     
     watch i p = i <$ (fire' $ WatchEvt . Watch i p)
 
-    read = fmap (fromMaybe top) . withScope . flip getVal
+    read = fmap (fromMaybe Top) . withScope . flip getVal
 
     scope = ask
 

@@ -3,6 +3,7 @@ module Control.Propagator.Event.Simple where
 
 import "base" Data.Foldable
 import "base" Data.Bifunctor
+import "base" Data.Functor
 import "base" Data.Maybe
 import "base" Control.Applicative
 import "base" Control.Monad
@@ -43,7 +44,9 @@ instance Eq SEBId where
 instance Ord SEBId where
     SEBId s i `compare` SEBId t j = compare s t <> compareTyped i j
 
-type SEBState = (Set Write, Map SEBId (Some Value))
+type SEBEvt = Evt SimpleEventBus
+
+type SEBState = (Set SEBEvt, Map SEBId (Some Value))
 
 -------------------------------------------------------------------------------
 -- SimpleEventBus
@@ -81,37 +84,41 @@ alterCell :: Identifier i a => Scope -> i -> (Maybe a -> a) -> SEB ()
 alterCell s i f = modify $ second (Map.alter f' (SEBId s i))
   where f' = pure . Some . f . (=<<) fromSome
     
-handleEvent :: Write -> SEB ()
-handleEvent (Write i a s) = do
-    v <- lift $ getVal s i
-    case v of
-        Just old -> do
-            let a' =  old /\ a
-            unless (a' == old) $ do
-                alterCell s i . const $ a'
-                notify s i
-        Nothing -> alterCell s i . const $ a
+handleEvent :: SEBEvt -> SEB ()
+handleEvent (WriteEvt (Write i a s)) = do
+    v <- lift $ newValue <$> getVal s i
+    forM_ v $ \a' -> do
+        alterCell s i . const $ a'
+        notify s i
+  where
+    newValue Nothing = Just a
+    newValue (Just old) = let a' = old /\ a in guard (a' /= old) $> a'
+                        
+handleEvent (WatchEvt (Watch i p s)) = do
+    handleEvent . WriteEvt . Write (PropagatorsOf @SEB i) [Some p] $ s
+    a <- val s i
+    execListener s a (Some p)
 
 val :: Identifier i a => Scope -> i -> SEB a
 val s = lift . fmap (fromMaybe Top) . getVal s
 
 notify :: Identifier i a => Scope -> i -> SEB ()
 notify s i = do
-    traceM $ "notify " ++ show s ++ " " ++ show i
     a <- val s i
     ls <- val s $ PropagatorsOf @SEB i
-    traverse_ (execListener a) ls
-  where
-    execListener a (Some p) = do
-        traceM $ "execListener " ++ show p
-        inScope s (propagate p a)
+    traverse_ (execListener s a) ls
+
+execListener :: Scope -> a -> Some (Propagator SEB a) -> SEB ()
+execListener s a (Some p) = inScope s (propagate p a)
 
 instance MonadEvent (Evt SimpleEventBus) SimpleEventBus where
-    fire (WatchEvt (Watch i p s)) = fire . WriteEvt $ Write (PropagatorsOf @SEB i) [Some p] s
-    fire (WriteEvt e) = SEB . modify $ first (Set.insert e)
+    fire e = SEB . modify $ first (Set.insert e)
 
 instance MonadRef SimpleEventBus where
-    getVal s' i = ($ s') . searchCell <$> gets snd
+    getVal s' i = do
+        a <- ($ s') . searchCell <$> gets snd
+        traceM $ "getVal " ++ show s' ++ " " ++ show i ++ " = " ++ show a
+        pure a
       where
         searchCell cx s = lookupCell s cx <|> do
             p <- snd <$> popScope s 
