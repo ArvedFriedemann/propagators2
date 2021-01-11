@@ -18,6 +18,8 @@ import "mtl" Control.Monad.Reader.Class
 import "mtl" Control.Monad.State.Class
 
 import "this" Control.Propagator.Class
+import "this" Control.Propagator.Base
+import "this" Control.Propagator.Scope
 import "this" Control.Propagator.Event.Types
 import "this" Data.Lattice
 
@@ -28,7 +30,7 @@ class Monad m => MonadEvent e m | m -> e where
     fire :: e -> m ()
 
 class Monad m => MonadRef m where
-    getVal :: Identifier i a => Scope -> i -> m (Maybe a)
+    getVal :: (Value a, Identifier i a) => Scope -> i -> m (Maybe a)
 
 newtype EventT m a = EventT
     { runEventT :: ReaderT Scope m a
@@ -53,5 +55,6 @@ instance (MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (EventT m) whe
 
     read = fmap (fromMaybe top) . withScope . flip getVal
 
-instance (Monad m, MonadEvent (Evt m) m) => Forkable (EventT m) where
-    fork i = fire' $ ForkEvt . Fork i
+    scope = ask
+
+    inScope s = local (const s)

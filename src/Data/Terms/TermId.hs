@@ -3,7 +3,7 @@ module Data.Terms.TermId where
 import "this" Data.Lattice
 import "this" Data.Terms.Terms
 import "this" Data.Terms.TermFunctions
-import "this" Control.Propagator.Class
+import "this" Control.Propagator
 
 
 data TermId w
@@ -13,7 +13,7 @@ data TermId w
     | APPLRIGHT (TermId w)
     | COPY w (TermId w)
     | BOUND w (TermConst)
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Functor, Foldable, Traversable)
 
 instance HasValue TermId where
     toValue = DIRECT

@@ -4,21 +4,15 @@ module Control.Language.LogLang where
 import "base" Prelude hiding ( read )
 import "base" GHC.Exts
 import "base" Data.Tuple
-import "base" Data.Monoid
 import "base" Data.Bifunctor
 import "base" Control.Monad
-import "base" Debug.Trace
 
 import "containers" Data.Map qualified as Map
-import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
 
-import "this" Data.Terms.Terms
-import "this" Data.Terms.TermId
-import "this" Data.Terms.TermFunctions
+import "this" Data.Terms
 import "this" Control.Combinator.Logics
-import "this" Control.Propagator.Class
-import "this" Control.Propagator.Combinators
+import "this" Control.Propagator
 import "this" Data.Lattice
 
 
@@ -73,8 +67,7 @@ data Lower w i = LW w i | LWDirect w
   deriving (Eq, Ord, Show)
 
 simpleKBNetwork ::
-  ( Forkable m
-  , MonadProp m
+  ( MonadProp m
   , Identifier i (TermSet i)
   , Bound w i
   , CopyTermId w i
@@ -87,8 +80,7 @@ simpleKBNetwork = simpleKBNetwork' (-1)
 --TODO, WARNING: empty clauses!
 --TODO: Proper indices!
 simpleKBNetwork' ::
-  ( Forkable m
-  , MonadProp m
+  ( MonadProp m
   , Identifier i (TermSet i)
   , Bound w i
   , CopyTermId w i
@@ -108,8 +100,7 @@ data SimpleKBFork w i = KBF
     , goal :: i
     }
   deriving (Eq, Ord, Show)
-instance ( Forkable m
-         , MonadProp m
+instance ( MonadProp m
          , Identifier i (TermSet i)
          , Bound w i
          , CopyTermId w i

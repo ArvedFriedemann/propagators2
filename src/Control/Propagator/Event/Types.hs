@@ -1,31 +1,12 @@
 module Control.Propagator.Event.Types where
 
 import "base" GHC.Generics
-import "base" Data.Typeable
 
+import "this" Control.Propagator.Base
 import "this" Control.Propagator.Class
+import "this" Control.Propagator.Scope
+import "this" Control.Propagator.Propagator
 import "this" Data.Typed
-
--------------------------------------------------------------------------------
--- Scope
--------------------------------------------------------------------------------
-
-data Scope where
-    Root :: Scope
-    Scope :: Std i => i -> Scope -> Scope
-
-instance Eq Scope where
-    Root == Root = True
-    Scope i a == Scope j b = cast i == Just j && a == b
-    _ == _ = False
-instance Ord Scope where
-    Root `compare` Root = EQ
-    Root `compare` _ = GT
-    _ `compare` Root = LT
-    Scope i a `compare` Scope j b = compareTyped i j <> compare a b
-instance Show Scope where
-    showsPrec _ Root = showString "/"
-    showsPrec _ (Scope i s) = showString "/" . showsPrec 11 i . shows s
 
 
 data SomePropagator m a where
@@ -47,7 +28,7 @@ instance Show (SomePropagator m a) where
 -------------------------------------------------------------------------------
 
 data Write where
-    Write :: Identifier i a => i -> a -> Scope -> Write
+    Write :: (Value a, Identifier i a) => i -> a -> Scope -> Write
 
 deriving instance Show Write
 instance Eq Write where
@@ -60,7 +41,7 @@ instance Ord Write where
 
 
 data Watch m where
-    Watch :: (Identifier i a, Propagator m p a) => i -> p -> Scope -> Watch m
+    Watch :: (Value a, Identifier i a, Propagator m p a) => i -> p -> Scope -> Watch m
 
 instance Show (Watch m) where
     showsPrec d (Watch i p s)
@@ -80,29 +61,11 @@ instance Ord (Watch m) where
         <> compare sA sB
 
 
-data Fork m where
-    Fork :: Forked m i => i -> Scope -> Fork m
-
-instance Show (Fork m) where
-    showsPrec d (Fork i s)
-        = showParen (d >= 10)
-        $ showString "Fork "
-        . shows i
-        . showString " "
-        . shows s
-instance Eq (Fork m) where
-    a == b = compare a b == EQ
-instance Ord (Fork m) where
-    Fork i s `compare` Fork j s' = compareTyped i j <> compare s s'
-
-
 data Event m
     = WriteEvt Write
     | WatchEvt (Watch m)
-    | ForkEvt (Fork m)
   deriving (Eq, Ord, Generic)
 
 instance MonadProp m => Show (Event m) where
     showsPrec d (WriteEvt e) = showsPrec d e
     showsPrec d (WatchEvt e) = showsPrec d e
-    showsPrec d (ForkEvt e) = showsPrec d e

@@ -2,8 +2,7 @@ module Tests.TestLogic where
 
 import "base" Data.List
 
-import "this" Data.Terms.Terms
-import "this" Data.Terms.TermFunctions
+import "this" Data.Terms
 import "this" Control.Propagator
 import "this" Control.Propagator.Event
 

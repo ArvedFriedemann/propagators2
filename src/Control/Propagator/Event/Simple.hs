@@ -18,10 +18,12 @@ import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
 import "transformers" Control.Monad.Trans.State.Strict ( StateT(..), evalStateT )
 import "transformers" Control.Monad.Trans.Class
 
-import "mtl" Control.Monad.Reader.Class
 import "mtl" Control.Monad.State.Class
 
 import "this" Control.Propagator.Class
+import "this" Control.Propagator.Base
+import "this" Control.Propagator.Scope
+import "this" Control.Propagator.Propagator
 import "this" Control.Propagator.Event.Types
 import "this" Control.Propagator.Event.EventT
 import "this" Data.Lattice
@@ -90,7 +92,7 @@ flushSEB = do
             handleEvent evt
         flushSEB
 
-alterCell :: Identifier i a
+alterCell :: (Value a, Identifier i a)
           => Scope -> i 
           -> (Maybe (a, Set (SEBPropagator a)) -> (a, Set (SEBPropagator a)))
           -> SEB ()
@@ -121,15 +123,11 @@ handleEvent (WatchEvt (Watch c i s)) = do
         ( maybe v fst cv
         , SomePropagator i `Set.insert` maybe Set.empty snd cv
         )
-handleEvent (ForkEvt (Fork i s)) = void . inScope (Scope i s) $ inFork i (inScope s)
-
-inScope :: Scope -> (forall a. SEB a -> SEB a)
-inScope = local . const
 
 execListener :: Scope -> a -> SEBPropagator a -> SEB ()
 execListener s a (SomePropagator i) = inScope s (propagate i a)
 
-getCell :: (MonadState SEBState m, Identifier i a) => Scope -> i -> m (Maybe (a, Set (SEBPropagator a)))
+getCell :: (MonadState SEBState m, Value a, Identifier i a) => Scope -> i -> m (Maybe (a, Set (SEBPropagator a)))
 getCell s' i' = gets $ searchCell' s' i' . cells
   where
     searchCell' Root i cx = getCell' Root i cx

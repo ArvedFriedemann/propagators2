@@ -1,24 +1,21 @@
 module Tests.KBTests where
 
 import "this" Tests.TestLogic
-import "this" Data.Terms.Terms
-import "this" Data.Terms.TermFunctions
-import "this" Data.Terms.TermId
+import "this" Data.Terms
 import "this" Control.Language.LogLang
-import "this" Control.Propagator.Class
-import "this" Control.Propagator.Combinators
-import "this" Data.Facts
+import "this" Control.Propagator
+
 
 data Cell = Sv Int | A | B | C | D | G | H | I | J | K | X | Y | Z deriving (Eq, Ord, Show)
-instance Identifier Cell UnitFact
-instance Identifier (Cell, Cell) UnitFact
+instance Identifier Cell ()
+instance Identifier (Cell, Cell) ()
 
 kbtest1 :: IO ()
 kbtest1 = runTestSEB @(TermId Cell) $ do
-  a <- fromVarsAsCells (direct A) ["A"]
-  b <- fromVarsAsCells (direct B) ["B"]
-  c <- fromVarsAsCells (direct C) ["C"]
-  goal <- return (direct $ Sv 0)
+  a <- fromVarsAsCells (DIRECT A) ["A"]
+  b <- fromVarsAsCells (DIRECT B) ["B"]
+  c <- fromVarsAsCells (DIRECT C) ["C"]
+  goal <- return (DIRECT $ Sv 0)
   eq goal b
   kb <- pure [([],[a]),([],[a,b]),([],[c,b])]
   --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.
@@ -28,10 +25,10 @@ kbtest1 = runTestSEB @(TermId Cell) $ do
 
 kbtest2 :: IO ()
 kbtest2 = runTestSEB @(TermId Cell) $ do
-  a <- fromVarsAsCells (direct A) ["A", "K"]
-  x <- fromVarsAsCells (direct X) ["A", "X"]
-  b <- fromVarsAsCells (direct B) ["X", "B"]
-  goal <- fromVarsAsCells (direct G) [var (direct $ Sv 1), "B"]
+  a <- fromVarsAsCells (DIRECT A) ["A", "K"]
+  x <- fromVarsAsCells (DIRECT X) ["A", "X"]
+  b <- fromVarsAsCells (DIRECT B) ["X", "B"]
+  goal <- fromVarsAsCells (DIRECT G) [var (DIRECT $ Sv 1), "B"]
   kb <- pure [([],[a]),(["X"],[x,b])]
 
   --test <- refreshVarsTbl D [("X", direct C)] b

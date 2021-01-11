@@ -3,19 +3,14 @@ module Tests.UnificationTest where
 
 import "base" Prelude hiding ( read )
 import "base" GHC.Generics
-import "base" Control.Monad
 import "base" Debug.Trace
 
-import "this" Data.Terms.Terms
-import "this" Data.Terms.TermFunctions
-import "this" Data.Terms.TermId
+import "this" Data.Terms
 import "this" Control.Combinator.Logics
 import "this" Control.Propagator
-import "this" Control.Propagator.Event
+import "this" Control.Propagator.Event ( runSEB )
 import "this" Tests.TestLogic
 import "this" Data.Lattice
-import "this" Data.Lattice.Domain
-
 
 
 data Cell = STR String | Sv Int | A | B | C deriving (Eq, Ord, Show)
@@ -43,32 +38,26 @@ test3 = runTestSEB @(TermId Cell) $ do
     t1 `eq` t2
     return [t1, t2, DIRECT $ Sv 0]
 
-data TestFork a = TestFork deriving (Eq, Ord, Show)
-instance Forked TestFork a where
-    inFork lft = do
-        promote lft (DIRECT A)
-        write (DIRECT A) "a"
 test4 :: IO ()
 test4 = runTestSEB @(TermId Cell) $ do
-  fork TestFork
-  return [DIRECT A]
+    scoped () $ \s -> do
+        promote s (DIRECT A)
+        write (DIRECT A) "a"
+    return [DIRECT A]
+
+data Test4Fork = Test4Fork (TermId Cell) deriving (Eq, Ord, Show)
+instance MonadProp m => Propagator m Test4Fork (TermSet (TermId Cell), TermId Cell) where
+    propagate (Test4Fork orig) (i, t) = do
+      write orig i
+      orig `eq` t
 
 test4' :: IO ()
 test4' = runTestSEB @(TermId Cell) $ do
-    orig <- return (DIRECT A :: TermId Cell)
-    t1 <- return (DIRECT B)
-    t2 <- return (DIRECT C)
+    let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId Cell]
     write t1 "A"
     write t2 TSBot
     --TODO: When forking, it might not be the entire term that is being transferred, but only the top node!
-    disjunctFork () orig
-        [ do
-            --void $ write orig "A"
-            orig `eq` t1
-        , do
-            --void $ write orig TSBot
-            orig `eq` t2
-        ]
+    disjunctFork orig (Test4Fork orig) [("A" :: TermSet (TermId Cell), t1), (Bot, t2)]
     return [orig, t1, t2]
 
 testRefreshTo :: IO ()
@@ -81,12 +70,12 @@ testRefreshTo = runTestSEB $ do
 {-
 testRefreshBack :: IO ()
 testRefreshBack = runTestSEB $ do
-  --so the term listeners are placed
-  orig <- fromVarsAsCells []
-  v1 <- fromVarsAsCells []
-  copy <- fromVarsAsCells [var v1, "a"]
-  refreshVarsTbl [(CUSTOM "b",v1)] orig copy
-  return [orig, copy]
+    --so the term listeners are placed
+    orig <- fromVarsAsCells []
+    v1 <- fromVarsAsCells []
+    copy <- fromVarsAsCells [var v1, "a"]
+    refreshVarsTbl [(CUSTOM "b",v1)] orig copy
+    return [orig, copy]
 -}
 
 testRefreshUnification :: IO ()
@@ -112,9 +101,9 @@ test5 :: IO ()
 test5 = flip runSEB (>> pure ()) $ do
     write (TC 2) [TD_A, TD_C]
 
-    fork () $ \ lft -> watch (TC 2) () $ lft . write Orig
+    scoped () $ \s -> watch (TC 2) $ Scoped s $ Write $ TC 2
 
-    watch Orig () $ \ _ -> write (TC 2) [TD_A]
+    watch Orig $ Const ([TD_A] :: Domain TD) $ Write $ TC 2
 
     pure $ do
         v <- read Orig

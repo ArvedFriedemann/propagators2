@@ -95,7 +95,7 @@ instance Ord a => Lattice (TermSet a)
 instance Ord a => BoundedLattice (TermSet a)
 
 data PropBot i = PropBot i deriving (Eq, Ord, Show)
-instance (MonadProp m, Identifier i b, BoundedJoin b, Value a, BoundedJoin a) => Propagator m (PropBot i) a where
+instance (MonadProp m, Value b, Identifier i b, BoundedJoin b, Value a, BoundedJoin a) => Propagator m (PropBot i) a where
     propagate (PropBot i) a = when (a == Bot) . void $ write i Bot
 
 watchTerm :: (Ord i, MonadProp m, Identifier i (TermSet i)) => i -> m i
