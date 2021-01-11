@@ -11,31 +11,31 @@ import "this" Control.Propagator
 import "this" Data.Lattice
 
 
-data DisjunctFork i a n p = DisjunctFork
-    { target :: i
-    , propagator :: p
-    , index :: n
+data DisjunctFork i j = DisjunctFork
+    { name :: j
+    , target :: i
+    , index :: Int
     } deriving (Eq, Ord, Show)
-instance (Std p, Std n, Identifier i a) => Identifier (DisjunctFork i a n p) a
+instance (Std j, Identifier i a) => Identifier (DisjunctFork i j) a
 
-disjunctFork :: forall i p n a m. 
+disjunctFork :: forall i j a m. 
              ( MonadProp m
              , BoundedJoin a, Identifier i a
-             , Propagator m n p
-             ) => i -> p -> [n] -> m ()
-disjunctFork i p ns = dfs `forM_` \df -> do
-    watch df $ PropagateWinner dfs
+             , Std j
+             ) => i -> j -> [m ()] -> m ()
+disjunctFork i j ns = dfs `forM_` \(df, m) -> do
+    watch df . PropagateWinner . fmap fst $ dfs
     scoped df $ \s -> do
         push s (target df) df
-        propagate p . index $ df
+        m
   where
-    dfs :: [DisjunctFork i a n p]
-    dfs = DisjunctFork i p <$> ns
+    dfs :: [(DisjunctFork i j, m ())]
+    dfs = zipWith (\n m -> (DisjunctFork j i n, m) ) [0..] ns
 
-newtype PropagateWinner i a n p = PropagateWinner [DisjunctFork i a n p]
+newtype PropagateWinner i j = PropagateWinner [DisjunctFork i j]
   deriving (Eq, Ord, Show)
-instance (MonadProp m, Value a, BoundedJoin a, Identifier i a, Propagator m n p)
-         => Propagator m a (PropagateWinner i a n p) where
+instance (Std j, MonadProp m, Value a, BoundedJoin a, Identifier i a)
+         => Propagator m a (PropagateWinner i j) where
     propagate (PropagateWinner forks) _ = do
         fconts <- fmap join . forM forks $ \f -> read f <&> \case
             Bot -> [] 

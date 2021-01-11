@@ -45,19 +45,16 @@ test4 = runTestSEB @(TermId Cell) $ do
         write (DIRECT A) "a"
     return [DIRECT A]
 
-data Test4Fork = Test4Fork (TermId Cell) deriving (Eq, Ord, Show)
-instance MonadProp m => Propagator m (TermSet (TermId Cell), TermId Cell) Test4Fork where
-    propagate (Test4Fork orig) (i, t) = do
-      write orig i
-      orig `eq` t
-
 test4' :: IO ()
 test4' = runTestSEB @(TermId Cell) $ do
     let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId Cell]
     write t1 "A"
     write t2 TSBot
     --TODO: When forking, it might not be the entire term that is being transferred, but only the top node!
-    disjunctFork orig (Test4Fork orig) [("A" :: TermSet (TermId Cell), t1), (Bot, t2)]
+    disjunctFork orig () 
+        [ orig `eq` t1
+        , orig `eq` t2
+        ]
     return [orig, t1, t2]
 
 testRefreshTo :: IO ()

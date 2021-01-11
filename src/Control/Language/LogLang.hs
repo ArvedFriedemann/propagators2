@@ -41,8 +41,6 @@ type KB i = [(Facts TermConst, Clause i)]
 splitClause :: Clause i -> Maybe (Clause i, i)
 splitClause cl = (first Facts . swap) <$> (Set.minView $ getFacts cl)
 
-data RefreshClause w i = RC w i
-  deriving (Eq, Ord, Show)
 
 refreshClause ::
   ( MonadProp m
@@ -68,10 +66,12 @@ data Lower w i = LW w i | LWDirect w
 
 simpleKBNetwork ::
   ( MonadProp m
+  , MonadFail m
   , Identifier i (TermSet i)
   , Bound w i
   , CopyTermId w i
   , Identifier w a
+  , BoundedJoin a
   , BoundedJoin a
   , Std w) =>
   w -> KB i -> i -> m ()
@@ -81,38 +81,21 @@ simpleKBNetwork = simpleKBNetwork' (-1)
 --TODO: Proper indices!
 simpleKBNetwork' ::
   ( MonadProp m
+  , MonadFail m
   , Identifier i (TermSet i)
   , Bound w i
   , CopyTermId w i
   , Identifier w a
   , BoundedJoin a
   , Std w) =>
-  Int -> w -> KB i -> i -> m ()
+  Int -> w ->  KB i -> i -> m ()
 simpleKBNetwork' 0 _ _ _ = return ()
 simpleKBNetwork' fuel listId kb goal = do
     g <- read goal
-    unless (g == Bot) $ disjunctFork listId (KBF fuel listId kb goal) kb
-
-data SimpleKBFork w i = KBF
-    { fuel :: Int
-    , listId :: w
-    , kb :: KB i
-    , goal :: i
-    }
-  deriving (Eq, Ord, Show)
-instance ( MonadProp m
-         , Identifier i (TermSet i)
-         , Bound w i
-         , CopyTermId w i
-         , Identifier w a
-         , BoundedJoin a
-         , Std w
-         ) => Propagator m (Facts TermConst, Clause i) (SimpleKBFork w i) where
-    propagate KBF{..} cls = do
-        s <- splitClause <$> refreshClause listId cls
-        case s of
-            Nothing -> pure ()
-            Just (pres, post) -> do
-                post `eq` goal
-                --TODO: recursive Call on listId probably wrong
-                forM_ pres (recursiveCall listId . simpleKBNetwork' (fuel-1) listId kb)
+    unless (g==bot) $
+        disjunctFork listId goal [do
+            (splitClause -> Just (pres, post)) <- refreshClause listId cls
+            eq post goal
+            --TODO: recursive Call on listId probably wrong
+            forM_ pres (void . recursiveCall listId . simpleKBNetwork' (fuel-1) listId kb)
+            |cls <- kb]
