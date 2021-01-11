@@ -16,7 +16,7 @@ class Monad m => MonadProp m where
 
     read :: (Value a, Identifier i a) => i -> m a
 
-    watch :: (Value a, Identifier i a, Propagator m p a) => i -> p -> m i
+    watch :: (Value a, Identifier i a, Propagator m a p) => i -> p -> m i
 
     scope :: m Scope
 

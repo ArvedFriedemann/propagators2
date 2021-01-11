@@ -6,9 +6,6 @@ instance Identifier (ListernersOf i) (Set Listener i)
 data Listener i where
   L :: Watch w i => w -> Listener i
 
-class Std i => Watch i cv | i -> cv where
-  exec :: MonadProp m => i -> cv -> m ()
-
 watch c i
 
 data Eq i

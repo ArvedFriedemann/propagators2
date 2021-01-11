@@ -107,7 +107,7 @@ instance ( MonadProp m
          , Identifier w a
          , BoundedJoin a
          , Std w
-         ) => Propagator m (SimpleKBFork w i) (Facts TermConst, Clause i) where
+         ) => Propagator m (Facts TermConst, Clause i) (SimpleKBFork w i) where
     propagate KBF{..} cls = do
         s <- splitClause <$> refreshClause listId cls
         case s of

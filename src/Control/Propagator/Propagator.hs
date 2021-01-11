@@ -14,54 +14,54 @@ import "this" Control.Propagator.Class
 import "this" Data.Lattice
 
 
-class (Std p, Std a) => Propagator m p a where
+class (Std p, Std a) => Propagator m a p where
     propagate :: p -> a -> m ()
 
-instance (Applicative m, Propagator m i a, Propagator m j a) => Propagator m (Either i j) a where
+instance (Applicative m, Propagator m a i, Propagator m a j) => Propagator m a (Either i j) where
     propagate = either propagate propagate
-instance (Applicative m, Propagator m i a, Propagator m j a) => Propagator m (i, j) a where
+instance (Applicative m, Propagator m a i, Propagator m a j) => Propagator m a (i, j) where
     propagate (i, j) a = propagate i a *> propagate j a
-instance (Applicative m, Propagator m i a, Propagator m j a, Propagator m k a) => Propagator m (i, j, k) a where
+instance (Applicative m, Propagator m a i, Propagator m a j, Propagator m a k) => Propagator m a (i, j, k) where
     propagate (i, j, k) a = propagate i a *> propagate j a *> propagate k a
 
 
 instance ( Applicative m, Typeable f, Std i, Std (f i)
-         , Foldable f, Propagator m i a
-         ) => Propagator m (Applied f i) a where
+         , Foldable f, Propagator m a i
+         ) => Propagator m a (Applied f i) where
     propagate (Applied is) a
         = foldr (\i m -> propagate i a *> m) (pure ()) is
 
-instance (Applicative m, Propagator m i a) => Propagator m [i] a where
+instance (Applicative m, Propagator m a i) => Propagator m a [i] where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (Maybe i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (Maybe i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (NonEmpty i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (NonEmpty i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (Down i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (Down i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (Product i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (Product i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (Sum i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (Sum i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (Dual i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (Dual i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (S.Last i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (S.Last i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (S.First i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (S.First i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (Identity i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (Identity i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (ZipList i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (ZipList i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (Option i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (Option i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (M.Last i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (M.Last i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (M.First i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (M.First i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (Max i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (Max i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (Min i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (Min i) where
     propagate = propagate . Applied
-instance (Applicative m, Propagator m i a) => Propagator m (Set i) a where
+instance (Applicative m, Propagator m a i) => Propagator m a (Set i) where
     propagate = propagate . Applied

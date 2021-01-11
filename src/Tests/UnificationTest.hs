@@ -46,7 +46,7 @@ test4 = runTestSEB @(TermId Cell) $ do
     return [DIRECT A]
 
 data Test4Fork = Test4Fork (TermId Cell) deriving (Eq, Ord, Show)
-instance MonadProp m => Propagator m Test4Fork (TermSet (TermId Cell), TermId Cell) where
+instance MonadProp m => Propagator m (TermSet (TermId Cell), TermId Cell) Test4Fork where
     propagate (Test4Fork orig) (i, t) = do
       write orig i
       orig `eq` t

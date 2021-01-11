@@ -9,20 +9,6 @@ import "this" Control.Propagator.Propagator
 import "this" Data.Typed
 
 
-data SomePropagator m a where
-    SomePropagator :: Propagator m p a => p -> SomePropagator m a
-instance Eq (SomePropagator m a) where
-    a == b = compare a b == EQ
-instance Ord (SomePropagator m a) where
-    SomePropagator a `compare` SomePropagator b = compareTyped a b
-instance Show (SomePropagator m a) where
-    showsPrec d (SomePropagator p)
-        = showParen (d >= 10)
-        $ showString "SomePropagator "
-        . showsPrec 11 p
-    showList = showList . fmap showElem
-      where showElem (SomePropagator p) = show p
-
 -------------------------------------------------------------------------------
 -- Event
 -------------------------------------------------------------------------------
@@ -41,7 +27,7 @@ instance Ord Write where
 
 
 data Watch m where
-    Watch :: (Value a, Identifier i a, Propagator m p a) => i -> p -> Scope -> Watch m
+    Watch :: (Value a, Identifier i a, Propagator m a p) => i -> p -> Scope -> Watch m
 
 instance Show (Watch m) where
     showsPrec d (Watch i p s)

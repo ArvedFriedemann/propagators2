@@ -19,11 +19,11 @@ recursiveCall = undefined -- TODO
 
 
 data IsoTo i b = IsoTo i b deriving (Eq, Ord, Show)
-instance (MonadProp m, Value a, Propagator m i b, IsIso j a b) => Propagator m (IsoTo j i) a where
+instance (MonadProp m, Value a, Propagator m b i, IsIso j a b) => Propagator m a (IsoTo j i) where
     propagate (IsoTo i b) = propagate b . embed (theIso i)
 
 data IsoFrom i a = IsoFrom i a deriving (Eq, Ord, Show)
-instance (MonadProp m, Value b, Propagator m i a, IsIso j a b) => Propagator m (IsoFrom j i) b where
+instance (MonadProp m, Value b, Propagator m a i, IsIso j a b) => Propagator m b (IsoFrom j i) where
     propagate (IsoFrom i a) = propagate a . project (theIso i)
 
 iso :: (MonadProp m, Value a, Value b, Identifier i a, Identifier j b, IsIso p a b) => p -> i -> j -> m ()
@@ -41,15 +41,15 @@ eqAll t = maybe (pure ()) void $ foldr eqAll' Nothing t
     eqAll' i (Just j) = Just (j >>= eq i >> pure i)
 
 data SetEq i = SetEq i deriving (Eq, Ord, Show)
-instance (MonadProp m, Value a, Identifier i a, Identifier j a) => Propagator m (SetEq i) j where 
+instance (MonadProp m, Value a, Identifier i a, Identifier j a) => Propagator m j (SetEq i) where 
     propagate (SetEq i) = eq i
 
 newtype Write i = Write i deriving (Eq, Ord, Show)
-instance (MonadProp m, Value a, Identifier i a) => Propagator m (Write i) a where
+instance (MonadProp m, Value a, Identifier i a) => Propagator m a (Write i) where
     propagate (Write i) = void . write i
 
 data Scoped i = Scoped Scope i deriving (Eq, Ord, Show)
-instance (MonadProp m, Propagator m i a) => Propagator m (Scoped i) a where
+instance (MonadProp m, Propagator m a i) => Propagator m a (Scoped i) where
     propagate (Scoped s i) = inScope s . propagate i
 
 
@@ -65,18 +65,18 @@ scoped i f = do
     inScope (pushScope i s) $ f s
 
 data Const i a = Const a i deriving (Eq, Ord, Show)
-instance Propagator m i a => Propagator m (Const i a) a where
+instance Propagator m a i => Propagator m a (Const i a) where
     propagate (Const a i) _ = propagate i a
 
 newtype Fst i = Fst i deriving (Eq, Ord, Show)
-instance (Value b, Propagator m i a) => Propagator m (Fst i) (a, b) where
+instance (Value b, Propagator m a i) => Propagator m (a, b) (Fst i) where
     propagate (Fst i) (a, _) = propagate i a
-instance (Value b, Value c, Propagator m i a) => Propagator m (Fst i) (a, b, c) where
+instance (Value b, Value c, Propagator m a i) => Propagator m (a, b, c) (Fst i) where
     propagate (Fst i) (a, _, _) = propagate i a
 
 newtype Snd i = Snd i deriving (Eq, Ord, Show)
-instance (Value a, Propagator m i b) => Propagator m (Snd i) (a, b) where
+instance (Value a, Propagator m b i) => Propagator m (a, b) (Snd i) where
     propagate (Snd i) (_, b) = propagate i b
-instance (Value a, Value c, Propagator m i b) => Propagator m (Snd i) (a, b, c) where
+instance (Value a, Value c, Propagator m b i) => Propagator m (a, b, c) (Snd i) where
     propagate (Snd i) (_, b, _) = propagate i b
     

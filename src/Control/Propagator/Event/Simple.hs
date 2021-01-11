@@ -28,6 +28,7 @@ import "this" Control.Propagator.Event.Types
 import "this" Control.Propagator.Event.EventT
 import "this" Data.Lattice
 import "this" Data.Typed
+import "this" Data.Some
 
 
 -------------------------------------------------------------------------------
@@ -45,7 +46,7 @@ instance Ord SEBId where
 -- SEBCell
 -------------------------------------------------------------------------------
 
-type SEBPropagator = SomePropagator SEB
+type SEBPropagator a = Some (Propagator SEB a)
 data SEBCell where
     SEBC :: Value a => a -> Set (SEBPropagator a) -> SEBCell
 instance Show SEBCell where
@@ -117,15 +118,15 @@ handleEvent (WriteEvt (Write i a s)) = do
 handleEvent (WatchEvt (Watch c i s)) = do
     v <- fromMaybe top <$> lift (getVal s c)
     alterCell s c . addListener $ v
-    execListener s v $ SomePropagator i
+    execListener s v $ Some i
   where
     addListener v cv =
         ( maybe v fst cv
-        , SomePropagator i `Set.insert` maybe Set.empty snd cv
+        , Some i `Set.insert` maybe Set.empty snd cv
         )
 
 execListener :: Scope -> a -> SEBPropagator a -> SEB ()
-execListener s a (SomePropagator i) = inScope s (propagate i a)
+execListener s a (Some i) = inScope s (propagate i a)
 
 getCell :: (MonadState SEBState m, Value a, Identifier i a) => Scope -> i -> m (Maybe (a, Set (SEBPropagator a)))
 getCell s' i' = gets $ searchCell' s' i' . cells

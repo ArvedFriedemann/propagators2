@@ -15,7 +15,6 @@ import "containers" Data.Map qualified as Map
 
 import "this" Data.Lattice
 import "this" Control.Propagator
---import "this" Control.Util
 
 
 data TermConst
@@ -95,7 +94,7 @@ instance Ord a => Lattice (TermSet a)
 instance Ord a => BoundedLattice (TermSet a)
 
 data PropBot i = PropBot i deriving (Eq, Ord, Show)
-instance (MonadProp m, Value b, Identifier i b, BoundedJoin b, Value a, BoundedJoin a) => Propagator m (PropBot i) a where
+instance (MonadProp m, Value b, Identifier i b, BoundedJoin b, Value a, BoundedJoin a) => Propagator m a (PropBot i) where
     propagate (PropBot i) a = when (a == Bot) . void $ write i Bot
 
 watchTerm :: (Ord i, MonadProp m, Identifier i (TermSet i)) => i -> m i
@@ -103,7 +102,7 @@ watchTerm ct = watch ct $ TermListener ct
 
 data TermListener i = TermListener i deriving (Eq, Ord, Show)
 
-instance (Identifier i (TermSet i), MonadProp m) => Propagator m (TermListener i) (TermSet i) where
+instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (TermListener i) where
     --WARNING: Does not remove listeners after join!
     propagate _ Bot = pure ()
     propagate (TermListener this) ts = do
@@ -133,7 +132,7 @@ refreshVarsTbl listId tbl orig = do
 data RefreshVar w i = RefreshVar w i (Map TermConst i)
   deriving (Eq, Ord, Show)
 instance (MonadProp m, Identifier i (TermSet i), CopyTermId w i)
-         => Propagator m (RefreshVar w i) (TermSet i) where
+         => Propagator m (TermSet i) (RefreshVar w i) where
     propagate (RefreshVar listId orig _) Bot = void $ write (copy listId orig) bot
     propagate (RefreshVar listId orig tbl) ts = do
         let copyListId = copy listId orig
