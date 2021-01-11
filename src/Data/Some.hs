@@ -12,6 +12,9 @@ data Some c where
 extractSome :: (forall a. (Typeable a, c a) => a -> b) -> Some c -> b
 extractSome f (Some a) = f a
 
+fromSome :: Typeable a => Some c -> Maybe a
+fromSome = extractSome cast
+
 mapSome :: (forall a. (Typeable a, c a) => a -> a) -> Some c -> Some c
 mapSome f (Some a) = Some (f a)
 
