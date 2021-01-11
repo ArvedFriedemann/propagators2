@@ -1,6 +1,7 @@
 module Control.Propagator.Propagator where
 
 import "base" Data.Ord
+import "base" Data.Foldable
 import "base" Data.Semigroup as S
 import "base" Data.Monoid as M
 import "base" Data.List.NonEmpty
@@ -29,7 +30,7 @@ instance ( Applicative m, Typeable f, Std i, Std (f i)
          , Foldable f, Propagator m a i
          ) => Propagator m a (Applied f i) where
     propagate (Applied is) a
-        = foldr (\i m -> propagate i a *> m) (pure ()) is
+        = traverse_ (flip propagate a) is
 
 instance (Applicative m, Propagator m a i) => Propagator m a [i] where
     propagate = propagate . Applied

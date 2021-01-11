@@ -109,7 +109,7 @@ notify :: Identifier i a => Scope -> i -> SEB ()
 notify s i = do
     a <- val s i
     ls <- val s (PropagatorsOf @SEB i)
-    foldr (\p m -> execListener s a p *> m) (pure ()) ls
+    traverse_ (execListener s a) ls
 
 instance MonadEvent (Evt SimpleEventBus) SimpleEventBus where
     fire (WatchEvt (Watch i p s)) = fire . WriteEvt $ Write (PropagatorsOf @SEB i) [Some p] s
