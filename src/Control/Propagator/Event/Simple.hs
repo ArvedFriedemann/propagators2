@@ -92,12 +92,11 @@ handleEvent (WriteEvt (Write i a s)) = do
         notify s i
   where
     newValue Nothing = Just a
-    newValue (Just old) = let a' = old /\ a in guard (a' /= old) $> a'
-                        
+    newValue (Just old) = let a' = old /\ a in guard (a' /= old) $> a'         
 handleEvent (WatchEvt (Watch i p s)) = do
     handleEvent . WriteEvt . Write (PropagatorsOf @SEB i) [Some p] $ s
-    a <- val s i
-    execListener s a (Some p)
+    a <- lift $ getVal s i
+    forM_ a $ \a' -> execListener s a' (Some p)
 
 val :: Identifier i a => Scope -> i -> SEB a
 val s = lift . fmap (fromMaybe Top) . getVal s
@@ -115,10 +114,7 @@ instance MonadEvent (Evt SimpleEventBus) SimpleEventBus where
     fire e = SEB . modify $ first (Set.insert e)
 
 instance MonadRef SimpleEventBus where
-    getVal s' i = do
-        a <- ($ s') . searchCell <$> gets snd
-        traceM $ "getVal " ++ show s' ++ " " ++ show i ++ " = " ++ show a
-        pure a
+    getVal s' i = ($ s') . searchCell <$> gets snd
       where
         searchCell cx s = lookupCell s cx <|> do
             p <- snd <$> popScope s 

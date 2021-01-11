@@ -71,11 +71,11 @@ fromVarsAsCells p (SCON c) = do
     pure p
 fromVarsAsCells _ (SVAR v) = pure v
 fromVarsAsCells p (SAPPL a b) = do
-  watchTerm p
-  ca <- fromVarsAsCells (appLeft p) a
-  cb <- fromVarsAsCells (appRight p) b
-  write p (aplTerm (ca, cb))
-  pure p
+    watchTerm p
+    ca <- fromVarsAsCells (appLeft p) a
+    cb <- fromVarsAsCells (appRight p) b
+    write p (aplTerm (ca, cb))
+    pure p
 
 
 fromCell :: (MonadProp m, Ord i, Std i,
@@ -95,7 +95,7 @@ fromTermSet' :: (MonadProp m, Ord i, Std i,
   Int -> i -> TermSet i -> m (TermStruc i)
 fromTermSet' 0 _ _ = pure (SCON $ CUST $ "(...)")--pure STOP
 fromTermSet' _ _ Bot = pure SBOT
-fromTermSet' _ c Top = pure (SCON $ CUST $ "("++show c++")")--pure STOP
+fromTermSet' _ c Top = pure (SCON $ CUST $ "(@ "++show c++" @)")--pure STOP
 fromTermSet' _ _ (TS (Just c) _ _) = pure . SCON $ c
 fromTermSet' n _ ts
     | not $ null (applications ts) = do

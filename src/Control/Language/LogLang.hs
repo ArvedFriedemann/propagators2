@@ -3,8 +3,6 @@ module Control.Language.LogLang where
 
 import "base" Prelude hiding ( read )
 import "base" GHC.Exts
-import "base" Data.Tuple
-import "base" Data.Bifunctor
 import "base" Control.Monad
 
 import "containers" Data.Map qualified as Map
@@ -16,31 +14,17 @@ import "this" Control.Propagator
 import "this" Data.Lattice
 
 
-type Clause i = Facts i
+type Clause = []
 
-newtype Consts = Consts (Facts TermConst)
-  deriving newtype
-    ( Eq, Ord
-    , HasTop, HasBot
-    , Join,    BoundedJoin
-    , Meet,    BoundedMeet
-    , Lattice, BoundedLattice
-    )
-instance Show Consts where
-    showsPrec d (Consts Bot)
-        = showParen (d >= 10)
-        $ showString "Consts Bot"
-    showsPrec d (Consts (Facts s))
-        = showParen (d >= 10)
-        $ showString "Consts "
-        . shows (Set.toList s)
+type Consts = Set.Set TermConst
 
 --clauses need to memorise their universal variables
-type KB i = [(Facts TermConst, Clause i)]
+type KB i = [(Consts, Clause i)]
 
 splitClause :: Clause i -> Maybe (Clause i, i)
-splitClause cl = (first Facts . swap) <$> (Set.minView $ getFacts cl)
-
+splitClause cl
+    | not $ null cl = Just (init cl, last cl)
+    | otherwise     = Nothing
 
 refreshClause ::
   ( MonadProp m
@@ -48,14 +32,9 @@ refreshClause ::
   , CopyTermId w i
   , Bound w i
   , Std w) =>
-  w -> (Facts TermConst, Clause i) -> m (Clause i)
+  w -> (Consts, Clause i) -> m (Clause i)
 refreshClause lsid (binds, trms)
-    = fmap fromList
-    . forM (toList trms) 
-    $ refreshVarsTbl lsid
-    . Map.fromSet (bound lsid) 
-    . getFacts
-    $ binds
+    = forM (toList trms) $ refreshVarsTbl lsid . Map.fromSet (bound lsid) $ binds
 
 data SimpleKBNetwork w i = SBNC w i
   deriving (Eq, Ord, Show)

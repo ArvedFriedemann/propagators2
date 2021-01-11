@@ -53,10 +53,10 @@ instance (MonadProp m, Propagator m a i) => Propagator m a (Scoped i) where
     propagate (Scoped s i) = inScope s . propagate i
 
 
-push :: (MonadProp m, Value a, Identifier i a, Identifier j a) => Scope -> i -> j -> m i
-push s i = watch i . Scoped s . Write
+push :: (MonadProp m, Value a, Identifier i a, Identifier j a) => Scope -> i -> j -> m ()
+push s i j = void . watch i . Scoped s . Write $ j
 
-promote :: (MonadProp m, Value a, Identifier t a) => Scope -> t -> m t
+promote :: (MonadProp m, Value a, Identifier t a) => Scope -> t -> m ()
 promote s i = push s i i
 
 scoped :: (MonadProp m, Std i) => i -> (Scope -> m a) -> m a

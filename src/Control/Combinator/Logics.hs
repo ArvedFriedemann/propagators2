@@ -6,6 +6,7 @@ module Control.Combinator.Logics
 import "base" Prelude hiding ( read )
 import "base" Data.Functor
 import "base" Control.Monad
+import "base" Debug.Trace
 
 import "this" Control.Propagator
 import "this" Data.Lattice
@@ -26,7 +27,7 @@ disjunctFork :: forall i j a m.
 disjunctFork i j ns = dfs `forM_` \(df, m) -> do
     watch df . PropagateWinner . fmap fst $ dfs
     scoped df $ \s -> do
-        push s (target df) df
+        push s i df
         m
   where
     dfs :: [(DisjunctFork i j, m ())]
@@ -37,9 +38,15 @@ newtype PropagateWinner i j = PropagateWinner [DisjunctFork i j]
 instance (Std j, MonadProp m, Value a, BoundedJoin a, Identifier i a)
          => Propagator m a (PropagateWinner i j) where
     propagate (PropagateWinner forks) _ = do
+        traceM $ "PropagateWinner"
+        fx <- forM forks read
+        traceM $ show fx
+
         fconts <- fmap join . forM forks $ \f -> read f <&> \case
             Bot -> [] 
             _   -> [f]
         case fconts of
-            [f] -> target f `eq` f
+            [f] -> do
+                traceM "U are a Wina"
+                target f `eq` f
             _   -> pure ()

@@ -48,8 +48,8 @@ test4 = runTestSEB @(TermId Cell) $ do
 test4' :: IO ()
 test4' = runTestSEB @(TermId Cell) $ do
     let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId Cell]
-    write t1 "A"
     write t2 TSBot
+    write t1 "A"
     --TODO: When forking, it might not be the entire term that is being transferred, but only the top node!
     disjunctFork orig () 
         [ orig `eq` t1
