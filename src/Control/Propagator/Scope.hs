@@ -1,55 +1,38 @@
-module Control.Propagator.Scope where
+module Control.Propagator.Scope
+    ( Scope
+    , pushScope
+    , popScope
+    , lcp
+    ) where
 
+import "base" Data.List
+import "base" Data.Function
 import "base" GHC.Exts ( IsList(..) )
 
-import "this" Data.Typed
 import "this" Data.Some
 import "this" Control.Propagator.Class
 
 
-data Scope where
-    Root :: Scope
-    Scope :: Std i => i -> Scope -> Scope
-
-instance Eq Scope where
-    Root == Root = True
-    Scope i a == Scope j b = i =~= j && a == b
-    _ == _ = False
-instance Ord Scope where
-    Root `compare` Root = EQ
-    Root `compare` _ = GT
-    _ `compare` Root = LT
-    Scope i a `compare` Scope j b = compareTyped i j <> compare a b
+newtype Scope = Scope [Some Std]
+  deriving newtype (Eq, Ord, Semigroup, Monoid, IsList)
 instance Show Scope where
-    showsPrec _ Root = showString "/"
-    showsPrec _ (Scope i s) = shows s . showsPrec 11 i . showString "/"
-
-instance Semigroup Scope where
-    Root <> a = a
-    Scope i a <> b = Scope i (a <> b)
-instance Monoid Scope where
-    mempty = Root
-
-instance IsList Scope where
-    type Item Scope = Some Std
-    fromList (Some i : as) = Scope i $ fromList as
-    fromList [] = Root
-    toList (Scope i a) = Some i : toList a
-    toList Root = []
+    showsPrec _ = showScope . toList
+      where
+        showScope [] = showString "/"
+        showScope (i : s) = shows s . showsPrec 11 i . showString "/"
 
 pushScope :: Std i => i -> Scope -> Scope
-pushScope = Scope
+pushScope = mappend . Scope . pure . Some
 
 popScope :: Scope -> Maybe (Some Std, Scope)
-popScope (Scope i s) = pure (Some i, s)
-popScope _ = Nothing
+popScope = fmap (fmap fromList) . uncons . toList
 
 {-| longest common prefix of two Scopes.
 
   Let @(l, r, p) = lcp a b@ then @a = p <> l@ and @b = p <> r@.
 -}
 lcp :: Scope -> Scope -> (Scope, Scope, Scope)
-lcp (Scope i a) (Scope j b) | i =~= j
-    = let (l, r, p) = lcp a b
-       in (l, r, Scope i p)
-lcp a b = (a, b, Root)
+lcp s t = fromList <$> on lcp' toList s t
+  where
+    lcp' (i : a) (j : b) | i == j = (i :) <$> lcp' a b
+    lcp' a b = (fromList a, fromList b, mempty)

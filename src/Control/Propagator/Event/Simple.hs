@@ -63,7 +63,7 @@ newtype SimpleEventBus a = SEB
 
 runSEB :: SEB a -> (a -> SEB b) -> IO b
 runSEB start end = do
-    flip evalStateT (SEBS Set.empty Map.empty) . unSEB . flip runReaderT Root . runEventT $ do
+    flip evalStateT (SEBS Set.empty Map.empty) . unSEB . flip runReaderT mempty . runEventT $ do
         a <- start
         flushSEB
         end a
