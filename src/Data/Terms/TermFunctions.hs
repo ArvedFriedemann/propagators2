@@ -22,6 +22,11 @@ instance HasTop (TermStruc a) where
     top = STOP
     isTop STOP = True
     isTop _ = False
+instance HasBot (TermStruc a) where
+    bot = SBOT
+    isBot SBOT = True
+    isBot _ = False
+
 
 instance Show a => Show (TermStruc a) where
     showsPrec _ STOP = showString "top"
