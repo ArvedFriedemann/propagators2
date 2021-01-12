@@ -19,19 +19,19 @@ data DisjunctFork i j = DisjunctFork
     } deriving (Eq, Ord, Show)
 instance (Std j, Identifier i a) => Identifier (DisjunctFork i j) a
 
-disjunctFork :: forall i j a m. 
+disjunctFork :: forall i j a m.
              ( MonadProp m
              , BoundedJoin a, Identifier i a
              , Std j
              ) => i -> j -> [m ()] -> m ()
-disjunctFork i j ns = dfs `forM_` \(df, m) -> do
-    watch df . PropagateWinner . fmap fst $ dfs
-    scoped df $ \s -> do
-        push s i df
+disjunctFork goal name ms = djfs `forM_` \(djf, m) -> do
+    watch djf . PropagateWinner . fmap fst $ djfs
+    scoped djf $ \s -> do
+        push s goal djf
         m
   where
-    dfs :: [(DisjunctFork i j, m ())]
-    dfs = zipWith (\n m -> (DisjunctFork j i n, m) ) [0..] ns
+    djfs :: [(DisjunctFork i j, m ())]
+    djfs = zipWith (\n m -> (DisjunctFork name goal n, m) ) [0..] ms
 
 newtype PropagateWinner i j = PropagateWinner [DisjunctFork i j]
   deriving (Eq, Ord, Show)
@@ -43,7 +43,7 @@ instance (Std j, MonadProp m, Value a, BoundedJoin a, Identifier i a)
         traceM $ show fx
 
         fconts <- fmap join . forM forks $ \f -> read f <&> \case
-            Bot -> [] 
+            Bot -> []
             _   -> [f]
         case fconts of
             [f] -> do
