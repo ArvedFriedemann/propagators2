@@ -38,7 +38,6 @@ newtype PropagateWinner i j = PropagateWinner [DisjunctFork i j]
 instance (Std j, MonadProp m, Value a, BoundedJoin a, Identifier i a)
          => Propagator m a (PropagateWinner i j) where
     propagate (PropagateWinner forks) _ = do
-        traceM $ "PropagateWinner"
         fx <- forM forks read
         traceM $ show fx
 
@@ -47,6 +46,5 @@ instance (Std j, MonadProp m, Value a, BoundedJoin a, Identifier i a)
             _   -> [f]
         case fconts of
             [f] -> do
-                traceM "U are a Wina"
                 target f `eq` f
             _   -> pure ()
