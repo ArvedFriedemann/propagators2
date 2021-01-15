@@ -51,10 +51,10 @@ test4' = runTestSEB @(TermId Cell) $ do
 
     disjunctFork orig ()
         [ do
-            write t2 TSBot
+            write t1 TSBot
             orig `eq` t1
         , do
-            write t1 "A"
+            write t2 "A"
             orig `eq` t2
         ]
     return [orig, t1, t2]
