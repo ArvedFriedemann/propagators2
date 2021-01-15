@@ -41,7 +41,7 @@ eqAll t = maybe (pure ()) void $ foldr eqAll' Nothing t
     eqAll' i (Just j) = Just (j >>= eq i >> pure i)
 
 data SetEq i = SetEq i deriving (Eq, Ord, Show)
-instance (MonadProp m, Identifier i a, Identifier j a) => Propagator m j (SetEq i) where 
+instance (MonadProp m, Identifier i a, Identifier j a) => Propagator m j (SetEq i) where
     propagate (SetEq i) = eq i
 
 newtype Write i = Write i deriving (Eq, Ord, Show)
@@ -79,4 +79,3 @@ instance (Value a, Propagator m b i) => Propagator m (a, b) (Snd i) where
     propagate (Snd i) (_, b) = propagate i b
 instance (Value a, Value c, Propagator m b i) => Propagator m (a, b, c) (Snd i) where
     propagate (Snd i) (_, b, _) = propagate i b
-    

@@ -4,6 +4,7 @@ module Control.Language.LogLang where
 import "base" Prelude hiding ( read )
 import "base" GHC.Exts
 import "base" Control.Monad
+import "base" Data.Typeable
 
 import "containers" Data.Map qualified as Map
 import "containers" Data.Set qualified as Set
@@ -46,6 +47,7 @@ data Lower w i = LW w i | LWDirect w
 simpleKBNetwork ::
   ( MonadProp m
   , MonadFail m
+  , Typeable m
   , Identifier i (TermSet i)
   , Bound w i
   , CopyTermId w i
@@ -61,6 +63,7 @@ simpleKBNetwork = simpleKBNetwork' (-1)
 simpleKBNetwork' ::
   ( MonadProp m
   , MonadFail m
+  , Typeable m
   , Identifier i (TermSet i)
   , Bound w i
   , CopyTermId w i

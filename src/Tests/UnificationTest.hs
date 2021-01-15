@@ -48,11 +48,14 @@ test4 = runTestSEB @(TermId Cell) $ do
 test4' :: IO ()
 test4' = runTestSEB @(TermId Cell) $ do
     let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId Cell]
-    write t2 TSBot
-    write t1 "A"
+
     disjunctFork orig ()
-        [ orig `eq` t1
-        , orig `eq` t2
+        [ do
+            write t2 TSBot
+            orig `eq` t1
+        , do
+            write t1 "A"
+            orig `eq` t2
         ]
     return [orig, t1, t2]
 
