@@ -66,7 +66,8 @@ instance (Std j, Typeable m, MonadProp m, Value a, BoundedJoin a, Identifier i a
             Bot -> []
             _   -> [(f,m)]
         case fconts of
-            [(_{-f-},m)] -> do
+            [(f,m)] -> do
+                traceM $ "There was a Winner! " ++ (show f)
                 --target f `eq` f
-                m
+                scoped f $ const m
             _   -> pure ()
