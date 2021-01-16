@@ -81,5 +81,5 @@ simpleKBNetwork' fuel listId kb goal = do
             (splitClause -> Just (pres, post)) <- refreshClause listId cls
             eq post goal
             --TODO: recursive Call on listId probably wrong
-            forM_ pres (void . recursiveCall listId . simpleKBNetwork' (fuel-1) listId kb)
+            forM_ pres (void . {-recursiveCall listId .-} simpleKBNetwork' (fuel-1) listId kb)
             |cls <- kb]

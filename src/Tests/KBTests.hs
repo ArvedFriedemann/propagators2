@@ -19,7 +19,8 @@ kbtest1 = runTestSEB @(TermId Cell) $ do
   eq goal b
   kb <- pure [([],[a]),([],[a,b]),([],[c,b])]
   --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.
-  recursiveCall (C,C) $ simpleKBNetwork' 3 K kb goal
+  {-recursiveCall (C,C) $-}
+  simpleKBNetwork' 3 K kb goal
   return [goal]
 
 
