@@ -5,6 +5,7 @@ import "base" Prelude hiding ( read )
 import "base" GHC.Exts
 import "base" Control.Monad
 import "base" Data.Typeable
+import "base" Debug.Trace
 
 import "containers" Data.Map qualified as Map
 import "containers" Data.Set qualified as Set
@@ -61,7 +62,7 @@ simpleKBNetwork = simpleKBNetwork' (-1)
 
 --TODO, WARNING: empty clauses!
 --TODO: Proper indices!
-simpleKBNetwork' ::
+simpleKBNetwork' :: forall m i w a .
   ( MonadProp m
   , MonadFail m
   , Typeable m
@@ -76,9 +77,13 @@ simpleKBNetwork' ::
 simpleKBNetwork' 0 _ _ _ = return ()
 simpleKBNetwork' fuel listId kb goal = do
     g <- read goal
-    unless (g==bot) $
+    unless (g==bot) $ do
         disjunctForkPromoter goal listId [do
+            traceM $ "Starting Fork " ++ (show cls) ++ " id: "++(show listId)
             (splitClause -> Just (pres, post)) <- refreshClause listId cls
+            watch goal $ ((UniversalWatchPropagator $ \g' -> do
+              traceM $ ">>> " ++ (show listId) ++ " Goal: "++ (show g')
+              ) :: UniversalWatchPropagator (TermSet i) m)
             eq post goal
             --TODO: recursive Call on listId probably wrong
             forM_ pres (void . {-recursiveCall listId .-} simpleKBNetwork' (fuel-1) listId kb)
