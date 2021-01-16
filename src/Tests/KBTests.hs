@@ -34,5 +34,5 @@ kbtest2 = runTestSEB @(TermId Cell) $ do
 
   --test <- refreshVarsTbl D [("X", direct C)] b
   --tests <- refreshClause D (["X"], [x,b])
-  simpleKBNetwork' 2 K kb goal
+  simpleKBNetwork' 3 K kb goal
   return $ [goal] -- ++ tests
