@@ -25,6 +25,16 @@ instance (Applicative m, Propagator m a i, Propagator m a j) => Propagator m a (
 instance (Applicative m, Propagator m a i, Propagator m a j, Propagator m a k) => Propagator m a (i, j, k) where
     propagate (i, j, k) a = propagate i a *> propagate j a *> propagate k a
 
+data UniversalPropagator m = UniversalPropagator (m ())
+instance Eq (UniversalPropagator m) where
+  _ == _ = False
+instance Ord (UniversalPropagator m) where
+  compare _ _ = EQ
+instance Show (UniversalPropagator m) where
+  show _ = "UniversalPropagator"
+instance (Typeable m, Std a) => Propagator m a (UniversalPropagator m) where
+  propagate (UniversalPropagator m) _ = m 
+
 
 instance ( Applicative m, Typeable f, Std i, Std (f i)
          , Foldable f, Propagator m a i
