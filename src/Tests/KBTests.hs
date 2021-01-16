@@ -23,6 +23,17 @@ kbtest1 = runTestSEB @(TermId Cell) $ do
   simpleKBNetwork' 3 K kb goal
   return [goal]
 
+kbtest1' :: IO ()
+kbtest1' = runTestSEB @(TermId Cell) $ do
+  a <- fromVarsAsCells (DIRECT A) ["A"]
+  b <- fromVarsAsCells (DIRECT B) ["B"]
+  c <- fromVarsAsCells (DIRECT C) ["C"]
+  goal <- return (DIRECT $ Sv 0)
+  kb <- pure [([],[a,b]),([],[c,b])]
+  --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.
+  {-recursiveCall (C,C) $-}
+  simpleKBNetwork' 1 K kb goal
+  return [goal]
 
 kbtest2 :: IO ()
 kbtest2 = runTestSEB @(TermId Cell) $ do

@@ -59,10 +59,23 @@ test4' = runTestSEB @(TermId Cell) $ do
         ]
     return [orig, t1, t2]
 
+test42' :: IO ()
+test42' = runTestSEB @(TermId Cell) $ do
+    let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId Cell]
+
+    disjunctFork orig ()
+        [ do
+            write t1 TSBot
+            orig `eq` t1
+        , do
+            write t1 TSBot
+            orig `eq` t1
+        ]
+    return [orig, t1, t2]
+
 test4'' :: IO ()
 test4'' = runTestSEB @(TermId Cell) $ do
     orig <- fromVarsAsCells (DIRECT A) []
-    t' <- fromVarsAsCells (DIRECT C) ["A","B","C"]
     disjunctForkPromoter orig ()
         [ do
             t <- fromVarsAsCells (DIRECT B) ["A","B","C"]
@@ -71,7 +84,7 @@ test4'' = runTestSEB @(TermId Cell) $ do
             t <- fromVarsAsCells (DIRECT B) bot
             orig `eq` t
         ]
-    return [orig, t']
+    return [orig]
 
 testRefreshTo :: IO ()
 testRefreshTo = runTestSEB $ do

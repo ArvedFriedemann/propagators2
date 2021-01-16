@@ -31,7 +31,7 @@ disjunctFork :: forall i j a m.
              , BoundedJoin a, Identifier i a
              , Std j
              ) => i -> j -> [m ()] -> m ()
-disjunctFork goal name ms = disjunctForkDestr goal name (zip ms (repeat $ flip promote goal))
+disjunctFork goal name ms = disjunctForkDestr goal name (zip ms (repeat $ flip promote goal)) (void $ write goal bot)
 
 class (Identifier i a) => Promoter i a m | i -> a where
   promoteAction :: Scope -> i -> m ()
@@ -44,17 +44,17 @@ disjunctForkPromoter :: forall i j a m.
              , Promoter i a m
              , Std j
              ) => i -> j -> [m ()] -> m ()
-disjunctForkPromoter goal name ms = disjunctForkDestr goal name (zip ms (repeat $ flip promoteAction goal))
+disjunctForkPromoter goal name ms = disjunctForkDestr goal name (zip ms (repeat $ flip promoteAction goal)) (void $ write goal bot)
 
 disjunctForkDestr :: forall i j a m.
              ( MonadProp m
              , Typeable m
              , BoundedJoin a, Identifier i a
              , Std j
-             ) => i -> j -> [(m (), Scope -> m ())] -> m ()
-disjunctForkDestr sucvar name ms = djfs `forM_` \(djf, (constr , _)) -> do
+             ) => i -> j -> [(m (), Scope -> m ())] -> m () -> m ()
+disjunctForkDestr sucvar name ms finDestr = djfs `forM_` \(djf, (constr , _)) -> do
     scp <- scope
-    watch djf $ PropagateWinner (djfsDestr scp)
+    watch djf $ PropagateWinner (djfsDestr scp) finDestr
     scoped djf $ \s -> do
         push s sucvar djf
         constr
@@ -64,25 +64,26 @@ disjunctForkDestr sucvar name ms = djfs `forM_` \(djf, (constr , _)) -> do
     djfsDestr :: Scope -> [(DisjunctFork i j, m ())]
     djfsDestr s = map (\(x,(_,z)) -> (x, z s)) djfs
 
-data PropagateWinner i j m = PropagateWinner [(DisjunctFork i j, m ())]
+data PropagateWinner i j m = PropagateWinner [(DisjunctFork i j, m ())] (m ())
   --deriving (Eq, Ord, Show)
 instance (Eq i, Eq j) => Eq (PropagateWinner i j m) where
-  (PropagateWinner a) == (PropagateWinner b) = (fst <$> a) == (fst <$> b)
+  (PropagateWinner a _) == (PropagateWinner b _) = (fst <$> a) == (fst <$> b)
 instance (Ord i, Ord j) => Ord (PropagateWinner i j m) where
-  compare (PropagateWinner a) (PropagateWinner b) = compare (fst <$> a) (fst <$> b)
+  compare (PropagateWinner a _) (PropagateWinner b _) = compare (fst <$> a) (fst <$> b)
 instance (Show i, Show j) => Show (PropagateWinner i j m) where
-  show (PropagateWinner a) = (show (fst <$> a))
+  show (PropagateWinner a _) = (show (fst <$> a))
 
 instance (Std j, Typeable m, MonadProp m, Value a, BoundedJoin a, Identifier i a)
          => Propagator m a (PropagateWinner i j m) where
-    propagate (PropagateWinner forks) _ = do
+    propagate (PropagateWinner forks finalDestr) _ = do
 
         fconts <- fmap join . forM forks $ \(f,m) -> read f <&> \case
             Bot -> []
             _   -> [(f,m)]
         case fconts of
             [(f,m)] -> do
-                traceM $ "There was a Winner! " ++ (show f)
                 --target f `eq` f
                 scoped f $ const m
-            _   -> pure ()
+            []   -> do
+              finalDestr
+            _ -> pure ()
