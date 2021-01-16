@@ -33,8 +33,17 @@ instance Ord (UniversalPropagator m) where
 instance Show (UniversalPropagator m) where
   show _ = "UniversalPropagator"
 instance (Typeable m, Std a) => Propagator m a (UniversalPropagator m) where
-  propagate (UniversalPropagator m) _ = m 
+  propagate (UniversalPropagator m) _ = m
 
+data UniversalWatchPropagator a m = UniversalWatchPropagator (a -> m ())
+instance Eq (UniversalWatchPropagator a m) where
+  _ == _ = False
+instance Ord (UniversalWatchPropagator a m) where
+  compare _ _ = EQ
+instance Show (UniversalWatchPropagator a m) where
+  show _ = "UniversalWatchPropagator"
+instance (Typeable m, Std a) => Propagator m a (UniversalWatchPropagator a m) where
+  propagate (UniversalWatchPropagator m) x = m x
 
 instance ( Applicative m, Typeable f, Std i, Std (f i)
          , Foldable f, Propagator m a i
