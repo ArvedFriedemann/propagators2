@@ -49,6 +49,7 @@ simpleKBNetwork ::
   , MonadFail m
   , Typeable m
   , Identifier i (TermSet i)
+  , Promoter i (TermSet i) m
   , Bound w i
   , CopyTermId w i
   , Identifier w a
@@ -65,6 +66,7 @@ simpleKBNetwork' ::
   , MonadFail m
   , Typeable m
   , Identifier i (TermSet i)
+  , Promoter i (TermSet i) m
   , Bound w i
   , CopyTermId w i
   , Identifier w a
@@ -75,7 +77,7 @@ simpleKBNetwork' 0 _ _ _ = return ()
 simpleKBNetwork' fuel listId kb goal = do
     g <- read goal
     unless (g==bot) $
-        disjunctFork listId goal [do
+        disjunctForkPromoter goal listId [do
             (splitClause -> Just (pres, post)) <- refreshClause listId cls
             eq post goal
             --TODO: recursive Call on listId probably wrong
