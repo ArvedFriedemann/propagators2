@@ -2,6 +2,9 @@
 module Control.Combinator.Logics
     ( disjunctFork
     , disjunctForkDestr
+    , disjunctForkPromoter
+    , Promoter
+    , promoteAction
     ) where
 
 import "base" Prelude hiding ( read )
@@ -30,6 +33,18 @@ disjunctFork :: forall i j a m.
              ) => i -> j -> [m ()] -> m ()
 disjunctFork goal name ms = disjunctForkDestr goal name (zip ms (repeat $ flip promote goal))
 
+class (Identifier i a) => Promoter i a m | i -> a where
+  promoteAction :: Scope -> i -> m ()
+
+disjunctForkPromoter :: forall i j a m.
+             ( MonadProp m
+             , Typeable m
+             , BoundedJoin a
+             , Identifier i a
+             , Promoter i a m
+             , Std j
+             ) => i -> j -> [m ()] -> m ()
+disjunctForkPromoter goal name ms = disjunctForkDestr goal name (zip ms (repeat $ flip promoteAction goal))
 
 disjunctForkDestr :: forall i j a m.
              ( MonadProp m

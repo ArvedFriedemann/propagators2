@@ -4,7 +4,9 @@ import "this" Data.Lattice
 import "this" Data.Terms.Terms
 import "this" Data.Terms.TermFunctions
 import "this" Control.Propagator
+import "this" Control.Combinator.Logics
 
+import "base" Control.Monad
 
 data TermId w
     = EMPTY
@@ -36,3 +38,6 @@ instance Std w => CopyTermId w (TermId w) where
     copy = COPY
     copyTermIdContents (COPY w i) = Just (w,i)
     copyTermIdContents _ = Nothing
+
+instance (MonadProp m, Std w) => Promoter (TermId w) (TermSet (TermId w)) m where
+  promoteAction s t = void $ promoteTerm s t

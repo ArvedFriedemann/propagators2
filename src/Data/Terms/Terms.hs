@@ -15,6 +15,7 @@ import "containers" Data.Map qualified as Map
 
 import "this" Data.Lattice
 import "this" Control.Propagator
+import "this" Control.Propagator.Scope
 
 
 data TermConst
@@ -117,6 +118,23 @@ instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (T
         mapM_ propBotThis $ fst <$> appList
         mapM_ propBotThis $ snd <$> appList
 
+
+promoteTerm :: (Ord i, MonadProp m, Identifier i (TermSet i)) =>
+                Scope -> i -> m i
+promoteTerm s t = watch t $ TermPromoter t s
+
+data TermPromoter i = TermPromoter i Scope deriving (Eq, Ord, Show)
+
+instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (TermPromoter i) where
+    --WARNING: Does not remove listeners after join!
+    propagate _ Bot = pure ()
+    propagate (TermPromoter this s) ts = do
+      promote s this
+      forM_ (variables ts) $ \v -> do
+        watch v $ TermPromoter v s
+      forM_ (applications ts) $ \(a,b) -> do
+        watch a $ TermPromoter a s
+        watch b $ TermPromoter b s
 
 class Std w => CopyTermId w i | i -> w where
   --copy listId origTerm

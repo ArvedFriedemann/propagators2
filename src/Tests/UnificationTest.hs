@@ -63,7 +63,7 @@ test4'' :: IO ()
 test4'' = runTestSEB @(TermId Cell) $ do
     orig <- fromVarsAsCells (DIRECT A) []
     t' <- fromVarsAsCells (DIRECT C) ["A","B","C"]
-    disjunctFork orig ()
+    disjunctForkPromoter orig ()
         [ do
             t <- fromVarsAsCells (DIRECT B) ["A","B","C"]
             orig `eq` t
