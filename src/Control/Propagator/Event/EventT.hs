@@ -60,11 +60,12 @@ instance (MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (EventT m) whe
 
     read i = do
       s <- scope
-      traceM $ "Reading "++ (show i) ++ " in " ++ (show s)
+      --traceM $ "Reading "++ (show i) ++ " in " ++ (show s)
       case popScope s of
-        Just s' -> do
-          inScope (snd s') $ promote s i
-          void $ inScope (snd s') $ read i
+        Just (snd -> s') -> do
+          --traceM $ "promoting "++show i ++ " to "++show s ++ " from " ++ show s'
+          inScope s' $ promote s i
+          void $ inScope s' $ read i
         Nothing -> pure ()
       fmap (fromMaybe Top) . withScope . flip getVal $ i
 

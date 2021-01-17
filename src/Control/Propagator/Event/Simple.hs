@@ -83,7 +83,7 @@ flushSEB = do
 alterCell :: Identifier i a => Scope -> i -> (Maybe a -> a) -> SEB ()
 alterCell s i f = modify $ second (Map.alter f' (SEBId s i))
   where f' = pure . Some . f . (=<<) fromSome
-    
+
 handleEvent :: SEBEvt -> SEB ()
 handleEvent (WriteEvt (Write i a s)) = do
     v <- lift $ newValue <$> getVal s i
@@ -92,7 +92,7 @@ handleEvent (WriteEvt (Write i a s)) = do
         notify s i
   where
     newValue Nothing = Just a
-    newValue (Just old) = let a' = old /\ a in guard (a' /= old) $> a'         
+    newValue (Just old) = let a' = old /\ a in guard (a' /= old) $> a'
 handleEvent (WatchEvt (Watch i p s)) = do
     handleEvent . WriteEvt . Write (PropagatorsOf @SEB i) [Some p] $ s
     a <- lift $ getVal s i
@@ -103,6 +103,7 @@ val s = lift . fmap (fromMaybe Top) . getVal s
 
 notify :: Identifier i a => Scope -> i -> SEB ()
 notify s i = do
+    traceM $ "notifying " ++ show i ++ " in "++ show s
     a <- val s i
     ls <- val s $ PropagatorsOf @SEB i
     traverse_ (execListener s a) ls
@@ -116,7 +117,7 @@ instance MonadEvent (Evt SimpleEventBus) SimpleEventBus where
 instance MonadRef SimpleEventBus where
     getVal s' i = ($ s') . searchCell <$> gets snd
       where
-        searchCell cx s = lookupCell s cx <|> do
-            p <- snd <$> popScope s 
-            searchCell cx p
+        searchCell cx s = lookupCell s cx {- <|> do
+            p <- snd <$> popScope s
+            searchCell cx p -}
         lookupCell s = (=<<) fromSome . Map.lookup (SEBId s i)

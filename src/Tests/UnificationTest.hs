@@ -42,8 +42,18 @@ test4 :: IO ()
 test4 = runTestSEB @(TermId Cell) $ do
     scoped () $ \s -> do
         promote s (DIRECT A)
-        write (DIRECT A) "a"
+        write (DIRECT A) "A"
     return [DIRECT A]
+
+test42 :: IO ()
+test42 = runTestSEB @(TermId Cell) $ do
+
+    scoped () $ \s -> do
+      --read (DIRECT A)
+      push s (DIRECT A) (DIRECT B)
+      --eq (DIRECT A) (DIRECT B)
+    write (DIRECT A) "A"
+    return [DIRECT A, DIRECT B]
 
 test4' :: IO ()
 test4' = runTestSEB @(TermId Cell) $ do
