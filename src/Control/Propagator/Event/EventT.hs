@@ -11,6 +11,7 @@ module Control.Propagator.Event.EventT
 import "base" Prelude hiding ( read )
 import "base" Data.Maybe
 import "base" Control.Monad
+import "base" Debug.Trace
 
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
 import "transformers" Control.Monad.Trans.Class
@@ -53,10 +54,13 @@ instance (MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (EventT m) whe
 
     write i a = i <$ (fire' $ WriteEvt . Write i a)
 
-    watch i p = i <$ (fire' $ WatchEvt . Watch i p)
+    watch i p = do
+      read i
+      i <$ (fire' $ WatchEvt . Watch i p)
 
     read i = do
       s <- scope
+      traceM $ "Reading "++ (show i) ++ " in " ++ (show s)
       case popScope s of
         Just s' -> do
           inScope (snd s') $ promote s i
