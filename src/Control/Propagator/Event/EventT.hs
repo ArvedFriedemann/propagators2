@@ -10,6 +10,7 @@ module Control.Propagator.Event.EventT
 
 import "base" Prelude hiding ( read )
 import "base" Data.Maybe
+import "base" Control.Monad
 
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
 import "transformers" Control.Monad.Trans.Class
@@ -21,6 +22,8 @@ import "this" Control.Propagator.Base
 import "this" Control.Propagator.Scope
 import "this" Control.Propagator.Event.Types
 import "this" Data.Lattice
+
+import "this" Control.Propagator.Combinators (promote)
 
 
 type Evt m = Event (EventT m)
@@ -47,12 +50,19 @@ fire' :: MonadEvent (Evt m) m => (Scope -> Evt m) -> EventT m ()
 fire' ctr = withScope $ fire . ctr
 
 instance (MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (EventT m) where
-    
+
     write i a = i <$ (fire' $ WriteEvt . Write i a)
-    
+
     watch i p = i <$ (fire' $ WatchEvt . Watch i p)
 
-    read = fmap (fromMaybe Top) . withScope . flip getVal
+    read i = do
+      s <- scope
+      case popScope s of
+        Just s' -> do
+          inScope (snd s') $ promote s i
+          void $ inScope (snd s') $ read i
+        Nothing -> pure ()
+      fmap (fromMaybe Top) . withScope . flip getVal $ i
 
     scope = ask
 
