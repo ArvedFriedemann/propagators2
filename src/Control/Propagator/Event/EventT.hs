@@ -12,6 +12,7 @@ import "base" Prelude hiding ( read )
 import "base" Data.Maybe
 import "base" Control.Monad
 import "base" Debug.Trace
+import "base" Data.Typeable
 
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
 import "transformers" Control.Monad.Trans.Class
@@ -22,6 +23,7 @@ import "mtl" Control.Monad.State.Class
 import "this" Control.Propagator.Base
 import "this" Control.Propagator.Scope
 import "this" Control.Propagator.Event.Types
+import "this" Control.Propagator.Reflection
 import "this" Data.Lattice
 
 import "this" Control.Propagator.Combinators (promote)
@@ -50,7 +52,7 @@ withScope f = ask >>= lift . f
 fire' :: MonadEvent (Evt m) m => (Scope -> Evt m) -> EventT m ()
 fire' ctr = withScope $ fire . ctr
 
-instance (MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (EventT m) where
+instance (Typeable m, MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (EventT m) where
 
     write i a = i <$ (fire' $ WriteEvt . Write i a)
 
@@ -65,6 +67,7 @@ instance (MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (EventT m) whe
         Just (snd -> s') -> do
           --traceM $ "promoting "++show i ++ " to "++show s ++ " from " ++ show s'
           inScope s' $ promote s i
+          inScope s' $ promote s (PropagatorsOf @(EventT m) i)
           void $ inScope s' $ read i
         Nothing -> pure ()
       fmap (fromMaybe Top) . withScope . flip getVal $ i

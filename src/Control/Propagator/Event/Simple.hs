@@ -103,7 +103,6 @@ val s = lift . fmap (fromMaybe Top) . getVal s
 
 notify :: Identifier i a => Scope -> i -> SEB ()
 notify s i = do
-    traceM $ "notifying " ++ show i ++ " in "++ show s
     a <- val s i
     ls <- val s $ PropagatorsOf @SEB i
     traverse_ (execListener s a) ls
