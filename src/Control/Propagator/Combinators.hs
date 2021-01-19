@@ -7,6 +7,7 @@ import "base" Data.Typeable
 import "base" Control.Category
 
 import "this" Data.Iso
+import "this" Data.Some
 import "this" Control.Propagator.Class
 import "this" Control.Propagator.Base
 import "this" Control.Propagator.Propagator
@@ -48,21 +49,47 @@ newtype Write i = Write i deriving (Eq, Ord, Show)
 instance (MonadProp m, Value a, Identifier i a) => Propagator m a (Write i) where
     propagate (Write i) = void . write i
 
-data Scoped i = Scoped Scope i deriving (Eq, Ord, Show)
-instance (MonadProp m, Propagator m a i) => Propagator m a (Scoped i) where
-    propagate (Scoped s i) = inScope s . propagate i
+
+data ParScoped i = ParScoped i deriving (Eq, Ord, Show)
+instance (MonadProp m, Propagator m a i) => Propagator m a (ParScoped i) where
+    propagate (ParScoped i) = liftParent . propagate i
+
+data Forked j i = Forked j i deriving (Eq, Ord, Show)
+instance (MonadProp m, Std j, Propagator m a i) => Propagator m a (Forked j i) where
+    propagate (Forked j i) a = scoped j (const $ propagate i a)
 
 
+push :: (MonadProp m, Value a, Identifier i a, Identifier j a) => i -> j -> m ()
+push i j = void . watch i . ParScoped . Write $ j
+
+pull :: (MonadProp m, Value a, Identifier i a, Identifier j a) => i -> j -> m ()
+pull i j = do
+  s <- scope
+  case s of
+    (_ :/ n) -> void $ liftParent $ do
+      watch i $ Forked n (Write j)
+    _ -> pure ()
+
+
+promote :: (MonadProp m, Value a, Identifier t a) => t -> m ()
+promote i = push i i
+
+request :: (MonadProp m, Value a, Identifier t a) => t -> m ()
+request i = pull i i
+
+{-
 push :: (MonadProp m, Value a, Identifier i a, Identifier j a) => Scope -> i -> j -> m ()
 push s i j = void . watch i . Scoped s . Write $ j
 
 promote :: (MonadProp m, Value a, Identifier t a) => Scope -> t -> m ()
 promote s i = push s i i
+-}
 
 scoped :: (MonadProp m, Std i) => i -> (Scope -> m a) -> m a
 scoped i f = do
     s <- scope
     inScope (s :/ i) $ f s
+
 
 data Const i a = Const a i deriving (Eq, Ord, Show)
 instance Propagator m a i => Propagator m a (Const i a) where

@@ -4,12 +4,14 @@ module Control.Propagator.Scope
     , pattern (:/)
     , pushScope
     , popScope
+    , parScope
     , lcp
     ) where
 
 import "base" Data.List
 import "base" Data.Function
 import "base" GHC.Exts ( IsList(..) )
+import "base" Data.Maybe
 
 import "this" Data.Some
 import "this" Control.Propagator.Class
@@ -46,6 +48,9 @@ pushScope = mappend . Scope . pure . Some
 
 popScope :: Scope -> Maybe (Some Std, Scope)
 popScope = fmap (fmap fromList) . uncons . toList
+
+parScope :: Scope -> Scope
+parScope s = fromMaybe s (snd <$> popScope s)
 
 {-| longest common prefix of two Scopes.
 

@@ -11,7 +11,7 @@ import "this" Control.Propagator.Scope
 class (Std i, Value a) => Identifier i a | i -> a
 
 class Monad m => MonadProp m where
-    
+
     write :: Identifier i a => i -> a -> m i
 
     read :: Identifier i a => i -> m a
@@ -21,3 +21,14 @@ class Monad m => MonadProp m where
     scope :: m Scope
 
     inScope :: Scope -> m a -> m a
+
+    liftParent :: m a -> m a
+    liftParent m = do
+      s <- scope
+      inScope (parScope s) m
+
+    --takes something with a lift function into the fork and operates in in parent
+    fromParent :: ((m a -> m a) -> m a) -> m a
+    fromParent mf = do
+      s <- scope
+      liftParent $ mf (inScope s)
