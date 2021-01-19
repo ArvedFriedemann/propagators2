@@ -54,7 +54,9 @@ fire' ctr = withScope $ fire . ctr
 
 instance (Typeable m, MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (EventT m) where
 
-    write i a = i <$ (fire' $ WriteEvt . Write i a)
+    write i a = do
+      --read i
+      i <$ (fire' $ WriteEvt . Write i a)
 
     watch i p = do
       read i
@@ -67,7 +69,7 @@ instance (Typeable m, MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (E
         Just (snd -> s') -> do
           --traceM $ "promoting "++show i ++ " to "++show s ++ " from " ++ show s'
           inScope s' $ promote s i
-          inScope s' $ promote s (PropagatorsOf @(EventT m) i)
+          --inScope s' $ promote s (PropagatorsOf @(EventT m) i)
           void $ inScope s' $ read i
         Nothing -> pure ()
       fmap (fromMaybe Top) . withScope . flip getVal $ i
