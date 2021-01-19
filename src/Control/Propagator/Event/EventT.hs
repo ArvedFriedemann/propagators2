@@ -26,7 +26,7 @@ import "this" Control.Propagator.Event.Types
 import "this" Control.Propagator.Reflection
 import "this" Data.Lattice
 
-import "this" Control.Propagator.Combinators (promote)
+import "this" Control.Propagator.Combinators (request)
 
 
 type Evt m = Event (EventT m)
@@ -63,15 +63,8 @@ instance (Typeable m, MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (E
       i <$ (fire' $ WatchEvt . Watch i p)
 
     read i = do
-      s <- scope
-      --traceM $ "Reading "++ (show i) ++ " in " ++ (show s)
-      case popScope s of
-        Just (snd -> s') -> do
-          --traceM $ "promoting "++show i ++ " to "++show s ++ " from " ++ show s'
-          inScope s' $ promote s i
-          inScope s' $ promote s (PropagatorsOf @(EventT m) i)
-          void $ inScope s' $ read i
-        Nothing -> pure ()
+      request i
+      request (PropagatorsOf @(EventT m) i)
       fmap (fromMaybe Top) . withScope . flip getVal $ i
 
     scope = ask
