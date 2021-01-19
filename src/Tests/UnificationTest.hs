@@ -40,17 +40,17 @@ test3 = runTestSEB @(TermId Cell) $ do
 
 test4 :: IO ()
 test4 = runTestSEB @(TermId Cell) $ do
-    scoped () $ \s -> do
-        promote s (DIRECT A)
+    scoped () $ \_ -> do
+        promote (DIRECT A)
         write (DIRECT A) "A"
     return [DIRECT A]
 
 test42 :: IO ()
 test42 = runTestSEB @(TermId Cell) $ do
 
-    scoped () $ \s -> do
+    scoped () $ \_ -> do
       --read (DIRECT A)
-      push s (DIRECT A) (DIRECT B)
+      push (DIRECT A) (DIRECT B)
       --eq (DIRECT A) (DIRECT B)
     write (DIRECT A) "A"
     return [DIRECT A, DIRECT B]
@@ -136,7 +136,8 @@ test5 :: IO ()
 test5 = flip evalSEB (>> pure ()) $ do
     write (TC 2) [TD_A, TD_C]
 
-    scoped () $ \s -> watch (TC 2) $ Scoped s $ Write $ TC 2
+    error "TODO: Scoped no longer exists. Use relative fork addressing"
+    --scoped () $ \s -> watch (TC 2) $ Scoped s $ Write $ TC 2
 
     watch Orig $ Const ([TD_A] :: Domain TD) $ Write $ TC 2
 

@@ -31,7 +31,7 @@ disjunctFork :: forall i j a m.
              , BoundedJoin a, Identifier i a
              , Std j
              ) => i -> j -> [m ()] -> m ()
-disjunctFork goal name ms = disjunctForkDestr goal name (zip ms (repeat $ flip promote goal)) (void $ write goal bot)
+disjunctFork goal name ms = disjunctForkDestr goal name (zip ms (repeat $ const $ promote goal)) (void $ write goal bot)
 
 class (Identifier i a) => Promoter i a m | i -> a where
   promoteAction :: Scope -> i -> m ()
@@ -55,8 +55,8 @@ disjunctForkDestr :: forall i j a m.
 disjunctForkDestr sucvar name ms finDestr = djfs `forM_` \(djf, (constr , _)) -> do
     scp <- scope
     watch djf $ PropagateWinner (djfsDestr scp) finDestr
-    scoped djf $ \s -> do
-        push s sucvar djf
+    scoped djf $ \_ -> do
+        push sucvar djf
         constr
   where
     djfs :: [(DisjunctFork i j, (m (), Scope -> m ()))]

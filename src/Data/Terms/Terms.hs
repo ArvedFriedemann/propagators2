@@ -120,21 +120,21 @@ instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (T
 
 
 promoteTerm :: (Ord i, MonadProp m, Identifier i (TermSet i)) =>
-                Scope -> i -> m i
-promoteTerm s t = watch t $ TermPromoter t s
+                i -> m i
+promoteTerm t = watch t $ TermPromoter t
 
-data TermPromoter i = TermPromoter i Scope deriving (Eq, Ord, Show)
+data TermPromoter i = TermPromoter i deriving (Eq, Ord, Show)
 
 instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (TermPromoter i) where
     --WARNING: Does not remove listeners after join!
     propagate _ Bot = pure ()
-    propagate (TermPromoter this s) ts = do
-      promote s this
+    propagate (TermPromoter this) ts = do
+      promote this
       forM_ (variables ts) $ \v -> do
-        watch v $ TermPromoter v s
+        watch v $ TermPromoter v
       forM_ (applications ts) $ \(a,b) -> do
-        watch a $ TermPromoter a s
-        watch b $ TermPromoter b s
+        watch a $ TermPromoter a
+        watch b $ TermPromoter b
 
 class Std w => CopyTermId w i | i -> w where
   --copy listId origTerm
