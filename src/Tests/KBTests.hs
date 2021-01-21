@@ -22,6 +22,15 @@ kbtest0 = runTestSEB @(TermId Cell) $ do
   simpleKBNetwork' 3 K kb goal
   return [goal]
 
+kbtest0' :: IO ()
+kbtest0' = runTestSEB @(TermId Cell) $ do
+  a <- fromVarsAsCells (DIRECT A) ["A"]
+  goal <- fromVarsAsCells (DIRECT $ Sv 0) []
+  kb <- pure [([],[a,a])]
+  --this gives a solution because even though the proof failed, it is certain that the a needs to be unified.
+  simpleKBNetwork' 1 K kb goal
+  return [goal]
+
 kbtest1 :: IO ()
 kbtest1 = runTestSEB @(TermId Cell) $ do
   a <- fromVarsAsCells (DIRECT A) ["A"]
@@ -44,7 +53,7 @@ kbtest1' = runTestSEB @(TermId Cell) $ do
   kb <- pure [([],[a,b]){-,([],[c,b])-}]
   --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.
   {-recursiveCall (C,C) $-}
-  simpleKBNetwork' 1 K kb goal
+  simpleKBNetwork' 2 K kb goal
   return [a,b,c,goal]
 
 kbtest2 :: IO ()
