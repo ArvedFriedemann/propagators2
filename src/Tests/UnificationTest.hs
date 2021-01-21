@@ -5,6 +5,12 @@ import "base" Prelude hiding ( read )
 import "base" GHC.Generics
 import "base" Debug.Trace
 
+import "containers" Data.Map ( Map )
+import "containers" Data.Map qualified as Map
+
+import "containers" Data.Set ( Set )
+import "containers" Data.Set qualified as Set
+
 import "this" Data.Terms
 import "this" Control.Combinator.Logics
 import "this" Control.Propagator
@@ -13,7 +19,7 @@ import "this" Tests.TestLogic
 import "this" Data.Lattice
 
 
-data Cell = STR String | Sv Int | A | B | C deriving (Eq, Ord, Show)
+data Cell = STR String | Sv Int | A | B | C | D deriving (Eq, Ord, Show)
 instance Identifier Cell (TermSet Cell)
 
 test1 :: IO ()
@@ -97,10 +103,13 @@ test4'' = runTestSEB @(TermId Cell) $ do
 
 testRefreshTo :: IO ()
 testRefreshTo = runTestSEB $ do
-    orig <- fromVarsAsCells (DIRECT A) ["b", "a"]
+    orig <- fromVarsAsCells (DIRECT A) ["B", "A"]
     --so the term listeners are placed
-    v1 <- fromVarsAsCells (DIRECT C) []
-    cpy <- refreshVarsTbl B [("b",v1 :: TermId Cell)] orig
+    --v1 <- fromVarsAsCells (DIRECT C) []
+    cpy <- refreshVarsTbl D (Map.fromSet (bound B) (Set.fromList ["B"])) orig
+
+    eq orig cpy
+    --cpy <- refreshVarsTbl B [("B",v1 :: TermId Cell)] orig
     return [orig, cpy]
 {-
 testRefreshBack :: IO ()
