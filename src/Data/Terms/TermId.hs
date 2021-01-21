@@ -40,4 +40,4 @@ instance Std w => CopyTermId w (TermId w) where
     copyTermIdContents _ = Nothing
 
 instance (MonadProp m, Std w) => Promoter (TermId w) (TermSet (TermId w)) m where
-  promoteAction _ t = void $ promoteTerm t
+  promoteAction t = void $ promoteTerm t
