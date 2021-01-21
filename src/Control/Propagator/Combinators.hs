@@ -5,9 +5,11 @@ import "base" Prelude hiding ( (.), id, read )
 import "base" Data.Functor
 import "base" Data.Typeable
 import "base" Control.Category
+import "base" Control.Monad
 
 import "this" Data.Iso
 import "this" Data.Some
+import "this" Data.Lattice
 import "this" Control.Propagator.Class
 import "this" Control.Propagator.Base
 import "this" Control.Propagator.Propagator
@@ -40,6 +42,16 @@ eqAll t = maybe (pure ()) void $ foldr eqAll' Nothing t
   where
     eqAll' i Nothing  = Just (pure i)
     eqAll' i (Just j) = Just (j >>= eq i >> pure i)
+
+
+data PropBot i = PropBot i deriving (Eq, Ord, Show)
+instance (MonadProp m, Value b, Identifier i b, BoundedJoin b, Value a, BoundedJoin a) => Propagator m a (PropBot i) where
+    propagate (PropBot i) a = when (a == Bot) . void $ write i Bot
+
+propBot :: (MonadProp m, Value b, Identifier i b, BoundedJoin b, Value a, Identifier j a, BoundedJoin a) => j -> i -> m ()
+propBot orig targ = void $ watch orig $ PropBot targ
+
+
 
 data SetEq i = SetEq i deriving (Eq, Ord, Show)
 instance (MonadProp m, Identifier i a, Identifier j a) => Propagator m j (SetEq i) where

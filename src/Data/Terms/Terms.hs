@@ -94,9 +94,6 @@ instance Ord a => BoundedJoin (TermSet a)
 instance Ord a => Lattice (TermSet a)
 instance Ord a => BoundedLattice (TermSet a)
 
-data PropBot i = PropBot i deriving (Eq, Ord, Show)
-instance (MonadProp m, Value b, Identifier i b, BoundedJoin b, Value a, BoundedJoin a) => Propagator m a (PropBot i) where
-    propagate (PropBot i) a = when (a == Bot) . void $ write i Bot
 
 watchTerm :: (Ord i, MonadProp m, Identifier i (TermSet i)) => i -> m i
 watchTerm ct = watch ct $ TermListener ct
@@ -114,7 +111,7 @@ instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (T
         eqAll $ fst <$> appList
         eqAll $ snd <$> appList
         --as subvalues are not equivalent to this value, their bots have to be propagated as well
-        let propBotThis a = watch a $ PropBot this
+        let propBotThis a = propBot a this
         mapM_ propBotThis $ fst <$> appList
         mapM_ propBotThis $ snd <$> appList
 
