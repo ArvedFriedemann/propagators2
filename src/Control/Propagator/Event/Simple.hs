@@ -90,7 +90,6 @@ handleEvent (WriteEvt (Write i a s)) = do
     v <- lift $ newValue <$> getVal s i
     forM_ v $ \a' -> do
         alterCell s i . const $ a'
-        traceM $ "Notifying " ++ show i ++ " in " ++ show s
         notify s i
   where
     newValue Nothing = Just a
@@ -100,7 +99,6 @@ handleEvent (WatchEvt (Watch i prop s)) = do
     v <- lift $ getValTop s (PropagatorsOf @SEB i)
     case v of
       (newValue -> Just props) -> do
-        traceM $ "writing "++show props++" into "++(show $ PropagatorsOf @SEB i) ++ "in "++show s
         alterCell s (PropagatorsOf @SEB i) . const $ props
         a <- lift $ getVal s i
         forM_ a $ \a' -> execListener s a' (Some prop)
@@ -115,7 +113,6 @@ notify :: Identifier i a => Scope -> i -> SEB ()
 notify s i = do
     a <- val s i
     ls <- val s $ PropagatorsOf @SEB i
-    traceM $ show ls
     traverse_ (execListener s a) ls
 
 execListener :: Scope -> a -> Some (Propagator SEB a) -> SEB ()
