@@ -159,7 +159,7 @@ instance (MonadProp m, Identifier i (TermSet i), CopyTermId w i)
 
         constant ts `forM_` (write copyListId . \c -> maybe (constTerm c) varTerm . Map.lookup c $ tbl)
                 --important! The tc cannot be wrapped in a copy because it is not a copy!
-
+        --There is a problem here: When an application contains variables, that have been created by this copy (e.g. by equalling the copy to its original). This creates an infinite amount of copies. Two ways to solve: Either target addresses are made relative (with applLeft and applRight), but that could cause exponential blowup between terms. Other way is to have a look into the variable, whether it was created by this copy. Problem here: If several copies are stacked on top of each other, it does not solve the problem.
         applications ts `forM_` \(a,b) -> do
             write copyListId (aplTerm (copy listId a, copy listId b))
             watch a $ RefreshVar listId a tbl
