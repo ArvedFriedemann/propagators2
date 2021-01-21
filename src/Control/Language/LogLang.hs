@@ -24,9 +24,8 @@ type Consts = Set.Set TermConst
 type KB i = [(Consts, Clause i)]
 
 splitClause :: Clause i -> Maybe (Clause i, i)
-splitClause cl
-    | not $ null cl = Just (init cl, last cl)
-    | otherwise     = Nothing
+splitClause [] = Nothing
+splitClause cl = Just (init cl, last cl)
 
 refreshClause ::
   ( MonadProp m
@@ -36,7 +35,7 @@ refreshClause ::
   , Std w) =>
   w -> (Consts, Clause i) -> m (Clause i)
 refreshClause lsid (binds, trms)
-    = forM (toList trms) $ refreshVarsTbl lsid . Map.fromSet (bound lsid) $ binds
+    = forM trms $ refreshVarsTbl lsid (Map.fromSet (bound lsid) binds)
 
 data SimpleKBNetwork w i = SBNC w i
   deriving (Eq, Ord, Show)
@@ -79,11 +78,7 @@ simpleKBNetwork' fuel listId kb goal = do
     g <- read goal
     unless (g==bot) $ do
         disjunctForkPromoter goal listId [do
-            traceM $ "Starting Fork " ++ (show cls) ++ " id: "++(show listId)
             (splitClause -> Just (pres, post)) <- refreshClause listId cls
-            watch goal $ ((UniversalWatchPropagator $ \g' -> do
-              traceM $ ">>> " ++ (show listId) ++ " Goal: "++ (show g')
-              ) :: UniversalWatchPropagator (TermSet i) m)
             eq post goal
             --TODO: recursive Call on listId probably wrong
             forM_ pres (void . {-recursiveCall listId .-} simpleKBNetwork' (fuel-1) listId kb)
