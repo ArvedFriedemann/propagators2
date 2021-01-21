@@ -36,6 +36,8 @@ class Monad m => MonadEvent e m | m -> e where
 
 class Monad m => MonadRef m where
     getVal :: Identifier i a => Scope -> i -> m (Maybe a)
+    getValTop :: (Identifier i a, BoundedJoin a) => Scope -> i -> m a
+    getValTop s i = fromMaybe top <$> getVal s i
 
 newtype EventT m a = EventT
     { runEventT :: ReaderT Scope m a
@@ -64,7 +66,7 @@ instance (Typeable m, MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (E
 
     read i = do
       request i
-      request (PropagatorsOf @(EventT m) i)
+      --request (PropagatorsOf @(EventT m) i)
       fmap (fromMaybe Top) . withScope . flip getVal $ i
 
     scope = ask
