@@ -5,6 +5,7 @@ import "base" Data.Foldable
 import "base" Data.Bifunctor
 import "base" Data.Functor
 import "base" Data.Maybe
+import "base" Data.Typeable
 import "base" Control.Applicative
 import "base" Control.Monad
 import "base" Debug.Trace
@@ -93,10 +94,17 @@ handleEvent (WriteEvt (Write i a s)) = do
   where
     newValue Nothing = Just a
     newValue (Just old) = let a' = old /\ a in guard (a' /= old) $> a'
-handleEvent (WatchEvt (Watch i p s)) = do
-    handleEvent . WriteEvt . Write (PropagatorsOf @SEB i) [Some p] $ s
-    a <- lift $ getVal s i
-    forM_ a $ \a' -> execListener s a' (Some p)
+handleEvent (WatchEvt (Watch i prop s)) = do
+    --handleEvent . WriteEvt . Write (PropagatorsOf @SEB i) [Some p] $ s
+    v <- lift $ getVal s (PropagatorsOf @SEB i)
+    case v of
+      Just (newValue -> Just props) -> do
+        alterCell s (PropagatorsOf @SEB i) . const $ props
+        a <- lift $ getVal s i
+        forM_ a $ \a' -> execListener s a' (Some prop)
+      _ -> pure ()
+  where
+    newValue old = let p' = old /\ (Value $ Some prop) in guard (p' /= old) $> p'
 
 val :: Identifier i a => Scope -> i -> SEB a
 val s = lift . fmap (fromMaybe Top) . getVal s
