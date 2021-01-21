@@ -82,4 +82,5 @@ simpleKBNetwork' fuel listId kb goal = do
             eq post goal
             --TODO: recursive Call on listId probably wrong
             forM_ pres (void . {-recursiveCall listId .-} simpleKBNetwork' (fuel-1) listId kb)
+            forM_ pres $ \p -> propBot p goal
             |cls <- kb]
