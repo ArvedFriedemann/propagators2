@@ -10,12 +10,24 @@ data Cell = Sv Int | A | B | C | D | G | H | I | J | K | X | Y | Z deriving (Eq,
 instance Identifier Cell ()
 instance Identifier (Cell, Cell) ()
 
+kbtest0 :: IO ()
+kbtest0 = runTestSEB @(TermId Cell) $ do
+  a <- fromVarsAsCells (DIRECT A) ["A"]
+  --var (DIRECT $ Sv 1)
+  --goal <- fromVarsAsCells (DIRECT $ Sv 0) ["A", "C"]
+  goal <- fromVarsAsCells (DIRECT $ Sv 0) ["B"]
+  kb <- pure [(["A"],[a])]
+  --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.
+  {-recursiveCall (C,C) $-}
+  simpleKBNetwork' 3 K kb goal
+  return [goal]
+
 kbtest1 :: IO ()
 kbtest1 = runTestSEB @(TermId Cell) $ do
   a <- fromVarsAsCells (DIRECT A) ["A"]
   b <- fromVarsAsCells (DIRECT B) ["B"]
   c <- fromVarsAsCells (DIRECT C) ["C"]
-  goal <- return (DIRECT $ Sv 0)
+  goal <- fromVarsAsCells (DIRECT $ Sv 0) []
   eq goal b
   kb <- pure [([],[a]),([],[a,b]),([],[c,b])]
   --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.
@@ -29,7 +41,7 @@ kbtest1' = runTestSEB @(TermId Cell) $ do
   b <- fromVarsAsCells (DIRECT B) ["B"]
   c <- fromVarsAsCells (DIRECT C) ["C"]
   goal <- return (DIRECT $ Sv 0)
-  kb <- pure [([],[a,b]),([],[c,b])]
+  kb <- pure [([],[a,b]){-,([],[c,b])-}]
   --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.
   {-recursiveCall (C,C) $-}
   simpleKBNetwork' 1 K kb goal
@@ -37,7 +49,7 @@ kbtest1' = runTestSEB @(TermId Cell) $ do
 
 kbtest2 :: IO ()
 kbtest2 = runTestSEB @(TermId Cell) $ do
-  a <- fromVarsAsCells (DIRECT A) ["A", "K"]
+  a <- fromVarsAsCells (DIRECT A) ["A", "B"]
   x <- fromVarsAsCells (DIRECT X) ["A", "X"]
   b <- fromVarsAsCells (DIRECT B) ["X", "B"]
   goal <- fromVarsAsCells (DIRECT G) [var (DIRECT $ Sv 1), "B"]
