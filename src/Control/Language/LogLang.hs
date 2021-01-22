@@ -72,14 +72,16 @@ simpleKBNetwork' 0 _ _ _ = return ()
 simpleKBNetwork' fuel listId kb goal = do
     g <- read goal
     unless (g==bot) $ do
-        disjunctForkPromoter goal listId [do
+        disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) [do
             (splitClause -> Just (pres, post)) <- refreshClause listId cls
             eq post goal
             --TODO: recursive Call on listId probably wrong
             forM_ pres $ \p -> do
-              traceM $ "\n\nrecursive call on "++show (listId, p)++"\n\n"
-              simpleKBNetwork' (fuel-1) listId kb p
+              --traceM $ "\n\nrecursive call on "++show (listId, p)++"\n\n"
+              simpleKBNetwork' (fuel-1) ("simpleKBNetwork'"::String,(fuel-1),p,listId) kb p --TODO: pack the kb
               propBot p goal
+              {-
               watch p $ UniversalWatchPropagator $ ((\pv ->
                 traceM $ "\n\nintermediate goal "++show p++" "++show pv++"\nfuel at: "++show (fuel-1)++"\n\n") :: (TermSet i) -> m () )
+                -}
             |cls <- kb]
