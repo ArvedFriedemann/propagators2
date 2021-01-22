@@ -6,6 +6,7 @@ import "base" Data.Function
 import "base" Control.Applicative
 import "base" Control.Monad
 import "base" GHC.Exts
+import "base" Data.Typeable
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
@@ -14,6 +15,7 @@ import "containers" Data.Map ( Map )
 import "containers" Data.Map qualified as Map
 
 import "this" Data.Lattice
+import "this" Data.Typed
 import "this" Control.Propagator
 import "this" Control.Propagator.Scope
 
@@ -133,21 +135,33 @@ instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (T
         watch a $ TermPromoter a
         watch b $ TermPromoter b
 
-class Std w => CopyTermId w i | i -> w where
+class CopyTermId i where
   --copy listId origTerm
-  copy :: w -> i -> i
-  copyTermIdContents :: i -> Maybe (w,i)
+  copy :: forall w. (Std w) => w -> i -> i
+  --copyTermIdContents :: forall w. (Std w) => i -> Maybe (w,i)
 
-refreshVarsTbl :: (MonadProp m, Identifier i (TermSet i), CopyTermId w i)
+refreshVarsTbl :: (MonadProp m, Identifier i (TermSet i), CopyTermId i, Std w)
                => w -> Map TermConst i -> i -> m i
 refreshVarsTbl listId tbl orig = do
     watch orig $ RefreshVar listId orig tbl
     return (copy listId orig)
 
-data RefreshVar w i = RefreshVar w i (Map TermConst i)
-  deriving (Eq, Ord, Show)
-instance (MonadProp m, Identifier i (TermSet i), CopyTermId w i)
-         => Propagator m (TermSet i) (RefreshVar w i) where
+data RefreshVar i = forall w.(Eq w, Ord w, Show w, Typeable w) => RefreshVar w i (Map TermConst i)
+instance Eq i => Eq (RefreshVar i) where
+  (RefreshVar w i mp) == (RefreshVar w' i' mp') = w =~= w' && i == i' && mp == mp'
+instance Ord i => Ord (RefreshVar i) where
+  compare (RefreshVar w i mp) (RefreshVar w' i' mp') =
+    case compareTyped w w' of
+      EQ -> case compare i i' of
+              EQ -> compare mp mp'
+              _ -> compare i i'
+      _ -> compareTyped w w'
+instance Show i => Show (RefreshVar i) where
+  show (RefreshVar w i mp) = "RefreshVar "++show w++" "++show i++" "++show mp
+
+
+instance (MonadProp m, Identifier i (TermSet i), CopyTermId i)
+         => Propagator m (TermSet i) (RefreshVar i) where
     propagate (RefreshVar listId orig _) Bot = void $ write (copy listId orig) bot
     propagate (RefreshVar listId orig tbl) ts = do
         let copyListId = copy listId orig

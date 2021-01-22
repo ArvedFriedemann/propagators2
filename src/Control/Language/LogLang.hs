@@ -30,8 +30,8 @@ splitClause cl = Just (init cl, last cl)
 refreshClause ::
   ( MonadProp m
   , Identifier i (TermSet i)
-  , CopyTermId w i
-  , Bound w i
+  , CopyTermId i
+  , Bound i
   , Std w) =>
   w -> (Consts, Clause i) -> m (Clause i)
 refreshClause lsid (binds, trms)
@@ -50,27 +50,22 @@ simpleKBNetwork ::
   , Typeable m
   , Identifier i (TermSet i)
   , Promoter i (TermSet i) m
-  , Bound w i
-  , CopyTermId w i
-  , Identifier w a
-  , BoundedJoin a
-  , BoundedJoin a
+  , Bound i
+  , CopyTermId i
   , Std w) =>
   w -> KB i -> i -> m ()
 simpleKBNetwork = simpleKBNetwork' (-1)
 
 --TODO, WARNING: empty clauses!
 --TODO: Proper indices!
-simpleKBNetwork' :: forall m i w a .
+simpleKBNetwork' :: forall m i w .
   ( MonadProp m
   , MonadFail m
   , Typeable m
   , Identifier i (TermSet i)
   , Promoter i (TermSet i) m
-  , Bound w i
-  , CopyTermId w i
-  , Identifier w a
-  , BoundedJoin a
+  , Bound i
+  , CopyTermId i
   , Std w) =>
   Int -> w ->  KB i -> i -> m ()
 simpleKBNetwork' 0 _ _ _ = return ()
@@ -81,6 +76,10 @@ simpleKBNetwork' fuel listId kb goal = do
             (splitClause -> Just (pres, post)) <- refreshClause listId cls
             eq post goal
             --TODO: recursive Call on listId probably wrong
-            forM_ pres (void . {-recursiveCall listId .-} simpleKBNetwork' (fuel-1) listId kb)
-            forM_ pres $ \p -> propBot p goal
+            forM_ pres $ \p -> do
+              traceM $ "\n\nrecursive call on "++show (listId, p)++"\n\n"
+              simpleKBNetwork' (fuel-1) listId kb p
+              propBot p goal
+              watch p $ UniversalWatchPropagator $ ((\pv ->
+                traceM $ "\n\nintermediate goal "++show p++" "++show pv++"\nfuel at: "++show (fuel-1)++"\n\n") :: (TermSet i) -> m () )
             |cls <- kb]

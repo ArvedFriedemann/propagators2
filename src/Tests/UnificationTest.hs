@@ -23,14 +23,14 @@ data Cell = STR String | Sv Int | A | B | C | D deriving (Eq, Ord, Show)
 instance Identifier Cell (TermSet Cell)
 
 test1 :: IO ()
-test1 = runTestSEB @(TermId Cell) $ do
+test1 = runTestSEB @(TermId) $ do
     sv_a <- fromVarsAsCells (DIRECT A) $ [var (DIRECT $ Sv 0),"a"]
     b_sv <- fromVarsAsCells (DIRECT B) $ ["b", var (DIRECT $ Sv 0)]
     sv_a `eq` b_sv
     return [sv_a, b_sv, DIRECT $ Sv 0]
 
 test2 :: IO ()
-test2 = runTestSEB @(TermId Cell) $ do
+test2 = runTestSEB @(TermId) $ do
     t1 <- fromVarsAsCells (DIRECT A) [var $ DIRECT $ Sv 1, "a", var $ DIRECT $ Sv 1]
     t2 <- fromVarsAsCells (DIRECT B) $ [var (DIRECT $ Sv 2), "a"]
     t1 `eq` t2
@@ -38,21 +38,21 @@ test2 = runTestSEB @(TermId Cell) $ do
 
 
 test3 :: IO ()
-test3 = runTestSEB @(TermId Cell) $ do
+test3 = runTestSEB @(TermId) $ do
     t1 <- fromVarsAsCells (DIRECT A) $ var $ DIRECT $ Sv 0
     t2 <- fromVarsAsCells (DIRECT B) $ "a" <> var (DIRECT $ Sv 0)
     t1 `eq` t2
     return [t1, t2, DIRECT $ Sv 0]
 
 test4 :: IO ()
-test4 = runTestSEB @(TermId Cell) $ do
+test4 = runTestSEB @(TermId) $ do
     scoped () $ \_ -> do
         promote (DIRECT A)
         write (DIRECT A) "A"
     return [DIRECT A]
 
 test42 :: IO ()
-test42 = runTestSEB @(TermId Cell) $ do
+test42 = runTestSEB @(TermId) $ do
 
     scoped () $ \_ -> do
       --read (DIRECT A)
@@ -62,8 +62,8 @@ test42 = runTestSEB @(TermId Cell) $ do
     return [DIRECT A, DIRECT B]
 
 test4' :: IO ()
-test4' = runTestSEB @(TermId Cell) $ do
-    let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId Cell]
+test4' = runTestSEB @(TermId) $ do
+    let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId]
     write t1 TSBot
     write t2 "A"
     disjunctForkPromoter orig ()
@@ -75,8 +75,8 @@ test4' = runTestSEB @(TermId Cell) $ do
     return [orig, t1, t2]
 
 test42' :: IO ()
-test42' = runTestSEB @(TermId Cell) $ do
-    let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId Cell]
+test42' = runTestSEB @(TermId) $ do
+    let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId]
 
     disjunctForkPromoter orig ()
         [ do
@@ -89,7 +89,7 @@ test42' = runTestSEB @(TermId Cell) $ do
     return [orig, t1, t2]
 
 test4'' :: IO ()
-test4'' = runTestSEB @(TermId Cell) $ do
+test4'' = runTestSEB @(TermId) $ do
     orig <- fromVarsAsCells (DIRECT A) []
     disjunctForkPromoter orig ()
         [ do
@@ -109,7 +109,7 @@ testRefreshTo = runTestSEB $ do
     cpy <- refreshVarsTbl D (Map.fromSet (bound B) (Set.fromList ["B"])) orig
 
     eq orig cpy
-    --cpy <- refreshVarsTbl B [("B",v1 :: TermId Cell)] orig
+    --cpy <- refreshVarsTbl B [("B",v1 :: TermId)] orig
     return [orig, cpy]
 {-
 testRefreshBack :: IO ()
@@ -123,14 +123,14 @@ testRefreshBack = runTestSEB $ do
 -}
 
 testRefreshUnification :: IO ()
-testRefreshUnification = runTestSEB @(TermId Cell) $ do
+testRefreshUnification = runTestSEB @(TermId) $ do
   v1 <- fromVarsAsCells (DIRECT A) []
   v2 <- fromVarsAsCells (DIRECT B) []
   orig <- fromVarsAsCells (DIRECT $ STR "orig")
     [["a", "a"], var v2]
   rule <- fromVarsAsCells (DIRECT $ STR "rule")
     [["b", "a"], "b"]
-  cpy <- refreshVarsTbl (STR "copy" ) [("b",v1 :: TermId Cell)] rule
+  cpy <- refreshVarsTbl (STR "copy" ) [("b",v1 :: TermId)] rule
   eq orig cpy
   return [rule, cpy, orig]
 
