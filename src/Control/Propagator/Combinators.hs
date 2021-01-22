@@ -6,6 +6,7 @@ import "base" Data.Functor
 import "base" Data.Typeable
 import "base" Control.Category
 import "base" Control.Monad
+import "base" Debug.Trace
 
 import "this" Data.Iso
 import "this" Data.Some
@@ -46,7 +47,7 @@ eqAll t = maybe (pure ()) void $ foldr eqAll' Nothing t
 
 data PropBot i = PropBot i deriving (Eq, Ord, Show)
 instance (MonadProp m, Value b, Identifier i b, BoundedJoin b, Value a, BoundedJoin a) => Propagator m a (PropBot i) where
-    propagate (PropBot i) a = when (a == Bot) . void $ write i Bot
+    propagate (PropBot i) a = when (isBot a) . void $ write i Bot
 
 propBot :: (MonadProp m, Value b, Identifier i b, BoundedJoin b, Value a, Identifier j a, BoundedJoin a) => j -> i -> m ()
 propBot orig targ = void $ watch orig $ PropBot targ
@@ -68,17 +69,25 @@ instance (MonadProp m, Propagator m a i) => Propagator m a (ParScoped i) where
 
 data Forked j i = Forked j i deriving (Eq, Ord, Show)
 instance (MonadProp m, Std j, Propagator m a i) => Propagator m a (Forked j i) where
-    propagate (Forked j i) a = scoped j (const $ propagate i a)
+    propagate (Forked j i) a = do
+      s <- scope
+      traceM $ "Propagating in "++show s++" to "++show j++" do "++show i
+      scoped j (const $ propagate i a)
 
 
 push :: (MonadProp m, Value a, Identifier i a, Identifier j a) => i -> j -> m ()
-push i j = void . watch i . ParScoped . Write $ j
+push i j = do
+  s <- scope
+  traceM $ "pushing "++show i++" from "++show s++" into "++show j++" from parent"
+  void $ watch i (ParScoped $ Write j)
 
 pull :: (MonadProp m, Value a, Identifier i a, Identifier j a) => i -> j -> m ()
 pull i j = do
   s <- scope
   case s of
     (_ :/ n) -> void $ liftParent $ do
+      s'<- scope
+      traceM $ "pulling "++show i++" from scope "++show s'++" into "++show j++" in "++show s
       watch i $ Forked n (Write j)
     _ -> pure ()
 

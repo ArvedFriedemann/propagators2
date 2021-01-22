@@ -1,4 +1,5 @@
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE BangPatterns #-}
 module Control.Combinator.Logics
     ( disjunctFork
     , disjunctForkDestr
@@ -55,8 +56,11 @@ disjunctForkDestr :: forall i j a m.
 disjunctForkDestr _ _ [] finDestr = finDestr
 disjunctForkDestr sucvar name ms finDestr = djfs `forM_` \(djf, (constr , _)) -> do
     watch djf $ PropagateWinner djfsDestr finDestr
-    scoped djf $ \_ -> do
+    scoped djf $ \s -> do
+        s' <- scope
+        traceM $ "#########"++ show s++" "++show s'
         push sucvar djf
+        traceM ">>>>>>>>>>>"
         constr
   where
     djfs :: [(DisjunctFork i j, (m (), m ()))]
@@ -71,7 +75,7 @@ instance (Eq i, Eq j) => Eq (PropagateWinner i j m) where
 instance (Ord i, Ord j) => Ord (PropagateWinner i j m) where
   compare (PropagateWinner a _) (PropagateWinner b _) = compare (fst <$> a) (fst <$> b)
 instance (Show i, Show j) => Show (PropagateWinner i j m) where
-  show (PropagateWinner a _) = (show (fst <$> a))
+  show (PropagateWinner a _) = "PropagateWinner " ++ (show (fst <$> a))
 
 instance (Std j, Typeable m, MonadProp m, Value a, BoundedJoin a, Identifier i a)
          => Propagator m a (PropagateWinner i j m) where
@@ -82,6 +86,7 @@ instance (Std j, Typeable m, MonadProp m, Value a, BoundedJoin a, Identifier i a
             _   -> [(f,m)]
         case fconts of
             [(f,m)] -> do
+                traceM "singleton promoter called"
                 --target f `eq` f
                 scoped f $ const m
             []   -> do

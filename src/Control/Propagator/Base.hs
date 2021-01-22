@@ -2,6 +2,7 @@
 module Control.Propagator.Base where
 
 import "base" Prelude hiding ( read )
+import "base" Debug.Trace
 
 import "this" Control.Propagator.Propagator
 import "this" Control.Propagator.Class
@@ -24,8 +25,14 @@ class Monad m => MonadProp m where
 
     liftParent :: m a -> m a
     liftParent m = do
-      s <- scope
-      inScope (parScope s) m
+      s' <- scope
+
+      case s' of
+        (s :/ _) -> inScope s $ do
+          s'' <- scope
+          traceM $ "liftParent from "++show s'++" should be "++show s++" but was "++show s''
+          m
+        _ -> error "Current scope should have a parent!"
 
     --takes something with a lift function into the fork and operates in in parent
     fromParent :: ((m a -> m a) -> m a) -> m a

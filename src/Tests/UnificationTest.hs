@@ -61,6 +61,18 @@ test42 = runTestSEB @(TermId) $ do
     write (DIRECT A) "A"
     return [DIRECT A, DIRECT B]
 
+test43 :: IO ()
+test43 = runTestSEB @(TermId) $ do
+
+    scoped () $ \_ -> do
+      --read (DIRECT A)
+      push (DIRECT B) (DIRECT B)
+      scoped () $ \_ -> do
+        push (DIRECT A) (DIRECT B)
+        --eq (DIRECT A) (DIRECT B)
+    write (DIRECT A) "A"
+    return [DIRECT A, DIRECT B]
+
 test4' :: IO ()
 test4' = runTestSEB @(TermId) $ do
     let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId]
@@ -71,6 +83,24 @@ test4' = runTestSEB @(TermId) $ do
             orig `eq` t1
         , do
             orig `eq` t2
+        ]
+    return [orig, t1, t2]
+
+test43' :: IO ()
+test43' = runTestSEB @(TermId) $ do
+    let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId]
+    write t1 TSBot
+    write t2 "A"
+    scope >>= \s -> traceM $ "\n\nscope0:"++show s++"\n\n"
+    disjunctForkPromoter orig (1 :: Int)
+        [ do
+            scope >>= \s -> traceM $ "\n\nscope1:"++show s++"\n\n"
+            orig `eq` t2
+            disjunctForkPromoter t2 (2 :: Int)
+              [do
+                scope >>= \s -> traceM $ "\n\nscope2:"++show s++"\n\n"
+                t2 `eq` t1
+              ]
         ]
     return [orig, t1, t2]
 
