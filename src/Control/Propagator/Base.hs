@@ -28,10 +28,7 @@ class Monad m => MonadProp m where
       s' <- scope
 
       case s' of
-        (s :/ _) -> inScope s $ do
-          s'' <- scope
-          traceM $ "liftParent from "++show s'++" should be "++show s++" but was "++show s''
-          m
+        (s :/ _) -> inScope s m
         _ -> error "Current scope should have a parent!"
 
     --takes something with a lift function into the fork and operates in in parent
