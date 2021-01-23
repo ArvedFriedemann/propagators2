@@ -15,6 +15,17 @@ executable:
   source-dirs: src
   main: Main.hs
 
+tests:
+  spec:
+    source-dirs:
+    - src
+    - test
+    main: Spec.hs
+    dependencies:
+    - tasty
+    - tasty-quickcheck
+    - tasty-hunit
+
 dependencies:
   # essentially standard library
   - base
