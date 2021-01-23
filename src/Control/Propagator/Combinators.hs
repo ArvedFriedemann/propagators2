@@ -69,25 +69,17 @@ instance (MonadProp m, Propagator m a i) => Propagator m a (ParScoped i) where
 
 data Forked j i = Forked j i deriving (Eq, Ord, Show)
 instance (MonadProp m, Std j, Propagator m a i) => Propagator m a (Forked j i) where
-    propagate (Forked j i) a = do
-      s <- scope
-      traceM $ "Propagating in "++show s++" to "++show j++" do "++show i
-      scoped j (const $ propagate i a)
+    propagate (Forked j i) a = scoped j (const $ propagate i a)
 
 
 push :: (MonadProp m, Value a, Identifier i a, Identifier j a) => i -> j -> m ()
-push i j = do
-  s <- scope
-  traceM $ "pushing "++show i++" from "++show s++" into "++show j++" from parent"
-  void $ watch i (ParScoped $ Write j)
+push i j = void $ watch i (ParScoped $ Write j)
 
 pull :: (MonadProp m, Value a, Identifier i a, Identifier j a) => i -> j -> m ()
 pull i j = do
   s <- scope
   case s of
     (_ :/ n) -> void $ liftParent $ do
-      s'<- scope
-      traceM $ "pulling "++show i++" from scope "++show s'++" into "++show j++" in "++show s
       watch i $ Forked n (Write j)
     _ -> pure ()
 
