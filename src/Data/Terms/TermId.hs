@@ -54,7 +54,7 @@ instance Show TermId where
   show EMPTY = "EMPTY"
   show (DIRECT x) = "DIRECT "++ show x
   show (APPLLEFT x) = "APPLLEFT "++ show x
-  show (APPLRIGHT x) = "APPLLEFT "++ show x
+  show (APPLRIGHT x) = "APPLRIGHT "++ show x
   show (COPY x y) = "COPY "++ show x ++ " " ++ show y
   show (BOUND x y) = "BOUND "++ show x ++ " " ++ show y
 
