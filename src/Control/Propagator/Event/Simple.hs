@@ -61,7 +61,7 @@ newtype SimpleEventBus a = SEB
 type SEB = EventT SimpleEventBus
 
 
-runSEB :: SEBState -> Scope -> EventT SimpleEventBus a -> IO (a, SEBState)
+runSEB :: SEBState -> Scope -> SEB a -> IO (a, SEBState)
 runSEB st sc = flip runStateT st . unSEB . flip runReaderT sc . runEventT
 
 evalSEB :: SEB a -> (a -> SEB b) -> IO b
