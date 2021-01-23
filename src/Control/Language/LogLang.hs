@@ -73,7 +73,7 @@ simpleKBNetwork' fuel listId kb goal = do
     g <- read goal
     unless (g==bot) $ do
         disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) [do
-            (splitClause -> Just (pres, post)) <- refreshClause listId cls
+            (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId) cls
             eq post goal
             forM_ pres $ \p -> do
               simpleKBNetwork' (fuel-1) ("simpleKBNetwork'"::String,(fuel-1),p,listId) kb p --TODO: pack the kb
