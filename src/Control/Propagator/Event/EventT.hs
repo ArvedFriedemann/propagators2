@@ -65,7 +65,6 @@ instance (Typeable m, MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (E
       i <$ (fire' $ WatchEvt . Watch i p)
 
     read i = do
-      s <- scope
       request i
       --request (PropagatorsOf @(EventT m) i)
       fmap (fromMaybe Top) . withScope . flip getVal $ i
