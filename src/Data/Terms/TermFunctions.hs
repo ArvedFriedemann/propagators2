@@ -4,6 +4,7 @@ module Data.Terms.TermFunctions where
 import "base" Prelude hiding ( read )
 import "base" GHC.Exts
 import "base" Data.Functor
+import "base" Debug.Trace
 
 import "this" Data.Terms.Terms
 import "this" Control.Propagator
