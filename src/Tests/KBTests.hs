@@ -2,8 +2,12 @@ module Tests.KBTests where
 
 import "this" Tests.TestLogic
 import "this" Data.Terms
+import "this" Data.Terms.TermFunctions
 import "this" Control.Language.LogLang
 import "this" Control.Propagator
+import "this" Control.Propagator.Event
+
+import "base" Debug.Trace
 
 
 data Cell = Sv Int | A | B | C | D | G | H | I | J | K | X | Y | Z deriving (Eq, Ord, Show)
@@ -62,9 +66,31 @@ kbtest2 = runTestSEB @(TermId) $ do
   x <- fromVarsAsCells (DIRECT X) ["A", "X"]
   b <- fromVarsAsCells (DIRECT B) ["X", "B"]
   goal <- fromVarsAsCells (DIRECT G) [var (DIRECT $ Sv 1), "B"]
-  kb <- pure [([],[a]),(["X"],[x,b])]
+  --kb <- pure [([],[a]),(["X"],[x,b])]
+  (splitClause -> Just ([pre],post)) <- refreshClause ("refresh" :: String) (["X"],[x,b])
 
-  --test <- refreshVarsTbl D [("X", direct C)] b
-  --tests <- refreshClause D (["X"], [x,b])
-  simpleKBNetwork' 2 K kb goal
-  return $ [goal] -- ++ tests
+  watch pre $ UniversalWatchPropagator $ ((\p -> do
+    t <- fromTermSet' 10 pre p
+    traceM $ "\nPRE in scope0:\n    "++show t++"\n   "++show p++"\n") :: TermSet TermId -> SEB () )
+  scoped () $ const $ do
+    eq goal post
+    promote goal
+    --promote pre
+    watchTermRec pre
+    --watchTermRec post
+    --watchTermRec goal
+    watch pre $ UniversalWatchPropagator $ ((\p -> do
+      t <- fromTermSet' 10 pre p
+      traceM $ "\nPRE in scope1:\n    "++show t++"\n   "++show p++"\n") :: TermSet TermId -> SEB () )
+    scoped () $ const $ do
+      eq a pre
+      --promote pre
+      watchTerm pre
+      {-
+      watch pre $ UniversalWatchPropagator $ ((\p -> do
+        t <- fromTermSet' 10 pre p
+        traceM $ "\nPRE in scope2:\n    "++show t++"\n   "++show p++"\n") :: TermSet TermId -> SEB () )
+        -}
+
+  --simpleKBNetwork' 2 K kb goal
+  return $ [goal, post, pre] -- ++ tests
