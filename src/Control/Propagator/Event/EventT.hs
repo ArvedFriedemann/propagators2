@@ -61,17 +61,12 @@ instance (Typeable m, MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (E
       i <$ (fire' $ WriteEvt . Write i a)
 
     watch i p = do
-      s <- scope
-      traceM $ "reaaaaaaaaaaad" ++ show s
       read i
-      traceM "daaaaaaaaaaaer"
       i <$ (fire' $ WatchEvt . Watch i p)
 
     read i = do
       s <- scope
-      traceM $ "requesting "++show i++" from "++show s
       request i
-      traceM $ "ending requesting "++show i++" from "++show s
       --request (PropagatorsOf @(EventT m) i)
       fmap (fromMaybe Top) . withScope . flip getVal $ i
 
