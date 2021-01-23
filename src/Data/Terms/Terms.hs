@@ -135,6 +135,22 @@ instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (T
         watch a $ TermPromoter a
         watch b $ TermPromoter b
 
+watchTermRec :: (Ord i, MonadProp m, Identifier i (TermSet i)) => i -> m i
+watchTermRec ct = watch ct $ WatchTermRec ct
+
+data WatchTermRec i = WatchTermRec i deriving (Eq, Ord, Show)
+
+instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (WatchTermRec i) where
+    --WARNING: Does not remove listeners after join!
+    propagate (WatchTermRec this) Bot = void $ watchTerm this
+    propagate (WatchTermRec this) ts = do
+      watchTerm this
+      forM_ (variables ts) $ \v -> do
+        watchTermRec v
+      forM_ (applications ts) $ \(a,b) -> do
+        watchTermRec a
+        watchTermRec b
+
 class CopyTermId i where
   --copy listId origTerm
   copy :: forall w. (Std w) => w -> i -> i
