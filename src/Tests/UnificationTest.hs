@@ -61,6 +61,16 @@ test42 = runTestSEB @(TermId) $ do
     write (DIRECT A) "A"
     return [DIRECT A, DIRECT B]
 
+test44' :: IO ()
+test44' = runTestSEB @(TermId) $ do
+
+    scoped () $ \_ -> do
+      promote (DIRECT B)
+      scoped () $ \_ -> do
+        push (DIRECT A) (DIRECT B)
+    write (DIRECT A) "A"
+    return [DIRECT A, DIRECT B]
+
 test43 :: IO ()
 test43 = runTestSEB @(TermId) $ do
 

@@ -62,35 +62,32 @@ kbtest1' = runTestSEB @(TermId) $ do
 
 kbtest2 :: IO ()
 kbtest2 = runTestSEB @(TermId) $ do
-  a <- fromVarsAsCells (DIRECT A) ["A", "B"]
+  a <- fromVarsAsCells (DIRECT A) ["A","A"]
+  x <- fromVarsAsCells (DIRECT X) ["X","A"]
+  b <- fromVarsAsCells (DIRECT B) ["X","B"]
+  goal <- fromVarsAsCells (DIRECT G) [var (DIRECT $ Sv 1), "B"]
+  kb <- pure [([],[a]),(["X"],[x,b])]
+
+  simpleKBNetwork' 3 K kb goal
+  return $ [a,x,b,goal]
+
+kbtest2' :: IO ()
+kbtest2' = runTestSEB @(TermId) $ do
+  a <- fromVarsAsCells (DIRECT A) ["A", "C"]
   x <- fromVarsAsCells (DIRECT X) ["A", "X"]
   b <- fromVarsAsCells (DIRECT B) ["X", "B"]
   goal <- fromVarsAsCells (DIRECT G) [var (DIRECT $ Sv 1), "B"]
-  --kb <- pure [([],[a]),(["X"],[x,b])]
   (splitClause -> Just ([pre],post)) <- refreshClause ("refresh" :: String) (["X"],[x,b])
-
-  watch pre $ UniversalWatchPropagator $ ((\p -> do
-    t <- fromTermSet' 10 pre p
-    traceM $ "\nPRE in scope0:\n    "++show t++"\n   "++show p++"\n") :: TermSet TermId -> SEB () )
   scoped () $ const $ do
     eq goal post
-    promote goal
-    --promote pre
-    watchTermRec pre
+    promoteTerm goal
+    --watchTermRec pre
     --watchTermRec post
     --watchTermRec goal
-    watch pre $ UniversalWatchPropagator $ ((\p -> do
-      t <- fromTermSet' 10 pre p
-      traceM $ "\nPRE in scope1:\n    "++show t++"\n   "++show p++"\n") :: TermSet TermId -> SEB () )
     scoped () $ const $ do
       eq a pre
-      --promote pre
-      watchTerm pre
-      {-
-      watch pre $ UniversalWatchPropagator $ ((\p -> do
-        t <- fromTermSet' 10 pre p
-        traceM $ "\nPRE in scope2:\n    "++show t++"\n   "++show p++"\n") :: TermSet TermId -> SEB () )
-        -}
+      promoteTerm pre
+      watchTermRec pre
+      watchTermRec a
 
-  --simpleKBNetwork' 2 K kb goal
-  return $ [goal, post, pre] -- ++ tests
+  return $ [goal, post, pre]
