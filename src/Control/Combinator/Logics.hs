@@ -56,11 +56,8 @@ disjunctForkDestr :: forall i j a m.
 disjunctForkDestr _ _ [] finDestr = finDestr
 disjunctForkDestr sucvar name ms finDestr = djfs `forM_` \(djf, (constr , _)) -> do
     watch djf $ PropagateWinner djfsDestr finDestr
-    scoped djf $ \s -> do
-        s' <- scope
-        traceM $ "#########"++ show s++" "++show s'
+    scoped djf $ \_ -> do
         push sucvar djf
-        traceM ">>>>>>>>>>>"
         constr
   where
     djfs :: [(DisjunctFork i j, (m (), m ()))]
@@ -84,6 +81,8 @@ instance (Std j, Typeable m, MonadProp m, Value a, BoundedJoin a, Identifier i a
         fconts <- fmap join . forM forks $ \(f,m) -> read f <&> \case
             Bot -> []
             _   -> [(f,m)]
+        s <- scope
+        traceM $ "\nFork fconts: "++show (fst <$> fconts)++" in "++show s++"\n"
         case fconts of
             [(f,m)] -> do
                 traceM "singleton promoter called"

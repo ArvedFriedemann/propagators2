@@ -74,10 +74,10 @@ flushSEB :: SEB ()
 flushSEB = do
     evts <- gets fst
     unless (Set.null evts) $ do
-        traceM "flushSEB"
+        --traceM "flushSEB"
         lift . SEB . modify $ first (const mempty)
         forM_ (Set.toDescList evts) $ \ evt -> do
-            traceM $ show evt
+            --traceM $ show evt
             handleEvent evt
         flushSEB
 
