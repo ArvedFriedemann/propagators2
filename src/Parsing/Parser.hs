@@ -8,6 +8,7 @@ import "parsec" Text.Parsec.Token
 import "base" Data.Functor
 import "base" Data.List
 import "base" Control.Monad
+import "base" Debug.Trace
 
 defCommentStart :: String
 defCommentStart = "{-"
@@ -53,9 +54,9 @@ concat xs y zs -> concat (x : xs) y (x : zs)
 
 toMixfixParser :: (Stream s m Char) =>
     [Maybe String] -> ([t] -> t) -> (String -> ParsecT s u m t) -> ParsecT s u m t -> ParsecT s u m t
-toMixfixParser lst conc termsymb term = conc <$> sequence (toParser <$> lst)
-  where toParser Nothing = term
-        toParser (Just n) = termsymb n
+toMixfixParser lst conc termsymb term = conc <$> (traceM "starting sequence" >> sequence (toParser <$> lst))
+  where toParser Nothing = traceM "starting term parse at mixfix" >> term >>= \t -> traceM "ending term parse at mixfix" >> return t
+        toParser (Just n) = traceM ("reading symbol "++n) >> termsymb n
 
 templateParser :: (Stream s m Char) =>
     GenTokenParser s u m ->
@@ -107,14 +108,27 @@ mixfixTermParser decls conc atomicTerm initTerm appl = recparse
   where sortDecls = sortOn prescedence decls
         recparse :: ParsecT s u m t
         recparse = foldr (\fkt trm -> fkt recparse <|> trm) initTerm (toParser <$> sortDecls)
+        after mfd m = do
+          r <- m
+          parserTrace $ "Ending parse of "++backToMixfix (template mfd)
+          return r
         toParser :: MixFixDecl -> ParsecT s u m t -> ParsecT s u m t
         toParser mfd term = let mfp = toMixfixParser (template mfd) conc atomicTerm term
-                        in case associativity mfd of
-                            AssocNone -> mfp
-                            AssocLeft -> chainl1 term $ do
+                        in after mfd $ do
+                          parserTrace $ "Starting parse of "++backToMixfix (template mfd)++" ("++show (associativity mfd)++")"
+                          case associativity mfd of
+                            AssocNone -> parserTrace "AssocNone case" >> mfp
+                            AssocLeft -> (parserTrace "AssocLeft case") >> chainl1 (parserTrace "starting term" >> term) (do
                               t <- mfp
                               --TODO: is this correct?
                               return (\x y -> appl x (appl t y))
-                            AssocRight -> chainr1 term $ do
+                              )
+                            AssocRight -> parserTrace "AssocRight case" >> chainr1 term (do
                               t <- mfp
                               return (\x y -> appl x (appl t y))
+                              )
+
+backToMixfix :: [Maybe String] -> String
+backToMixfix lst = concat $ f <$> lst
+  where f Nothing = "_"
+        f (Just s) = s
