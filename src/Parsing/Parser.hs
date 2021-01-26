@@ -3,7 +3,7 @@ module Parsing.Parser where
 import "parsec" Text.Parsec
 import "parsec" Text.Parsec.Char
 import "parsec" Text.Parsec.Token
-import "parsec" Text.Parsec.Expr
+--import "parsec" Text.Parsec.Expr
 
 import "base" Data.Functor
 import "base" Data.List
@@ -18,7 +18,7 @@ defCommentLine = "--"
 defNestedComments :: Bool
 defNestedComments = True
 illegalChars :: [Char]
-illegalChars = "()_"
+illegalChars = "()_ "
 defReservedNames :: [String]
 defReservedNames = ["expression","lassoc","rassoc","nassoc","_"]
 defCaseSensitive :: Bool
@@ -64,6 +64,9 @@ templateParser tp = many1 $
   ((lexeme tp $ reserved tp "_") $> Nothing)
   <|> Just <$> identifier tp
 
+data Assoc = AssocNone | AssocLeft | AssocRight
+  deriving (Show, Eq, Ord)
+
 assoc :: (Stream s m Char) =>
     GenTokenParser s u m ->
     ParsecT s u m Assoc
@@ -75,7 +78,7 @@ data MixFixDecl = MixFixDecl {
     template :: [Maybe String]
   , associativity :: Assoc
   , prescedence :: Integer
-}
+} deriving (Show, Eq, Ord)
 
 mixfixDeclaration :: (Stream s m Char) =>
     GenTokenParser s u m ->
