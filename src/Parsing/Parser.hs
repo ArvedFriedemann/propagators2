@@ -61,7 +61,8 @@ templateParser :: (Stream s m Char) =>
     GenTokenParser s u m ->
     ParsecT s u m [Maybe String]
 templateParser tp = many1 $
-  ((lexeme tp $ reserved tp "_") $> Nothing)
+  --weird that this is symbol and not reserved, but reserved needs a followup stopper apparently
+  ((lexeme tp $ symbol tp "_") $> Nothing)
   <|> Just <$> identifier tp
 
 data Assoc = AssocNone | AssocLeft | AssocRight
