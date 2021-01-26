@@ -18,7 +18,7 @@ defCommentLine = "--"
 defNestedComments :: Bool
 defNestedComments = True
 illegalChars :: [Char]
-illegalChars = "()_ "
+illegalChars = "()_ \n\r\t"
 defReservedNames :: [String]
 defReservedNames = ["expression","lassoc","rassoc","nassoc","_"]
 defCaseSensitive :: Bool
