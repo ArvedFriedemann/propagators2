@@ -7,6 +7,7 @@ import "parsec" Text.Parsec.Expr
 
 import "base" Data.Functor
 import "base" Data.List
+import "base" Control.Monad
 
 defCommentStart :: String
 defCommentStart = "{-"
@@ -43,12 +44,18 @@ optblLangDef = LanguageDef {
 tpLD :: (Stream s m Char) => GenTokenParser s u m
 tpLD = makeTokenParser optblLangDef
 
+{-
+expression lassoc 10 _blah_,_ehn hwh_
 
+concat [] y y
+concat xs y zs -> concat (x : xs) y (x : zs)
+-}
 
-toMixfixParser :: (Stream s m Char) => [Maybe String] -> (String -> ParsecT s u m t) -> ParsecT s u m t -> ParsecT s u m [t]
-toMixfixParser lst reserved term = sequence (toParser <$> lst)
+toMixfixParser :: (Stream s m Char) =>
+    [Maybe String] -> ([t] -> t) -> (String -> ParsecT s u m t) -> ParsecT s u m t -> ParsecT s u m t
+toMixfixParser lst conc termsymb term = conc <$> sequence (toParser <$> lst)
   where toParser Nothing = term
-        toParser (Just n) = reserved n
+        toParser (Just n) = termsymb n
 
 templateParser :: (Stream s m Char) =>
     GenTokenParser s u m ->
@@ -78,15 +85,32 @@ mixfixDeclaration tp = do
   asc <- assoc tp
   presc <- natural tp
   tmp <- templateParser tp
-  return $ MixFixDecl { template = tmp
+  tmp' <- case asc of
+    AssocNone -> pure tmp
+    _ -> do
+      guard (length tmp >= 2 &&
+                  head tmp == Nothing &&
+                  last tmp == Nothing )
+                  <?> "Operator with associativity needs to be an infix"
+      return (drop 1 . init $ tmp)
+  return $ MixFixDecl { template = tmp'
                       , associativity = asc
                       , prescedence = presc}
-{-
-mixfixTermParser :: [MixFixDecl] -> (t -> t -> t) -> ParsecT s u m t
-mixfixTermParser decls appl =
-  where sortDecls = reverse $ sortOn prescedence decls
-        toParser mfd = case prescedence mfd of
-                          AssocNone -> _--problem: term parser unknown (should include this one)
-                          AssocLeft -> chainl1 _ (pure appl)
-                          AssocRight -> chainr1 _ (pure appl)
--}
+
+mixfixTermParser :: forall s u m t . (Stream s m Char) =>
+    [MixFixDecl] -> ([t] -> t) -> (String -> ParsecT s u m t) -> ParsecT s u m t -> (t -> t -> t) -> ParsecT s u m t
+mixfixTermParser decls conc atomicTerm initTerm appl = recparse
+  where sortDecls = sortOn prescedence decls
+        recparse :: ParsecT s u m t
+        recparse = foldr (\fkt trm -> fkt recparse <|> trm) initTerm (toParser <$> sortDecls)
+        toParser :: MixFixDecl -> ParsecT s u m t -> ParsecT s u m t
+        toParser mfd term = let mfp = toMixfixParser (template mfd) conc atomicTerm term
+                        in case associativity mfd of
+                            AssocNone -> mfp
+                            AssocLeft -> chainl1 term $ do
+                              t <- mfp
+                              --TODO: is this correct?
+                              return (\x y -> appl x (appl t y))
+                            AssocRight -> chainr1 term $ do
+                              t <- mfp
+                              return (\x y -> appl x (appl t y))
