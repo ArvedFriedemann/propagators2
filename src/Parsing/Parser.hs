@@ -103,11 +103,12 @@ mixfixDeclaration tp = do
                       , prescedence = presc}
 
 mixfixTermParser :: forall s u m t . (Stream s m Char) =>
-    [MixFixDecl] -> ([t] -> t) -> (String -> ParsecT s u m t) -> ParsecT s u m t -> (t -> t -> t) -> ParsecT s u m t
-mixfixTermParser decls conc atomicTerm initTerm appl = recparse
+    GenTokenParser s u m ->
+    [MixFixDecl] -> ([t] -> t) -> (String -> ParsecT s u m t) -> ParsecT s u m t -> ParsecT s u m t
+mixfixTermParser _ decls conc atomicTerm initTerm = recparse
   where sortDecls = sortOn prescedence decls
         recparse :: ParsecT s u m t
-        recparse = foldr (\fkt trm -> fkt recparse <|> trm) initTerm (toParser <$> sortDecls)
+        recparse = foldr (\fkt trm -> fkt trm <|> trm) initTerm (toParser <$> sortDecls)
         after mfd m = do
           r <- m
           parserTrace $ "Ending parse of "++backToMixfix (template mfd)
@@ -121,11 +122,11 @@ mixfixTermParser decls conc atomicTerm initTerm appl = recparse
                             AssocLeft -> (parserTrace "AssocLeft case") >> chainl1 (parserTrace "starting term" >> term) (do
                               t <- mfp
                               --TODO: is this correct?
-                              return (\x y -> appl x (appl t y))
+                              return (\x y -> conc [x,t,y])
                               )
                             AssocRight -> parserTrace "AssocRight case" >> chainr1 term (do
                               t <- mfp
-                              return (\x y -> appl x (appl t y))
+                              return (\x y -> conc [x,t,y])
                               )
 
 backToMixfix :: [Maybe String] -> String

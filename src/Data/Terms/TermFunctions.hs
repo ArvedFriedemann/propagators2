@@ -35,7 +35,7 @@ instance Show a => Show (TermStruc a) where
     showsPrec _ (SCON (CUST s)) = showString s
     showsPrec n (SCON c) = showsPrec n c
     showsPrec n (SVAR v) = (showString "(@").(showsPrec n v).(showString "@)")
-    showsPrec n (SAPPL s c@(SAPPL _ _)) = (showString "(").(showsPrec n s).(showString ")").(showsPrec n c)
+    showsPrec n (SAPPL s c@(SAPPL _ _)) = (showsPrec n s).(showString "(").(showsPrec n c).(showString ")")
     showsPrec n (SAPPL s c) = (showsPrec n s).(showString " ").(showsPrec n c)
 
 instance Semigroup (TermStruc a) where
@@ -57,6 +57,11 @@ instance IsString (TermStruc a) where
 
 var :: a -> TermStruc a
 var = SVAR
+
+apls :: TermStruc a -> TermStruc a -> TermStruc a
+apls x STOP = x
+apls STOP x = x
+apls x y = SAPPL x y
 
 class PosTermId i where
   appLeft :: i -> i
