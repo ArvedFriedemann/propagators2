@@ -19,9 +19,9 @@ defCommentLine = "--"
 defNestedComments :: Bool
 defNestedComments = True
 illegalChars :: [Char]
-illegalChars = "()_ \n\r\t"
+illegalChars = ";_ \n\r\t"
 defReservedNames :: [String]
-defReservedNames = ["expression","lassoc","rassoc","nassoc","_"]
+defReservedNames = ["expression","lassoc","rassoc","nassoc","_",";"]
 defCaseSensitive :: Bool
 defCaseSensitive = True
 
@@ -42,8 +42,14 @@ optblLangDef = LanguageDef {
   , caseSensitive = defCaseSensitive
 }
 
+optblLangDef' :: (Stream s m Char) => GenLanguageDef s u m
+optblLangDef' = optblLangDef{reservedNames = "k" : defReservedNames}
+
 tpLD :: (Stream s m Char) => GenTokenParser s u m
 tpLD = makeTokenParser optblLangDef
+
+tpLD' :: forall s m u. (Stream s m Char) => GenTokenParser s u m
+tpLD' = makeTokenParser optblLangDef'
 
 {-
 expression lassoc 10 _blah_,_ehn hwh_
@@ -53,10 +59,13 @@ concat xs y zs -> concat (x : xs) y (x : zs)
 -}
 
 toMixfixParser :: (Stream s m Char) =>
-    [Maybe String] -> ([t] -> t) -> (String -> ParsecT s u m t) -> ParsecT s u m t -> ParsecT s u m t
-toMixfixParser lst conc termsymb term = conc <$> (traceM "starting sequence" >> sequence (toParser <$> lst))
-  where toParser Nothing = traceM "starting term parse at mixfix" >> term >>= \t -> traceM "ending term parse at mixfix" >> return t
-        toParser (Just n) = traceM ("reading symbol "++n) >> termsymb n
+    GenTokenParser s u m ->
+    [Maybe String] -> ([t] -> t) -> (String -> t) -> ParsecT s u m t -> ParsecT s u m t
+toMixfixParser tp lst conc termsymb term = do
+  seqe <- concat <$> (sequence (toParser <$> lst))
+  return $ conc $ (termsymb $ backToMixfix lst) : seqe
+  where toParser Nothing = return <$> term
+        toParser (Just n) = lexeme tp $ symbol tp n $> []--termsymb n
 
 templateParser :: (Stream s m Char) =>
     GenTokenParser s u m ->
@@ -104,28 +113,24 @@ mixfixDeclaration tp = do
 
 mixfixTermParser :: forall s u m t . (Stream s m Char) =>
     GenTokenParser s u m ->
-    [MixFixDecl] -> ([t] -> t) -> (String -> ParsecT s u m t) -> ParsecT s u m t -> ParsecT s u m t
-mixfixTermParser _ decls conc atomicTerm initTerm = recparse
+    [MixFixDecl] -> ([t] -> t) -> (String -> t) -> ParsecT s u m t -> ParsecT s u m t
+mixfixTermParser tp decls conc atomicTerm initTerm = recparse
   where sortDecls = sortOn prescedence decls
         recparse :: ParsecT s u m t
-        recparse = foldr (\fkt trm -> fkt trm <|> trm) initTerm (toParser <$> sortDecls)
-        after mfd m = do
-          r <- m
-          parserTrace $ "Ending parse of "++backToMixfix (template mfd)
-          return r
-        toParser :: MixFixDecl -> ParsecT s u m t -> ParsecT s u m t
-        toParser mfd term = let mfp = toMixfixParser (template mfd) conc atomicTerm term
-                        in after mfd $ do
-                          parserTrace $ "Starting parse of "++backToMixfix (template mfd)++" ("++show (associativity mfd)++")"
+        recparse = foldr (\fkt trm -> (try $ fkt trm recparse) <|> trm) initTerm (toParser <$> sortDecls)
+        toParser :: MixFixDecl -> ParsecT s u m t -> ParsecT s u m t -> ParsecT s u m t
+        toParser mfd term termTop = let mfp = toMixfixParser tp (template mfd) conc atomicTerm termTop
+                        in do
                           case associativity mfd of
-                            AssocNone -> parserTrace "AssocNone case" >> mfp
-                            AssocLeft -> (parserTrace "AssocLeft case") >> chainl1 (parserTrace "starting term" >> term) (do
+                            AssocNone -> mfp
+                            AssocLeft -> chainl1 term (do
                               t <- mfp
                               --TODO: is this correct?
                               return (\x y -> conc [x,t,y])
                               )
-                            AssocRight -> parserTrace "AssocRight case" >> chainr1 term (do
+                            AssocRight -> chainr1 term (do
                               t <- mfp
+                              --TODO: is this correct?
                               return (\x y -> conc [x,t,y])
                               )
 
