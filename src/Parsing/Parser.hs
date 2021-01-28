@@ -149,12 +149,12 @@ mixfixTermParser tp decls conc atomicTerm initTerm = recparse
                             AssocLeft -> chainl1 term (do
                               t <- mfp
                               --TODO: is this correct?
-                              return (\x y -> conc [x,t,y])
+                              return (\x y -> conc [conc [x,t],y])
                               )
                             AssocRight -> chainr1 term (do
                               t <- mfp
                               --TODO: is this correct?
-                              return (\x y -> conc [x,t,y])
+                              return (\x y -> conc [x,conc [t,y]])
                               )
 
 -----------------------------------

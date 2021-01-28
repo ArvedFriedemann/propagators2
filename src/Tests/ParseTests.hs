@@ -59,3 +59,12 @@ parsetest3 = do
                  \a b c ;\n\
                  \" :: String
   parseTest (fst <$> parseKB stdlst (SCON . CUST :: String -> TermStruc String) (SVAR :: String -> TermStruc String)) exprtext
+
+parsetest4 :: IO ()
+parsetest4 = do
+  let exprtext = "expression nassoc 7 ( _ ) ;\n\
+                 \expression rassoc 10 _ -> _ ;\n\
+                 \expression lassoc 9 _ _ ;\n\
+                 \a b c -> d e f -> g h i ;\n\
+                 \" :: String
+  parseTest ((rassocOp (SCON $ CUST "->")) <$> head <$> fst <$> parseKB stdlst (SCON . CUST :: String -> TermStruc String) (SVAR :: String -> TermStruc String)) exprtext
