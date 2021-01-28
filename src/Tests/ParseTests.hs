@@ -20,13 +20,14 @@ parsetest1 = do
 
 parsetest2 :: IO ()
 parsetest2 = do
-  let exprtext = "expression rassoc 11 _ k _ k _ ;\
+  let exprtext = "expression rassoc 11 _ ( _ ) _ ;\n\
                  \expression lassoc 10 _ _" :: String
-      ettbl = runParser (sepBy1 (mixfixDeclaration tpLD) (lexeme tpLD $ symbol tpLD ";") ) () "exprtext" exprtext
+      ettbl = runParser mixfixDexlarationsParser () "exprtext" exprtext
       --concExpr = "a b c -> d e f -> g h i" :: String
-      concExpr = "a k b c k d" :: String
-      tbl = case ettbl of
+      concExpr = "a ( b c ) d" :: String
+      (tbl, tp) = case ettbl of
               Right t -> t
               Left err -> error $ show err
+  putStrLn exprtext
   traceM $ show tbl
-  parseTest (mixfixTermParser tpLD' tbl stdlst (SCON . CUST :: String -> TermStruc String) ((SCON . CUST) <$> (lexeme tpLD' $ identifier tpLD')) ) concExpr
+  parseTest (mixfixTermParser tp tbl stdlst (SCON . CUST :: String -> TermStruc String) ((SCON . CUST) <$> (lexeme tp $ identifier tp)) ) concExpr

@@ -7,6 +7,7 @@ import "parsec" Text.Parsec.Token
 
 import "base" Data.Functor
 import "base" Data.List
+import "base" Data.Maybe
 import "base" Control.Monad
 import "base" Debug.Trace
 
@@ -42,14 +43,9 @@ optblLangDef = LanguageDef {
   , caseSensitive = defCaseSensitive
 }
 
-optblLangDef' :: (Stream s m Char) => GenLanguageDef s u m
-optblLangDef' = optblLangDef{reservedNames = "k" : defReservedNames}
-
 tpLD :: (Stream s m Char) => GenTokenParser s u m
 tpLD = makeTokenParser optblLangDef
 
-tpLD' :: forall s m u. (Stream s m Char) => GenTokenParser s u m
-tpLD' = makeTokenParser optblLangDef'
 
 {-
 expression lassoc 10 _blah_,_ehn hwh_
@@ -111,6 +107,21 @@ mixfixDeclaration tp = do
                       , associativity = asc
                       , prescedence = presc}
 
+mixfixDexlarationsParser :: (Stream s m Char) => ParsecT s u m ([MixFixDecl], GenTokenParser s u m)
+mixfixDexlarationsParser = do
+  let sep = reserved tpLD ";"
+  tbl <- concat <$> flip sepEndBy sep
+                            ((pure <$> mixfixDeclaration tpLD)
+                            <|> (many (notFollowedBy sep >> anyChar) $> []))
+  return (tbl, makeTokenParser $ optblLangDef{
+      reservedNames = defReservedNames ++ (concatMap allNames (template <$> tbl))})
+
+nextLine :: (Stream s m Char) => ParsecT s u m ()
+nextLine = void $ manyTill anyChar (char '\n')
+
+eol :: (Stream s m Char) => ParsecT s u m ()
+eol = void (char '\n') <|> eof
+
 mixfixTermParser :: forall s u m t . (Stream s m Char) =>
     GenTokenParser s u m ->
     [MixFixDecl] -> ([t] -> t) -> (String -> t) -> ParsecT s u m t -> ParsecT s u m t
@@ -138,3 +149,6 @@ backToMixfix :: [Maybe String] -> String
 backToMixfix lst = concat $ f <$> lst
   where f Nothing = "_"
         f (Just s) = s
+
+allNames :: [Maybe String] -> [String]
+allNames = catMaybes
