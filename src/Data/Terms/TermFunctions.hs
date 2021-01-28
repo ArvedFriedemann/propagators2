@@ -6,6 +6,8 @@ import "base" GHC.Exts
 import "base" Data.Functor
 import "base" Debug.Trace
 
+import "transformers" Control.Monad.Trans.Writer
+
 import "this" Data.Terms.Terms
 import "this" Control.Propagator
 import "this" Data.Lattice
@@ -122,3 +124,35 @@ fromTermSet' n _ ts
         --here we can safely assume that there cannot be a term hanging on this variable. If there was, it would have propagated here. Therefore this always is a dangling variable, so we just return the smallest variable of the equality cluster (so that all cluster show the same variable)
         pure . SVAR . head . S.toList . variables $ ts
     | otherwise = pure Top
+
+
+------------------------------
+--Reverse Parsing
+------------------------------
+lassocOp :: (Eq a) => TermStruc a -> TermStruc a -> [TermStruc a]
+lassocOp op t = execWriter (lassocOp' op t)
+lassocOp' :: (Eq a) => TermStruc a -> TermStruc a -> Writer [TermStruc a] ()
+lassocOp' op (SAPPL (SAPPL x op') y)
+  | op == op' = lassocOp' op x >> tell [y]
+lassocOp' _ t = tell [t]
+
+rassocOp :: (Eq a) => TermStruc a -> TermStruc a -> [TermStruc a]
+rassocOp op (SAPPL x (SAPPL op' y))
+  | op == op' = x : (rassocOp op y)
+rassocOp _ t = [t]
+
+removeLrecBrackets :: (Eq a) => TermStruc a -> TermStruc a -> TermStruc a -> TermStruc a
+removeLrecBrackets on off (SAPPL (SAPPL on' t) off')
+  | on == on' && off == off' = removeLrecBrackets on off t
+removeLrecBrackets on off (SAPPL a b) = SAPPL
+                              (removeLrecBrackets on off a)
+                              (removeLrecBrackets on off b)
+removeLrecBrackets _ _ t = t
+
+removeRrecBrackets :: (Eq a) => TermStruc a -> TermStruc a -> TermStruc a -> TermStruc a
+removeRrecBrackets on off (SAPPL on' (SAPPL t off'))
+  | on == on' && off == off' = removeRrecBrackets on off t
+removeRrecBrackets on off (SAPPL a b) = SAPPL
+                              (removeRrecBrackets on off a)
+                              (removeRrecBrackets on off b)
+removeRrecBrackets _ _ t = t
