@@ -61,7 +61,7 @@ toMixfixParser tp lst conc termsymb term = do
   seqe <- concat <$> (sequence (toParser <$> lst))
   return $ conc $ (termsymb $ backToMixfix lst) : seqe
   where toParser Nothing = return <$> term
-        toParser (Just n) = lexeme tp $ reserved tp n $> []--termsymb n
+        toParser (Just n) = lexeme tp $ symbol tp n $> []--termsymb n
 
 templateParser :: (Stream s m Char) =>
     GenTokenParser s u m ->
@@ -113,8 +113,13 @@ mixfixDexlarationsParser = do
   tbl <- concat <$> flip sepEndBy sep
                             ((pure <$> mixfixDeclaration tpLD)
                             <|> (many (notFollowedBy sep >> anyChar) $> []))
+  let names = concatMap allNames (template <$> tbl)
+      --singleNames = concat $ filter ((==1).length) names
   return (tbl, makeTokenParser $ optblLangDef{
-      reservedNames = defReservedNames ++ (concatMap allNames (template <$> tbl))})
+        reservedNames = defReservedNames ++ names
+      --, identStart = noneOf $ illegalChars ++ singleNames
+      --, identLetter = noneOf $ illegalChars ++ singleNames
+      })
 
 nextLine :: (Stream s m Char) => ParsecT s u m ()
 nextLine = void $ manyTill anyChar (char '\n')
