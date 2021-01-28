@@ -136,11 +136,11 @@ nextLine = void $ manyTill anyChar (char '\n')
 eol :: (Stream s m Char) => ParsecT s u m ()
 eol = void (char '\n') <|> eof
 
-mixfixTermParser :: forall s u m t . (Stream s m Char) =>
+mixfixTermParser :: forall s u m t . (Stream s m Char, Show t) =>
     GenTokenParser s u m ->
     [MixFixDecl] -> ([t] -> t) -> (String -> t) -> ParsecT s u m t -> ParsecT s u m t
 mixfixTermParser tp decls conc atomicTerm initTerm = recparse
-  where sortDecls = sortOn prescedence decls
+  where sortDecls = reverse $ sortOn prescedence decls
         recparse :: ParsecT s u m t
         recparse = foldr (\fkt trm -> (try $ fkt trm recparse) <|> trm) initTerm (toParser <$> sortDecls)
         toParser :: MixFixDecl -> ParsecT s u m t -> ParsecT s u m t -> ParsecT s u m t
@@ -162,19 +162,19 @@ mixfixTermParser tp decls conc atomicTerm initTerm = recparse
 -----------------------------------
 --KB Parsing
 -----------------------------------
-parseKB :: (Stream s m Char) =>
+parseKB :: (Stream s m Char, Show t) =>
     ([t] -> t) -> (String -> t) -> ParsecT s u m ([t],GenTokenParser s u m)
 parseKB conc atomicTerm = do
   whiteSpace tpLD
   (decls, tp) <- lookAhead mixfixDeclarationsParser
   --traceM $ show decls
 
-  let sep = reserved tp ";"
+  let sep = lexeme tp $ symbol tp ";"
   --TODO: distinguish between vars and constants!
-  ts <- concat <$> (flip sepEndBy sep $
+  ts <- concat <$> ((flip sepEndBy) sep $
     (do
-      notFollowedBy $ lookAhead $ mixfixDeclarationsParser $> "mixfix declaration"
+      notFollowedBy $ (mixfixDeclaration tpLD $> "mixfix declaration")
       pure <$> mixfixTermParser tp decls conc atomicTerm (atomicTerm <$> (lexeme tp $ identifier tp))
-    ) <|> (many (notFollowedBy sep >> anyChar) $> []) )
+    ) <|> (many ((notFollowedBy sep) >> anyChar) $> []) )
 
   return (ts, tp)

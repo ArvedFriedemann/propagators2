@@ -34,13 +34,28 @@ parsetest2 = do
   traceM $ show tbl
   parseTest (mixfixTermParser tp tbl stdlst (SCON . CUST :: String -> TermStruc String) ((SCON . CUST) <$> (lexeme tp $ identifier tp)) ) concExpr
 
+parsetest2' :: IO ()
+parsetest2' = do
+  let exprtext = "expression rassoc 12 _ -> _ ;\n\
+                 \expression lassoc 10 _ _ ;" :: String
+      ettbl = runParser mixfixDeclarationsParser () "exprtext" exprtext
+      --concExpr = "a b c -> d e f -> g h i" :: String
+      concExpr = "a b c -> d e f" :: String
+      (tbl, tp) = case ettbl of
+              Right t -> t
+              Left err -> error $ show err
+  putStrLn exprtext
+  traceM $ show tbl
+  parseTest (mixfixTermParser tp tbl stdlst (SCON . CUST :: String -> TermStruc String) ((SCON . CUST) <$> (lexeme tp $ identifier tp)) ) concExpr
+
 parsetest3 :: IO ()
 parsetest3 = do
-  let exprtext = "expression nassoc 12 ( _ ) ;\n\
-                 \expression nassoc 11 [< _ >] ;\n\
-                 \expression lassoc 10 _ -> _ ;\n\
+  let exprtext = "expression nassoc 7 ( _ ) ;\n\
+                 \expression nassoc 8 [< _ >] ;\n\
+                 \expression rassoc 10 _ -> _ ;\n\
                  \expression lassoc 9 _ _ ;\n\
+                 \a b c -> d e f ;\n\
                  \a(b[<d e>]c)d ;\n\
-                 \a b c -> d e f -> g h i ;\n\
+                 \a b c ;\n\
                  \" :: String
   parseTest (fst <$> parseKB stdlst (SCON . CUST :: String -> TermStruc String)) exprtext
