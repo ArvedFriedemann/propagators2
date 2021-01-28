@@ -129,24 +129,24 @@ fromTermSet' n _ ts
 ------------------------------
 --Reverse Parsing
 ------------------------------
-lassocOp :: (Eq a) => TermStruc a -> TermStruc a -> [TermStruc a]
-lassocOp op t = execWriter (lassocOp' op t)
-lassocOp' :: (Eq a) => TermStruc a -> TermStruc a -> Writer [TermStruc a] ()
-lassocOp' op (SAPPL (SAPPL x op') y)
-  | op == op' = lassocOp' op x >> tell [y]
+lassocOp :: (Eq a) => (TermStruc a -> Bool) -> TermStruc a -> [TermStruc a]
+lassocOp opf t = execWriter (lassocOp' opf t)
+lassocOp' :: (Eq a) => (TermStruc a -> Bool) -> TermStruc a -> Writer [TermStruc a] ()
+lassocOp' opf (SAPPL (SAPPL x op') y)
+  | opf op' = lassocOp' opf x >> tell [y]
 lassocOp' _ t = tell [t]
 
-rassocOp :: (Eq a) => TermStruc a -> TermStruc a -> [TermStruc a]
-rassocOp op (SAPPL x (SAPPL op' y))
-  | op == op' = x : (rassocOp op y)
+rassocOp :: (Eq a) => (TermStruc a -> Bool) -> TermStruc a -> [TermStruc a]
+rassocOp opf (SAPPL x (SAPPL op' y))
+  | opf op' = x : (rassocOp opf y)
 rassocOp _ t = [t]
 
-removeLrecBrackets :: (Eq a) => TermStruc a -> TermStruc a -> TermStruc a -> TermStruc a
-removeLrecBrackets on off (SAPPL (SAPPL on' t) off')
-  | on == on' && off == off' = removeLrecBrackets on off t
-removeLrecBrackets on off (SAPPL a b) = SAPPL
-                              (removeLrecBrackets on off a)
-                              (removeLrecBrackets on off b)
+removeLrecBrackets :: (Eq a) => (TermStruc a -> Bool) -> (TermStruc a -> Bool) -> TermStruc a -> TermStruc a
+removeLrecBrackets onf offf (SAPPL (SAPPL on' t) off')
+  | onf on' && offf off' = removeLrecBrackets onf offf t
+removeLrecBrackets onf offf (SAPPL a b) = SAPPL
+                              (removeLrecBrackets onf offf a)
+                              (removeLrecBrackets onf offf b)
 removeLrecBrackets _ _ t = t
 
 removeRrecBrackets :: (Eq a) => TermStruc a -> TermStruc a -> TermStruc a -> TermStruc a
