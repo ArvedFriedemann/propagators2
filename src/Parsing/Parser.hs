@@ -161,8 +161,8 @@ mixfixTermParser tp decls conc atomicTerm initTerm = recparse
 --KB Parsing
 -----------------------------------
 parseKB :: (Stream s m Char, Show t) =>
-    ([t] -> t) -> (String -> t) -> ParsecT s u m ([t],GenTokenParser s u m)
-parseKB conc atomicTerm = do
+    ([t] -> t) -> (String -> t) -> (String -> t) -> ParsecT s u m ([t],GenTokenParser s u m)
+parseKB conc constant variable = do
   whiteSpace tpLD
   (decls, tp) <- lookAhead mixfixDeclarationsParser
   --traceM $ show decls
@@ -172,7 +172,7 @@ parseKB conc atomicTerm = do
   ts <- concat <$> ((flip sepEndBy) sep $
     (do
       notFollowedBy $ (mixfixDeclaration tpLD $> "mixfix declaration")
-      pure <$> mixfixTermParser tp decls conc atomicTerm (atomicTerm <$> (lexeme tp $ identifier tp))
+      pure <$> mixfixTermParser tp decls conc constant (variable <$> (lexeme tp $ identifier tp))
     ) <|> (many ((notFollowedBy sep) >> anyChar) $> []) )
 
   return (ts, tp)

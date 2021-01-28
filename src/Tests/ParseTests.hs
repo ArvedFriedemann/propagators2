@@ -46,7 +46,7 @@ parsetest2' = do
               Left err -> error $ show err
   putStrLn exprtext
   traceM $ show tbl
-  parseTest (mixfixTermParser tp tbl stdlst (SCON . CUST :: String -> TermStruc String) ((SCON . CUST) <$> (lexeme tp $ identifier tp)) ) concExpr
+  parseTest (mixfixTermParser tp tbl stdlst (SCON . CUST :: String -> TermStruc String) (SVAR <$> (lexeme tp $ identifier tp)) ) concExpr
 
 parsetest3 :: IO ()
 parsetest3 = do
@@ -58,4 +58,4 @@ parsetest3 = do
                  \a(b[<d e>]c)d ;\n\
                  \a b c ;\n\
                  \" :: String
-  parseTest (fst <$> parseKB stdlst (SCON . CUST :: String -> TermStruc String)) exprtext
+  parseTest (fst <$> parseKB stdlst (SCON . CUST :: String -> TermStruc String) (SVAR :: String -> TermStruc String)) exprtext
