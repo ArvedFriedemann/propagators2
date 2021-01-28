@@ -20,11 +20,12 @@ parsetest1 = do
 
 parsetest2 :: IO ()
 parsetest2 = do
-  let exprtext = "expression rassoc 11 _ ( _ ) _ ;\n\
+  let exprtext = "expression nassoc 12 ( _ ) ;\n\
+                 \expression nassoc 11 [ _ ] ;\n\
                  \expression lassoc 10 _ _" :: String
       ettbl = runParser mixfixDexlarationsParser () "exprtext" exprtext
       --concExpr = "a b c -> d e f -> g h i" :: String
-      concExpr = "a ( b c ) d" :: String
+      concExpr = "a ( b [ d e ] c ) d" :: String
       (tbl, tp) = case ettbl of
               Right t -> t
               Left err -> error $ show err

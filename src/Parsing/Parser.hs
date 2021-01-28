@@ -61,7 +61,7 @@ toMixfixParser tp lst conc termsymb term = do
   seqe <- concat <$> (sequence (toParser <$> lst))
   return $ conc $ (termsymb $ backToMixfix lst) : seqe
   where toParser Nothing = return <$> term
-        toParser (Just n) = lexeme tp $ symbol tp n $> []--termsymb n
+        toParser (Just n) = lexeme tp $ reserved tp n $> []--termsymb n
 
 templateParser :: (Stream s m Char) =>
     GenTokenParser s u m ->
