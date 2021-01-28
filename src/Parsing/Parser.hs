@@ -113,12 +113,12 @@ mixfixDexlarationsParser = do
   tbl <- concat <$> flip sepEndBy sep
                             ((pure <$> mixfixDeclaration tpLD)
                             <|> (many (notFollowedBy sep >> anyChar) $> []))
-  let names = concatMap allNames (template <$> tbl)
-      --singleNames = concat $ filter ((==1).length) names
+  let names = defReservedNames ++ concatMap allNames (template <$> tbl)
+      reservedParsers = choice (try . symbol tpLD <$> names)--TODO: notFollowedBy something reserved for valid identifier letters
   return (tbl, makeTokenParser $ optblLangDef{
-        reservedNames = defReservedNames ++ names
-      --, identStart = noneOf $ illegalChars ++ singleNames
-      --, identLetter = noneOf $ illegalChars ++ singleNames
+        reservedNames = names
+      , identStart = (notFollowedBy $ reservedParsers) >> noneOf illegalChars
+      , identLetter = (notFollowedBy $ reservedParsers) >> noneOf illegalChars
       })
 
 nextLine :: (Stream s m Char) => ParsecT s u m ()
