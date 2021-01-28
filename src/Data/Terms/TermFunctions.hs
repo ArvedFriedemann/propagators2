@@ -35,8 +35,7 @@ instance Show a => Show (TermStruc a) where
     showsPrec _ (SCON (CUST s)) = showString s
     showsPrec n (SCON c) = showsPrec n c
     showsPrec n (SVAR v) = (showString "@").(showsPrec n v).(showString "@")
-    --WARNING: This only makes sense when brackets are explicitly in the term!
-    --showsPrec n (SAPPL s c@(SAPPL _ _)) = (showsPrec n s).(showString "(").(showsPrec n c).(showString ")")
+    showsPrec n (SAPPL s c@(SAPPL _ _)) = (showsPrec n s).(showString "(").(showsPrec n c).(showString ")")
     --showsPrec n (SAPPL s@(SAPPL _ _) c) = (showString "(").(showsPrec n s).(showString ")").(showsPrec n c)
     showsPrec n (SAPPL s c) = (showsPrec n s).(showString " ").(showsPrec n c)
 
