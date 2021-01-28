@@ -34,7 +34,9 @@ instance Show a => Show (TermStruc a) where
     showsPrec _ SBOT = showString "bot"
     showsPrec _ (SCON (CUST s)) = showString s
     showsPrec n (SCON c) = showsPrec n c
-    showsPrec n (SVAR v) = (showString "@").(showsPrec n v).(showString "@")
+    --TODO: Should not be used when variables are not strings
+    showsPrec n (SVAR v) = (showsPrec n v)
+    --showsPrec n (SVAR v) = (showString "@").(showsPrec n v).(showString "@")
     showsPrec n (SAPPL s c@(SAPPL _ _)) = (showsPrec n s).(showString "(").(showsPrec n c).(showString ")")
     --showsPrec n (SAPPL s@(SAPPL _ _) c) = (showString "(").(showsPrec n s).(showString ")").(showsPrec n c)
     showsPrec n (SAPPL s c) = (showsPrec n s).(showString " ").(showsPrec n c)
@@ -70,8 +72,6 @@ stdlst = foldl apls STOP
 class PosTermId i where
   appLeft :: i -> i
   appRight :: i -> i
-
-
 
 fromVarsAsCells ::
   (Ord i, Std i, MonadProp m,

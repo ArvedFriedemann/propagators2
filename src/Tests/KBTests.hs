@@ -6,8 +6,11 @@ import "this" Data.Terms.TermFunctions
 import "this" Control.Language.LogLang
 import "this" Control.Propagator
 import "this" Control.Propagator.Event
+import "this" Parsing.Parser
 
 import "base" Debug.Trace
+
+import "parsec" Text.Parsec
 
 
 data Cell = Sv Int | A | B | C | D | G | H | I | J | K | X | Y | Z deriving (Eq, Ord, Show)
@@ -91,3 +94,36 @@ kbtest2' = runTestSEB @(TermId) $ do
       watchTermRec a
 
   return $ [goal, post, pre]
+
+kbtest3 :: IO ()
+kbtest3 = runTestSEB @(TermId) $ do
+  let exprtext = "expression nassoc 7 ( _ ) ;\n\
+                 \expression rassoc 10 _ -> _ ;\n\
+                 \expression lassoc 9 _ _ ;\n\
+                 \expression nassoc 8 A ;\n\
+                 \expression nassoc 8 B ;\n\
+                 \a -> B ;\n\
+                 \A -> b ;\n\
+                 \" :: String
+  let eres = runParser (fst <$> parseKB stdlst (SCON . CUST :: String -> TermStruc String) (SVAR :: String -> TermStruc String)) () "exprtext" exprtext
+  case eres  of
+    Left err -> error $ show err
+    Right [t1,t2] -> do
+      t1t <- fromVarsAsCells (DIRECT ("t1" :: String)) (fmap DIRECT t1)
+      t2t <- fromVarsAsCells (DIRECT ("t2" :: String)) (fmap DIRECT t2)
+      eq t1t t2t
+      return [t1t,t2t]
+    Right _ -> error "wrong test"
+
+
+
+
+
+
+
+
+
+
+
+
+--
