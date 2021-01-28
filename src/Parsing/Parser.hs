@@ -63,6 +63,15 @@ toMixfixParser tp lst conc termsymb term = do
   where toParser Nothing = return <$> term
         toParser (Just n) = lexeme tp $ symbol tp n $> []--termsymb n
 
+
+backToMixfix :: [Maybe String] -> String
+backToMixfix lst = concat $ f <$> lst
+  where f Nothing = "_"
+        f (Just s) = s
+
+allNames :: [Maybe String] -> [String]
+allNames = catMaybes
+
 templateParser :: (Stream s m Char) =>
     GenTokenParser s u m ->
     ParsecT s u m [Maybe String]
@@ -107,8 +116,8 @@ mixfixDeclaration tp = do
                       , associativity = asc
                       , prescedence = presc}
 
-mixfixDexlarationsParser :: (Stream s m Char) => ParsecT s u m ([MixFixDecl], GenTokenParser s u m)
-mixfixDexlarationsParser = do
+mixfixDeclarationsParser :: (Stream s m Char) => ParsecT s u m ([MixFixDecl], GenTokenParser s u m)
+mixfixDeclarationsParser = do
   let sep = reserved tpLD ";"
   tbl <- concat <$> flip sepEndBy sep
                             ((pure <$> mixfixDeclaration tpLD)
@@ -150,10 +159,22 @@ mixfixTermParser tp decls conc atomicTerm initTerm = recparse
                               return (\x y -> conc [x,t,y])
                               )
 
-backToMixfix :: [Maybe String] -> String
-backToMixfix lst = concat $ f <$> lst
-  where f Nothing = "_"
-        f (Just s) = s
+-----------------------------------
+--KB Parsing
+-----------------------------------
+parseKB :: (Stream s m Char) =>
+    ([t] -> t) -> (String -> t) -> ParsecT s u m ([t],GenTokenParser s u m)
+parseKB conc atomicTerm = do
+  whiteSpace tpLD
+  (decls, tp) <- lookAhead mixfixDeclarationsParser
+  --traceM $ show decls
 
-allNames :: [Maybe String] -> [String]
-allNames = catMaybes
+  let sep = reserved tp ";"
+  --TODO: distinguish between vars and constants!
+  ts <- concat <$> (flip sepEndBy sep $
+    (do
+      notFollowedBy $ lookAhead $ mixfixDeclarationsParser $> "mixfix declaration"
+      pure <$> mixfixTermParser tp decls conc atomicTerm (atomicTerm <$> (lexeme tp $ identifier tp))
+    ) <|> (many (notFollowedBy sep >> anyChar) $> []) )
+
+  return (ts, tp)
