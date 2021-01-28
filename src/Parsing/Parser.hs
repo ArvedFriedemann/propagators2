@@ -57,11 +57,9 @@ concat xs y zs -> concat (x : xs) y (x : zs)
 toMixfixParser :: (Stream s m Char) =>
     GenTokenParser s u m ->
     [Maybe String] -> ([t] -> t) -> (String -> t) -> ParsecT s u m t -> ParsecT s u m t
-toMixfixParser tp lst conc termsymb term = do
-  seqe <- concat <$> (sequence (toParser <$> lst))
-  return $ conc $ (termsymb $ backToMixfix lst) : seqe
-  where toParser Nothing = return <$> term
-        toParser (Just n) = lexeme tp $ symbol tp n $> []--termsymb n
+toMixfixParser tp lst conc termsymb term = conc <$> sequence (toParser <$> lst)
+  where toParser Nothing = term
+        toParser (Just n) = termsymb <$> (lexeme tp $ symbol tp n)
 
 
 backToMixfix :: [Maybe String] -> String
