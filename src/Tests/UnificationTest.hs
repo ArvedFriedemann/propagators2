@@ -17,6 +17,7 @@ import "this" Control.Propagator
 import "this" Control.Propagator.Event ( evalSEB )
 import "this" Tests.TestLogic
 import "this" Data.Lattice
+import "this" Control.Language.LogLang
 
 
 data Cell = STR String | Sv Int | A | B | C | D deriving (Eq, Ord, Show)
@@ -83,6 +84,53 @@ test43 = runTestSEB @(TermId) $ do
     write (DIRECT A) "A"
     return [DIRECT A, DIRECT B]
 
+test44 :: IO ()
+test44 = runTestSEB @(TermId) $ do
+
+    scoped () $ \_ -> do
+      --read (DIRECT A)
+      promoteTerm (DIRECT B)
+      scoped () $ \_ -> do
+        promoteTerm (DIRECT B)
+        eq (DIRECT A) (DIRECT B)
+        --eq (DIRECT A) (DIRECT B)
+    fromVarsAsCells (DIRECT A) ["A","B","C"]
+    return [DIRECT A, DIRECT B]
+
+test45 :: IO ()
+test45 = runTestSEB @(TermId) $ do
+
+    disjunctForkPromoter (DIRECT A) ("djf0" :: String) [(do
+        --promoteTerm (DIRECT A)
+        --eq (DIRECT A) (DIRECT B)
+        fromVarsAsCells (DIRECT B) ["B", "X"]
+        fromVarsAsCells (DIRECT C) ["X", "A"]
+        --promoteTerm (DIRECT A)
+        [pre,post] <- refreshClause ("rfc1"::String) (["X"],[(DIRECT C),(DIRECT B)])
+        eq (DIRECT A) post
+
+        disjunctForkPromoter pre ("djf1" :: String) [(do
+            s <- scope
+            traceM $ "Fork2: "++show s
+            fromVarsAsCells (DIRECT D) ["A","A"]
+            --promoteTerm (DIRECT C)
+            eq (DIRECT D) pre
+            pure ()
+          ),(do
+            [_,post'] <- refreshClause ("rfc1"::String) (["X"],[(DIRECT C),(DIRECT B)])
+            eq pre post'
+            pure ()
+          )]
+
+        pure ()
+      ), (do
+        fromVarsAsCells (DIRECT D) ["A","A"]
+        eq (DIRECT A) (DIRECT D)
+        pure ()
+      )]
+    fromVarsAsCells (DIRECT A) ["B", var (DIRECT $Sv 0)]
+    return [DIRECT A]
+
 test4' :: IO ()
 test4' = runTestSEB @(TermId) $ do
     let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId]
@@ -143,14 +191,19 @@ test4'' = runTestSEB @(TermId) $ do
 
 testRefreshTo :: IO ()
 testRefreshTo = runTestSEB $ do
-    orig <- fromVarsAsCells (DIRECT A) ["B", "A"]
+    orig <- fromVarsAsCells (DIRECT (Sv 0)) ["B","A"]
+    orig' <- fromVarsAsCells (DIRECT (Sv 1)) ["B","A"]
     --so the term listeners are placed
     --v1 <- fromVarsAsCells (DIRECT C) []
-    cpy <- refreshVarsTbl D (Map.fromSet (bound B) (Set.fromList ["B"])) orig
+    --cpy <- return $ DIRECT D
+    traceM $ show $ ([(CUST ("B" :: String),bound B "B")] ::[(TermConst,TermId)])
+    cpy <- refreshVarsTbl ("refresh0" :: String) (Map.fromList [(CUST ("B" :: String),bound B "B")]) orig
+    cpy' <- refreshVarsTbl ("refresh1" :: String) (Map.fromList [(CUST ("B" :: String),bound C "B")]) orig
 
-    eq orig cpy
+    eq orig' cpy
+    eq orig' cpy'
     --cpy <- refreshVarsTbl B [("B",v1 :: TermId)] orig
-    return [orig, cpy]
+    return [orig,orig', cpy, cpy']
 {-
 testRefreshBack :: IO ()
 testRefreshBack = runTestSEB $ do

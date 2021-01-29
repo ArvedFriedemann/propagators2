@@ -66,21 +66,39 @@ kbtest1' = runTestSEB @(TermId) $ do
 
 kbtest2 :: IO ()
 kbtest2 = runTestSEB @(TermId) $ do
-  a <- fromVarsAsCells (DIRECT A) ["A","A"]
-  x <- fromVarsAsCells (DIRECT X) ["X","A"]
-  b <- fromVarsAsCells (DIRECT B) ["X","B"]
-  goal <- fromVarsAsCells (DIRECT G) [var (DIRECT $ Sv 1), "B"]
+  --a <- fromVarsAsCells (DIRECT A) ["A","A"]
+  --x <- fromVarsAsCells (DIRECT X) ["X","A"]
+  --b <- fromVarsAsCells (DIRECT B) ["X","B"]
+  --goal <- fromVarsAsCells (DIRECT G) [var (DIRECT $ Sv 1), "B"]
+  --a <- fromVarsAsCells (DIRECT A) ["A", "A"]
+  --x <- fromVarsAsCells (DIRECT X) ["X", "A"]
+  --b <- fromVarsAsCells (DIRECT B) ["B", "X"]
+  --goal <- fromVarsAsCells (DIRECT G) ["B",var (DIRECT $ Sv 1)]
+  a <- fromVarsAsCells (DIRECT A) ["A", "A"]
+  x <- fromVarsAsCells (DIRECT ("x" :: String)) ["X", "A"]
+  --x <- fromVarsAsCells (DIRECT ("x" :: String)) ["A", "X"]
+  b <- fromVarsAsCells (DIRECT B) ["B", "X"]
+  goal <- fromVarsAsCells (DIRECT G) ["B",var (DIRECT $ Sv 1)]
   kb <- pure [([],[a]),(["X"],[x,b])]
 
+  --(splitClause -> Just ([pre1],post1)) <- refreshClause ("refresh1" :: String) --(["X"],[x,b])
+  --(splitClause -> Just ([pre2],post2)) <- refreshClause ("refresh2" :: String) --(["X"],[x',b])
+  --(splitClause -> Just ([],pre1')) <- refreshClause ("refresh1'" :: String) --(["X"],[x])
+  --(splitClause -> Just ([],pre2')) <- refreshClause ("refresh2'" :: String) --(["X"],[x'])
+
   simpleKBNetwork' 3 K kb goal
-  return $ [a,x,b,goal]
+  return $ [{-pre1,post1,pre2,post2,pre1',pre2',-}goal]
 
 kbtest2' :: IO ()
 kbtest2' = runTestSEB @(TermId) $ do
-  a <- fromVarsAsCells (DIRECT A) ["A", "C"]
-  x <- fromVarsAsCells (DIRECT X) ["A", "X"]
-  b <- fromVarsAsCells (DIRECT B) ["X", "B"]
-  goal <- fromVarsAsCells (DIRECT G) [var (DIRECT $ Sv 1), "B"]
+  --a <- fromVarsAsCells (DIRECT A) ["A", "C"]
+  --x <- fromVarsAsCells (DIRECT X) ["A", "X"]
+  --b <- fromVarsAsCells (DIRECT B) ["X", "B"]
+  --goal <- fromVarsAsCells (DIRECT G) [var (DIRECT $ Sv 1), "B"]
+  a <- fromVarsAsCells (DIRECT A) ["A", "A"]
+  x <- fromVarsAsCells (DIRECT X) ["X", "A"]
+  b <- fromVarsAsCells (DIRECT B) ["B", "X"]
+  goal <- fromVarsAsCells (DIRECT G) ["B",var (DIRECT $ Sv 1)]
   (splitClause -> Just ([pre],post)) <- refreshClause ("refresh" :: String) (["X"],[x,b])
   scoped () $ const $ do
     eq goal post
@@ -123,12 +141,23 @@ kbtest4 = runTestSEB @(TermId) $ do
                  \expression lassoc 9 _ _ ;\n\
                  \expression nassoc 8 A ;\n\
                  \expression nassoc 8 B ;\n\
-                 \A A ;\n\
-                 \A a ;\n\
+                 \(a B) (A A) ;\n\
+                 \(a B) (A a) ;\n\
                  \" :: String
   parseAndPerformProofSearch () exprtext
 
-
+kbtest5 :: IO ()
+kbtest5 = runTestSEB @(TermId) $ do
+  let exprtext = "expression nassoc 7 ( _ ) ;\n\
+                 \expression rassoc 10 _ -> _ ;\n\
+                 \expression lassoc 9 _ _ ;\n\
+                 \expression nassoc 8 A ;\n\
+                 \expression nassoc 8 B ;\n\
+                 \A A ;\n\
+                 \A a  -> B a ;\n\
+                 \B a ;\n\
+                 \" :: String
+  parseAndPerformProofSearch () exprtext
 
 
 
