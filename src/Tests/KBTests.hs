@@ -160,6 +160,22 @@ kbtest5 = runTestSEB @(TermId) $ do
   parseAndPerformProofSearch () exprtext
 
 
+kbtest6 :: IO ()
+kbtest6 = runTestSEB @(TermId) $ do
+  let exprtext = "expression nassoc 7 ( _ ) ;\n\
+                 \expression rassoc 11 _ -> _ ;\n\
+                 \expression rassoc 10 _ : _ ;\n\
+                 \expression lassoc 9 _ _ ;\n\
+                 \expression nassoc 8 [] ;\n\
+                 \expression nassoc 8 concat ;\n\
+                 \expression nassoc 8 A ;\n\
+                 \concat [] y y ;\n\
+                 \concat xs y zs -> concat (x : xs) y (x : zs) ;\n\
+                 \concat (A : A : []) (A : []) y ;\n\
+                 \" :: String
+  parseAndPerformProofSearch () exprtext
+
+
 
 
 
