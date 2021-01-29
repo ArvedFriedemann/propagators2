@@ -13,6 +13,8 @@ import "containers" Data.Set qualified as Set
 import "this" Data.Terms
 import "this" Control.Combinator.Logics
 import "this" Control.Propagator
+import "this" Control.Propagator.Propagator
+import "this" Control.Propagator.Combinators
 import "this" Data.Lattice
 
 
@@ -35,7 +37,8 @@ refreshClause ::
   , Std w) =>
   w -> (Consts, Clause i) -> m (Clause i)
 refreshClause lsid (binds, trms)
-    = forM trms $ refreshVarsTbl lsid (Map.fromSet (bound lsid) binds)
+    = forM (zip trms [0..]) $ \(t,i) ->
+        refreshVarsTbl (lsid,i::Int) (Map.fromSet (bound lsid) binds) t
 
 data SimpleKBNetwork w i = SBNC w i
   deriving (Eq, Ord, Show)
@@ -73,10 +76,26 @@ simpleKBNetwork' fuel listId kb goal = do
     g <- read goal
     unless (g==bot) $ do
         disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) [do
-            (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId) cls
+            --sequence_ $ requestTerm <$> snd cls
+            --sequence_ $ watchTermRec <$> snd cls
+            (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int) cls --TODO: might have to be indexed with cls as well
+            watchTermRec goal
+            --watchTermRec post
             eq post goal
             forM_ pres $ \p -> do
-              simpleKBNetwork' (fuel-1) ("simpleKBNetwork'"::String,(fuel-1),p,listId) kb p --TODO: pack the kb
+              simpleKBNetwork' (fuel-1) ("simpleKBNetwork'"::String,(fuel-1),p,listId,i) kb p --TODO: pack the kb
               propBot p goal
+              --watchTermRec p
+            |(cls,i) <- zip kb [0..]]
 
-            |cls <- kb]
+
+
+
+
+
+
+
+
+
+
+--
