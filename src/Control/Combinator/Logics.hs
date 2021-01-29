@@ -45,7 +45,7 @@ disjunctForkPromoter :: forall i j a m.
              , Promoter i a m
              , Std j
              ) => i -> j -> [m ()] -> m ()
-disjunctForkPromoter goal name ms = disjunctForkDestr goal name (zip ms (repeat $ promoteAction goal)) (void $ write goal bot)
+disjunctForkPromoter goal name ms = disjunctForkDestr goal name (zip ms (repeat $ promoteAction goal )) (void $ write goal bot)
 
 disjunctForkDestr :: forall i j a m.
              ( MonadProp m
@@ -81,14 +81,9 @@ instance (Std j, Typeable m, MonadProp m, Value a, BoundedJoin a, Identifier i a
         fconts <- fmap join . forM forks $ \(f,m) -> read f <&> \case
             Bot -> []
             _   -> [(f,m)]
-        s <- scope
-        traceM $ "\nFork fconts: "++show (fst <$> fconts)++" in "++show s++"\n"
         case fconts of
             [(f,m)] -> do
-                traceM "singleton promoter called"
-                --target f `eq` f
                 scoped f $ const m
             []   -> do
-              traceM "final destructor called"
               finalDestr
             _ -> pure ()
