@@ -1,12 +1,15 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 module Data.Terms.Terms where
 
+import "base" Prelude hiding ( read )
 import "base" Data.Maybe
 import "base" Data.Function
 import "base" Control.Applicative
 import "base" Control.Monad
 import "base" GHC.Exts
 import "base" Data.Typeable
+import "base" Debug.Trace
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
@@ -31,12 +34,13 @@ data TermConst
     | GEN (Some Std)
     | ID Int
   deriving (Show, Eq, Ord)
+  {-}
 data Term a
     = Var a
     | Con TermConst
     | App a a
   deriving (Show, Eq, Ord, Functor, Foldable)
-
+-}
 
 data TermSet a
     = TSBot
@@ -114,6 +118,9 @@ instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (T
         let appList = Set.toList . applications $ ts
         eqAll $ fst <$> appList
         eqAll $ snd <$> appList
+
+        --sequence_ $ read . fst <$> appList
+        --sequence_ $ read . snd <$> appList
         --as subvalues are not equivalent to this value, their bots have to be propagated as well
         let propBotThis a = propBot a this
         mapM_ propBotThis $ fst <$> appList
@@ -127,15 +134,31 @@ promoteTerm t = watch t $ TermPromoter t
 data TermPromoter i = TermPromoter i deriving (Eq, Ord, Show)
 
 instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (TermPromoter i) where
-    --WARNING: Does not remove listeners after join!
-    propagate _ Bot = pure ()
+    propagate (TermPromoter this) Bot = promote this
     propagate (TermPromoter this) ts = do
       promote this
       forM_ (variables ts) $ \v -> do
-        watch v $ TermPromoter v
+        promoteTerm v
       forM_ (applications ts) $ \(a,b) -> do
-        watch a $ TermPromoter a
-        watch b $ TermPromoter b
+        promoteTerm a
+        promoteTerm b
+
+requestTerm :: (Ord i, MonadProp m, Identifier i (TermSet i)) =>
+                i -> m i
+requestTerm t = watch t $ TermRequester t
+
+data TermRequester i = TermRequester i deriving (Eq, Ord, Show)
+
+instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (TermRequester i) where
+    --WARNING: Does not remove listeners after join!
+    propagate _ Bot = pure ()
+    propagate (TermRequester this) ts = do
+      request this
+      forM_ (variables ts) $ \v -> do
+        watch v $ TermRequester v
+      forM_ (applications ts) $ \(a,b) -> do
+        watch a $ TermRequester a
+        watch b $ TermRequester b
 
 watchTermRec :: (Ord i, MonadProp m, Identifier i (TermSet i)) => i -> m i
 watchTermRec ct = watch ct $ WatchTermRec ct
@@ -168,12 +191,7 @@ data RefreshVar i = forall w.(Eq w, Ord w, Show w, Typeable w) => RefreshVar w i
 instance Eq i => Eq (RefreshVar i) where
   (RefreshVar w i mp) == (RefreshVar w' i' mp') = w =~= w' && i == i' && mp == mp'
 instance Ord i => Ord (RefreshVar i) where
-  compare (RefreshVar w i mp) (RefreshVar w' i' mp') =
-    case compareTyped w w' of
-      EQ -> case compare i i' of
-              EQ -> compare mp mp'
-              _ -> compare i i'
-      _ -> compareTyped w w'
+  compare (RefreshVar w i mp) (RefreshVar w' i' mp') = compareTyped w w' <>  compare i i' <> compare mp mp'
 instance Show i => Show (RefreshVar i) where
   show (RefreshVar w i mp) = "RefreshVar "++show w++" "++show i++" "++show mp
 
