@@ -82,8 +82,8 @@ simpleKBNetwork' fuel listId kb goal = do
             watchTermRec goal
             --watchTermRec post
             eq post goal
-            forM_ pres $ \p -> do
-              simpleKBNetwork' (fuel-1) ("simpleKBNetwork'"::String,(fuel-1),p,listId,i) kb p --TODO: pack the kb
+            forM_ (zip pres [0..]) $ \(p,j) -> do
+              simpleKBNetwork' (fuel-1) ("simpleKBNetwork'"::String,(fuel-1),p,j::Int,listId,i) kb p --TODO: pack the kb
               propBot p goal
               --watchTermRec p
             |(cls,i) <- zip kb [0..]]
