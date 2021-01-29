@@ -4,6 +4,7 @@ import "this" Tests.TestLogic
 import "this" Data.Terms
 import "this" Data.Terms.TermFunctions
 import "this" Control.Language.LogLang
+import "this" Control.Language.Pipeline
 import "this" Control.Propagator
 import "this" Control.Propagator.Event
 import "this" Parsing.Parser
@@ -115,7 +116,17 @@ kbtest3 = runTestSEB @(TermId) $ do
       return [t1t,t2t]
     Right _ -> error "wrong test"
 
-
+kbtest4 :: IO ()
+kbtest4 = runTestSEB @(TermId) $ do
+  let exprtext = "expression nassoc 7 ( _ ) ;\n\
+                 \expression rassoc 10 _ -> _ ;\n\
+                 \expression lassoc 9 _ _ ;\n\
+                 \expression nassoc 8 A ;\n\
+                 \expression nassoc 8 B ;\n\
+                 \A A ;\n\
+                 \A a ;\n\
+                 \" :: String
+  parseAndPerformProofSearch () exprtext
 
 
 

@@ -18,6 +18,7 @@ import "this" Data.Lattice
 import "this" Data.Typed
 import "this" Control.Propagator
 import "this" Control.Propagator.Scope
+import "this" Data.Some
 
 
 data TermConst
@@ -27,6 +28,7 @@ data TermConst
     | OR
     | IMPL
     | CUST String
+    | GEN (Some Std)
     | ID Int
   deriving (Show, Eq, Ord)
 data Term a

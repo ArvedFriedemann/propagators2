@@ -63,6 +63,20 @@ instance IsString (TermStruc a) where
 var :: a -> TermStruc a
 var = SVAR
 
+tsVars :: TermStruc a -> [a]
+tsVars = execWriter . tsVars'
+tsVars' :: TermStruc a -> Writer [a] ()
+tsVars' (SVAR s) = tell [s]
+tsVars' (SAPPL a b) = tsVars' a >> tsVars' b
+tsVars' _ = return ()
+
+exchangeVars :: (a -> TermStruc b) -> TermStruc a -> TermStruc b
+exchangeVars fkt (SVAR v) = fkt v
+exchangeVars fkt (SAPPL a b) = SAPPL (exchangeVars fkt a) (exchangeVars fkt b)
+exchangeVars _ STOP = STOP
+exchangeVars _ SBOT = SBOT
+exchangeVars _ (SCON c) = SCON c
+
 apls :: TermStruc a -> TermStruc a -> TermStruc a
 apls x STOP = x
 apls STOP x = x
@@ -145,18 +159,22 @@ rassocOpF opf (SAPPL x (SAPPL op' y))
   | opf op' = x : (rassocOpF opf y)
 rassocOpF _ t = [t]
 
-removeLrecBrackets :: (Eq a) => (TermStruc a -> Bool) -> (TermStruc a -> Bool) -> TermStruc a -> TermStruc a
-removeLrecBrackets onf offf (SAPPL (SAPPL on' t) off')
-  | onf on' && offf off' = removeLrecBrackets onf offf t
-removeLrecBrackets onf offf (SAPPL a b) = SAPPL
-                              (removeLrecBrackets onf offf a)
-                              (removeLrecBrackets onf offf b)
-removeLrecBrackets _ _ t = t
+removeLrecBrackets :: (Eq a) => TermStruc a -> TermStruc a -> TermStruc a -> TermStruc a
+removeLrecBrackets on off = removeLrecBracketsF (==on) (==off)
+removeLrecBracketsF :: (Eq a) => (TermStruc a -> Bool) -> (TermStruc a -> Bool) -> TermStruc a -> TermStruc a
+removeLrecBracketsF onf offf (SAPPL (SAPPL on' t) off')
+  | onf on' && offf off' = removeLrecBracketsF onf offf t
+removeLrecBracketsF onf offf (SAPPL a b) = SAPPL
+                              (removeLrecBracketsF onf offf a)
+                              (removeLrecBracketsF onf offf b)
+removeLrecBracketsF _ _ t = t
 
 removeRrecBrackets :: (Eq a) => TermStruc a -> TermStruc a -> TermStruc a -> TermStruc a
-removeRrecBrackets on off (SAPPL on' (SAPPL t off'))
-  | on == on' && off == off' = removeRrecBrackets on off t
-removeRrecBrackets on off (SAPPL a b) = SAPPL
-                              (removeRrecBrackets on off a)
-                              (removeRrecBrackets on off b)
-removeRrecBrackets _ _ t = t
+removeRrecBrackets on off = removeRrecBracketsF (==on) (==off)
+removeRrecBracketsF :: (Eq a) => (TermStruc a -> Bool) -> (TermStruc a -> Bool) -> TermStruc a -> TermStruc a
+removeRrecBracketsF onf offf (SAPPL on' (SAPPL t off'))
+  | onf on' && offf off' = removeRrecBracketsF onf offf t
+removeRrecBracketsF onf offf (SAPPL a b) = SAPPL
+                              (removeRrecBracketsF onf offf a)
+                              (removeRrecBracketsF onf offf b)
+removeRrecBracketsF _ _ t = t
