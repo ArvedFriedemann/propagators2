@@ -11,6 +11,7 @@ import "this" Parsing.Parser
 import "parsec" Text.Parsec
 
 import "base" Data.Typeable
+import "base" Debug.Trace
 
 parseAndPerformProofSearch :: (MonadFail m, MonadProp m, Typeable m, Std k) => k -> String -> m [TermId]
 parseAndPerformProofSearch k inst = do
@@ -18,6 +19,11 @@ parseAndPerformProofSearch k inst = do
   case parseRes of
     Left err -> error $ show err
     Right (map cleanBrackets -> terms) -> do
+      traceM "KB:"
+      sequence_ (traceM <$> show <$> init terms)
+      traceM "Goal:"
+      traceM $ show $ last terms
+
       (kb, goal) <- setupSearch (k,"SetupSearch" :: String) (SCON $ CUST "->") (init terms) (last terms)
       simpleKBNetwork' 3 (k,"search" :: String) kb goal
       return [goal]
