@@ -9,6 +9,7 @@ import "this" Data.Typed
 
 import "base" Control.Monad
 import "base" Data.Typeable
+import "base" Debug.Trace
 
 data TermId
     = EMPTY
