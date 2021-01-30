@@ -15,10 +15,11 @@ import "base" Debug.Trace
 buildClause :: (Std a, Std k) =>
   k -> TermStruc a -> TermStruc a -> (Consts, Clause (TermStruc TermId))
 buildClause k implOp ts = (Set.fromList varConsts
-                        , (exchangeVars $  SCON . varTrans) <$> implparts)
+                        , exchangedVars)
   where varTrans = GEN . Some . (k,)
         varConsts = varTrans <$> tsVars ts
         implparts = rassocOp implOp ts
+        exchangedVars = (exchangeVars $  SCON . varTrans) <$> implparts
 
 buildClauseM :: (MonadProp m, Std a, Std k) =>
   k -> TermStruc a -> TermStruc a -> m (Consts, Clause TermId)

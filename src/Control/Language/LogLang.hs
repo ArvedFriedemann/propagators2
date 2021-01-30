@@ -78,10 +78,13 @@ simpleKBNetwork' fuel listId kb goal = do
         disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) [do
             --sequence_ $ requestTerm <$> snd cls
             --sequence_ $ watchTermRec <$> snd cls
-            (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int) cls --TODO: might have to be indexed with cls as well
+            (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int) cls
+
+
             watchTermRec goal
             --watchTermRec post
             eq post goal
+
             forM_ (zip pres [0..]) $ \(p,j) -> do
               simpleKBNetwork' (fuel-1) ("simpleKBNetwork'"::String,(fuel-1),p,j::Int,listId,i) kb p --TODO: pack the kb
               propBot p goal

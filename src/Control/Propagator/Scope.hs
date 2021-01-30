@@ -47,7 +47,7 @@ pushScope :: Std i => i -> Scope -> Scope
 pushScope = mappend . Scope . pure . Some
 
 popScope :: Scope -> Maybe (Some Std, Scope)
-popScope = fmap (fmap fromList) . uncons . reverse . toList
+popScope = fmap (fmap (fromList . reverse)) . uncons . reverse . toList
 
 parScope :: Scope -> Scope
 parScope s = fromMaybe s (snd <$> popScope s)

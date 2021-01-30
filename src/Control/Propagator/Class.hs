@@ -8,5 +8,5 @@ import "this" Data.Lattice
 class (Ord a, Typeable a, Show a) => Std a
 instance (Ord a, Typeable a, Show a) => Std a
 
-class (BoundedMeet a, Std a) => Value a
-instance (BoundedMeet a, Std a) => Value a
+class (BoundedMeet a, BoundedJoin a, Std a) => Value a
+instance (BoundedMeet a, BoundedJoin a, Std a) => Value a

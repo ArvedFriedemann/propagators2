@@ -14,7 +14,7 @@ import "containers" Data.Set qualified as Set
 import "this" Data.Terms
 import "this" Control.Combinator.Logics
 import "this" Control.Propagator
-import "this" Control.Propagator.Event ( evalSEB )
+import "this" Control.Propagator.Event ( evalSEB , SEB)
 import "this" Tests.TestLogic
 import "this" Data.Lattice
 import "this" Control.Language.LogLang
@@ -97,6 +97,25 @@ test44 = runTestSEB @(TermId) $ do
     fromVarsAsCells (DIRECT A) ["A","B","C"]
     return [DIRECT A, DIRECT B]
 
+test46 :: IO ()
+test46 = runTestSEB @(TermId) $ do
+
+    scoped () $ \_ -> do
+      --read (DIRECT A)
+      promoteTerm (DIRECT B)
+      scoped () $ \_ -> do
+        --read (DIRECT A)
+        promoteTerm (DIRECT B)
+        scoped () $ \_ -> do
+          --read (DIRECT A)
+          promoteTerm (DIRECT B)
+          scoped () $ \_ -> do
+            promoteTerm (DIRECT B)
+            eq (DIRECT A) (DIRECT B)
+            --eq (DIRECT A) (DIRECT B)
+    fromVarsAsCells (DIRECT A) ["A","B","C"]
+    return [DIRECT A, DIRECT B]
+
 test45 :: IO ()
 test45 = runTestSEB @(TermId) $ do
 
@@ -129,6 +148,45 @@ test45 = runTestSEB @(TermId) $ do
         pure ()
       )]
     fromVarsAsCells (DIRECT A) ["B", var (DIRECT $Sv 0)]
+    return [DIRECT A]
+
+test47 :: IO ()
+test47 = runTestSEB @(TermId) $ do
+    disjunctForkPromoter (DIRECT A) ("djf0" :: String) [(do
+        --promoteTerm (DIRECT A)
+        disjunctForkPromoter (DIRECT A) ("djf1" :: String) [(do
+            --fromVarsAsCells (DIRECT A) ["A","B"]
+            --promoteTerm (DIRECT A)
+            disjunctForkPromoter (DIRECT A) ("djf2" :: String) [(do
+                s <- scope
+                traceM $ "Arrived at scope "++show s
+                watch (DIRECT A) $ UniversalPropagator $ ((do
+                  da <- fromCellSize 100 (DIRECT A)
+                  traceM $ "DIRECT A index=0 is "++show da
+                  ):: SEB ())
+                --promoteTerm (DIRECT A)
+                fromVarsAsCells (DIRECT A) ["A","B"]
+                pure ()
+              ),(do
+                s <- scope
+                traceM $ "Actually killing djf2 index=1 in "++show s
+                watch (DIRECT A) $ UniversalPropagator $ ((do
+                  da <- fromCellSize 100 (DIRECT A)
+                  traceM $ "DIRECT A index=1 is "++show da
+                  ):: SEB ())
+                write (DIRECT A) bot
+                pure ()
+              )]
+            pure ()
+          ),(do
+            write (DIRECT A) bot
+            pure ()
+          )]
+        pure ()
+      ), (do
+        write (DIRECT A) bot
+        pure ()
+      )]
     return [DIRECT A]
 
 test4' :: IO ()

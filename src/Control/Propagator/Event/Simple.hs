@@ -100,8 +100,9 @@ handleEvent (WatchEvt (Watch i prop s)) = do
     case v of
       (newValue -> Just props) -> do
         alterCell s (PropagatorsOf @SEB i) . const $ props
-        a <- lift $ getVal s i
-        forM_ a $ \a' -> execListener s a' (Some prop)
+        a <- lift $ getValTop s i
+        --forM_ a $ \a' -> execListener s a' (Some prop)
+        execListener s a (Some prop)
       _ -> pure ()
   where
     newValue old = let p' = old /\ (Value $ Some prop) in guard (p' /= old) $> p'
