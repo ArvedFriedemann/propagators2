@@ -8,6 +8,7 @@ import "base" Data.Typeable
 import "base" Debug.Trace
 
 import "containers" Data.Map qualified as Map
+import "containers" Data.Set (Set)
 import "containers" Data.Set qualified as Set
 
 import "this" Data.Terms
@@ -59,8 +60,7 @@ simpleKBNetwork ::
   w -> KB i -> i -> m ()
 simpleKBNetwork = simpleKBNetwork' (-1)
 
---TODO, WARNING: empty clauses!
---TODO: Proper indices!
+
 simpleKBNetwork' :: forall m i w .
   ( MonadProp m
   , MonadFail m
@@ -71,8 +71,27 @@ simpleKBNetwork' :: forall m i w .
   , CopyTermId i
   , Std w) =>
   Int -> w ->  KB i -> i -> m ()
-simpleKBNetwork' 0 _ _ _ = return ()
-simpleKBNetwork' fuel listId kb goal = do
+simpleKBNetwork' fuel listId kb goal = simpleKBNetwork'' fuel listId kb goal goal
+
+newtype SolutionSet i k = SolutionSet i
+  deriving (Show,Eq,Ord, Typeable)
+
+instance (Std i, Std k) => Identifier (SolutionSet i k) (Set k)
+
+--TODO, WARNING: empty clauses!
+--TODO: Proper indices!
+simpleKBNetwork'' :: forall m i w .
+  ( MonadProp m
+  , MonadFail m
+  , Typeable m
+  , Identifier i (TermSet i)
+  , Promoter i (TermSet i) m
+  , Bound i
+  , CopyTermId i
+  , Std w) =>
+  Int -> w ->  KB i -> i -> i -> m ()
+simpleKBNetwork'' 0 _ _ _ _ = return ()
+simpleKBNetwork'' fuel listId kb goal origGoal = do
     g <- read goal
     unless (g==bot) $ do
         disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) [do
@@ -80,15 +99,19 @@ simpleKBNetwork' fuel listId kb goal = do
             --sequence_ $ watchTermRec <$> snd cls
             (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int) cls
 
-
-            watchTermRec goal
-            --watchTermRec post
+            --watchTermRec goal
             eq post goal
 
+            when (null pres) $ do
+              possSol <- refreshVarsTbl ("poss. sol."::String,listId,i::Int) Map.empty origGoal
+              promoteTerm possSol
+              liftParent $ write (SolutionSet (listId, i::Int)) (Set.singleton possSol)
+              pure ()
+
+
             forM_ (zip pres [0..]) $ \(p,j) -> do
-              simpleKBNetwork' (fuel-1) ("simpleKBNetwork'"::String,(fuel-1),p,j::Int,listId,i) kb p --TODO: pack the kb
+              simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),p,j::Int,listId,i) kb p origGoal --TODO: pack the kb
               propBot p goal
-              --watchTermRec p
             |(cls,i) <- zip kb [0..]]
 
 
