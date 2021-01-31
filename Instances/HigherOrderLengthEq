@@ -1,6 +1,6 @@
 expression nassoc 7 ( _ ) ;
-expression rassoc 13 _ = _ ;
-expression rassoc 11 _ -> _ ;
+expression rassoc 11 _ = _ ;
+expression rassoc 13 _ -> _ ;
 expression lassoc 9 _ _ ;
 
 x = x ;
