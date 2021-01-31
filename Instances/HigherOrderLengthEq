@@ -1,0 +1,26 @@
+expression nassoc 7 ( _ ) ;
+expression rassoc 13 _ = _ ;
+expression rassoc 11 _ -> _ ;
+expression lassoc 9 _ _ ;
+
+x = x ;
+-- a = b -> b = a ; --currently removed to have less ambiguity
+a = b -> b = c -> a = c
+a = a' -> b = b' -> a b = a' b' ;
+
+expression rassoc 10 _ : _ ;
+expression lassoc 8 [] ;
+expression lassoc 8 concat ;
+
+concat [] y = y ;
+concat (x : xs) y = x : concat xs y ;
+
+expression lassoc 8 List ;
+List [] ;
+List xs -> List (x : xs) ;
+
+expression lassoc 8 X ;
+expression lassoc 8 Y ;
+
+--TODO: reasoning about implications maybe?
+List x -> List y -> concat x y = concat y x;
