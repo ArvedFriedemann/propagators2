@@ -73,6 +73,7 @@ evalSEB start end = fmap fst . runSEB mempty mempty $ do
         end a
   where go = do
                 flushSEB
+                traceM "Reached Fixpoint."
                 fixprops <- read (PropagatorsOf @SEB Fixpoint)
                 unless (null fixprops) $ do
                   s <- scope

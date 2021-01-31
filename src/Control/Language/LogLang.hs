@@ -73,11 +73,6 @@ simpleKBNetwork' :: forall m i w .
   Int -> w ->  KB i -> i -> m ()
 simpleKBNetwork' fuel listId kb goal = simpleKBNetwork'' fuel listId kb goal goal
 
-newtype SolutionSet i k = SolutionSet i
-  deriving (Show,Eq,Ord, Typeable)
-
-instance (Std i, Std k) => Identifier (SolutionSet i k) (Set k)
-
 --TODO, WARNING: empty clauses!
 --TODO: Proper indices!
 simpleKBNetwork'' :: forall m i w .
@@ -94,21 +89,23 @@ simpleKBNetwork'' 0 _ _ _ _ = return ()
 simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
     g <- read goal
     unless (g==bot) $ do
-        traceM $ "Executing branch "++show listId
+        --traceM $ "Executing branch "++show listId
         disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) [do
             --sequence_ $ requestTerm <$> snd cls
             --sequence_ $ watchTermRec <$> snd cls
             (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int) cls
 
-            --watchTermRec goal
+            watchTermRec goal
             eq post goal
 
-            when (null pres) $ do
-              possSol <- refreshVarsTbl ("poss. sol."::String,listId,i::Int) Map.empty origGoal
-              promoteTerm possSol
-              liftParent $ write (SolutionSet (listId, i::Int)) (Set.singleton possSol)
-              pure ()
-
+            let {traceSolution = watchFixpoint (listId, i) $ ((do
+              g' <- read origGoal
+              unless (g' == bot) $ do
+                og <- fromCellSize 100 origGoal
+                traceM $ "Possible solution on fixpoint: "++{-show (listId, i)++ -}"\n"++show og
+                watchFixpoint (listId, i) traceSolution
+            ) :: m ())}
+            when (null pres) $ watchTermRec origGoal >> requestTerm origGoal >> traceSolution
 
             forM_ (zip pres [0..]) $ \(p,j) -> do
               simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),p,j::Int,listId,i) kb p origGoal --TODO: pack the kb
