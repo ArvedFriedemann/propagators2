@@ -1,0 +1,14 @@
+expression nassoc 7 ( _ ) ;
+expression rassoc 13 _ = _ ;
+expression rassoc 15 _ -> _ ;
+expression rassoc 12 _ : _ ;
+expression lassoc 9 _ _ ;
+
+x = x ;
+a = b -> b = a ;
+a = b -> b = c -> a = c ;
+a = a' -> b = b' -> a b = a' b' ;
+
+expression rassoc 11 _ => _ ;
+
+(x : A => B) -> (y : A) -> (x y : B)
