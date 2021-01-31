@@ -35,6 +35,16 @@ instance Show (UniversalPropagator m) where
 instance (Typeable m, Std a) => Propagator m a (UniversalPropagator m) where
   propagate (UniversalPropagator m) _ = m
 
+data UniversalNamedPropagator n m = UniversalNamedPropagator n (m ())
+instance (Eq n) => Eq (UniversalNamedPropagator n m) where
+  (UniversalNamedPropagator n1 _) == (UniversalNamedPropagator n2 _) = n1 == n2
+instance (Ord n) => Ord (UniversalNamedPropagator n m) where
+  compare (UniversalNamedPropagator n1 _) (UniversalNamedPropagator n2 _) = compare n1 n2
+instance (Show n) => Show (UniversalNamedPropagator n m) where
+  show (UniversalNamedPropagator n _) = "UniversalNamedPropagator "++show n
+instance (Typeable m, Std a, Std n) => Propagator m a (UniversalNamedPropagator n m) where
+  propagate (UniversalNamedPropagator _ m) _ = m
+
 data UniversalWatchPropagator a m = UniversalWatchPropagator (a -> m ())
 instance Eq (UniversalWatchPropagator a m) where
   _ == _ = False

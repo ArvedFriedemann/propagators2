@@ -1,6 +1,8 @@
 {-# LANGUAGE StrictData #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 module Control.Propagator.Event.Simple where
 
+import "base" Prelude hiding ( read )
 import "base" Data.Foldable
 import "base" Data.Bifunctor
 import "base" Data.Functor
@@ -67,9 +69,16 @@ runSEB st sc = flip runStateT st . unSEB . flip runReaderT sc . runEventT
 evalSEB :: SEB a -> (a -> SEB b) -> IO b
 evalSEB start end = fmap fst . runSEB mempty mempty $ do
         a <- start
-        flushSEB
+        go
         end a
-
+  where go = do
+                flushSEB
+                fixprops <- read (PropagatorsOf @SEB Fixpoint)
+                unless (null fixprops) $ do
+                  s <- scope
+                  notify s Fixpoint
+                  alterCell s (PropagatorsOf @SEB Fixpoint) (const top)
+                  go
 flushSEB :: SEB ()
 flushSEB = do
     evts <- gets fst
@@ -102,7 +111,7 @@ handleEvent (WatchEvt (Watch i prop s)) = do
         alterCell s (PropagatorsOf @SEB i) . const $ props
         a <- lift $ getValTop s i
         --forM_ a $ \a' -> execListener s a' (Some prop)
-        execListener s a (Some prop)
+        unless (i =~= Fixpoint) $ execListener s a (Some prop)
       _ -> pure ()
   where
     newValue old = let p' = old /\ (Value $ Some prop) in guard (p' /= old) $> p'

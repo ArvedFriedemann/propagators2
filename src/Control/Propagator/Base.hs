@@ -11,6 +11,10 @@ import "this" Control.Propagator.Scope
 
 class (Std i, Value a) => Identifier i a | i -> a
 
+data Fixpoint = Fixpoint
+  deriving (Show, Ord, Eq)
+instance Identifier Fixpoint ()
+
 class Monad m => MonadProp m where
 
     write :: Identifier i a => i -> a -> m i

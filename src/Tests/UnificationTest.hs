@@ -247,6 +247,16 @@ test4'' = runTestSEB @(TermId) $ do
         ]
     return [orig]
 
+testFixpoint :: IO ()
+testFixpoint = runTestSEB @(TermId) $ do
+  fromVarsAsCells (DIRECT A) ["A","B","C"]
+  watchFixpoint B (do
+    traceM "Fired Fixpoint Listener!"
+    fromVarsAsCells (DIRECT A) ["K"]
+    pure ()
+    )
+  return [(DIRECT A)]
+
 testRefreshTo :: IO ()
 testRefreshTo = runTestSEB $ do
     orig <- fromVarsAsCells (DIRECT (Sv 0)) ["B","A"]

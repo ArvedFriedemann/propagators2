@@ -91,9 +91,10 @@ simpleKBNetwork'' :: forall m i w .
   , Std w) =>
   Int -> w ->  KB i -> i -> i -> m ()
 simpleKBNetwork'' 0 _ _ _ _ = return ()
-simpleKBNetwork'' fuel listId kb goal origGoal = do
+simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
     g <- read goal
     unless (g==bot) $ do
+        traceM $ "Executing branch "++show listId
         disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) [do
             --sequence_ $ requestTerm <$> snd cls
             --sequence_ $ watchTermRec <$> snd cls

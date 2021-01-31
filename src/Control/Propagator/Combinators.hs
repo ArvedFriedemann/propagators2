@@ -103,6 +103,12 @@ scoped i f = do
     s <- scope
     inScope (s :/ i) $ f s
 
+--This function should be safe to use, however, the way it is implemented is sure as hell not (absolute scopes)
+watchFixpoint :: (MonadProp m, Typeable m, Std k) => k -> m () -> m ()
+watchFixpoint name act = do
+  s <- scope
+  void $ inScope Root $ watch Fixpoint (UniversalNamedPropagator (s,name) (inScope s act))
+
 
 data Const i a = Const a i deriving (Eq, Ord, Show)
 instance Propagator m a i => Propagator m a (Const i a) where
