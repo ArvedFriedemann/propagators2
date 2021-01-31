@@ -69,17 +69,17 @@ runSEB st sc = flip runStateT st . unSEB . flip runReaderT sc . runEventT
 evalSEB :: SEB a -> (a -> SEB b) -> IO b
 evalSEB start end = fmap fst . runSEB mempty mempty $ do
         a <- start
-        go
+        go []
         end a
-  where go = do
+  where go pre = do
                 flushSEB
                 traceM "Reached Fixpoint."
                 fixprops <- read (PropagatorsOf @SEB Fixpoint)
-                unless (null fixprops) $ do
+                unless (null fixprops || fixprops == pre) $ do
                   s <- scope
                   notify s Fixpoint
                   alterCell s (PropagatorsOf @SEB Fixpoint) (const top)
-                  go
+                  go fixprops
 flushSEB :: SEB ()
 flushSEB = do
     evts <- gets fst
