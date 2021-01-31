@@ -104,6 +104,10 @@ scoped i f = do
     inScope (s :/ i) $ f s
 
 
+watchFixpoint :: (MonadProp m, Typeable m, Std k) => k -> m () -> m ()
+watchFixpoint name act = void $ watch Fixpoint (UniversalNamedPropagator name act)
+
+
 data Const i a = Const a i deriving (Eq, Ord, Show)
 instance Propagator m a i => Propagator m a (Const i a) where
     propagate (Const a i) _ = propagate i a
