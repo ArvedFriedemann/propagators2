@@ -5,7 +5,7 @@ expression lassoc 9 _ _ ;
 
 x = x ;
 -- a = b -> b = a ; --currently removed to have less ambiguity
-a = b -> b = c -> a = c
+a = b -> b = c -> a = c ;
 a = a' -> b = b' -> a b = a' b' ;
 
 expression rassoc 10 _ : _ ;
