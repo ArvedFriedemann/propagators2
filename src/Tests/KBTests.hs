@@ -173,7 +173,7 @@ kbtest6 = runTestSEB @(TermId) $ do
                  \concat xs y zs -> concat (x : xs) y (x : zs) ;\n\
                  \concat (A : A : []) (A : []) y ;\n\
                  \" :: String
-  parseAndPerformProofSearch 3 () exprtext
+  parseAndPerformProofSearch (-1) () exprtext
 
 
 
