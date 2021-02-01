@@ -4,11 +4,16 @@ expression rassoc 15 _ -> _ ;
 expression rassoc 12 _ : _ ;
 expression lassoc 9 _ _ ;
 
-x = x ;
-a = b -> b = a ;
-a = b -> b = c -> a = c ;
-a = a' -> b = b' -> a b = a' b' ;
 
-expression rassoc 11 _ => _ ;
+A in A ;
+P in A -> P in (A ^ B) ;
+P in B -> P in (A ^ B) ;
 
-(x : A => B) -> (y : A) -> (x y : B)
+B in (A ^ KB) -> (A -> B) in KB ;
+
+X[X/Y] = Y ;
+E1[x/y] = E1' ->
+  E2[x/y] = E2' ->
+  (E1 E2)[x/y] = (E1' E2') ;
+
+--PROBLEM: need something like (x=y) -> bot
