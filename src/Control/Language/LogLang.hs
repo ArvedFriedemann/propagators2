@@ -24,7 +24,13 @@ type Clause = []
 type Consts = Set.Set TermConst
 
 --clauses need to memorise their universal variables
-type KB i = [(Consts, Clause i)]
+data KB i = KB {
+  axioms :: [(Consts, Clause i)],
+  splittable :: [(Consts, Clause i)]
+}
+
+clauses :: KB i -> [(Consts, Clause i)]
+clauses kb = (axioms kb) ++ (splittable kb)
 
 splitClause :: Clause i -> Maybe (Clause i, i)
 splitClause [] = Nothing
@@ -90,7 +96,7 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
     g <- read goal
     unless (g==bot) $ do
         --traceM $ "Executing branch "++show listId
-        disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) [do
+        disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) $ [do
             --sequence_ $ requestTerm <$> snd cls
             --sequence_ $ watchTermRec <$> snd cls
             (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int) cls
@@ -110,10 +116,27 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
             forM_ (zip pres [0..]) $ \(p,j) -> do
               simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),p,j::Int,listId,i) kb p origGoal --TODO: pack the kb
               propBot p goal
-            |(cls,i) <- zip kb [0..]]
+          |(cls,i) <- zip (clauses kb) [0..]] ++ [ do
+              forM_ (zip (axioms kb) [0..]) $ \(ax,j) -> do
+                scoped (i,j) $ const $ do
+                  (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int, j::Int) ax
+                  eq post splitPost
+                  simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),j::Int,listId,i) (kb{splittable = (deleteAt splitIdx $ splittable kb)++ (([],) <$> return <$> pres) ++ [([],[post])]}) goal origGoal
+                  promote goal
+                  --TODO: This needs explicit ex falsum quodlibet rule!
+                  pure ()
+          |(splitClause.snd -> Just (splitPres, splitPost),splitIdx,i) <- zip3 (splittable kb) [0..] [(length $ clauses kb)..], null splitPres]
 
 
 
+deleteAt :: Int -> [a] -> [a]
+deleteAt k lst
+  | k < 0 = lst
+  | k >= (length lst) = lst
+deleteAt 0 [] = []
+deleteAt 0 (_ : xs) = xs
+deleteAt n (x : xs) = x : (deleteAt (n-1) xs)
+deleteAt _ [] = []
 
 
 
