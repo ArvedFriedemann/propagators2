@@ -118,16 +118,24 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
               simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),p,j::Int,listId,i) kb p origGoal --TODO: pack the kb
               propBot p goal
           |(cls,i) <- zip (clauses kb) [0..]] ++ [ do
-              forM_ (zip (axioms kb) [0..]) $ \(ax,j) -> do
+              --------------------------------
+              --The Split Rule
+              --------------------------------
+
+              --only using facts for the split. Not generally correct but necessary for practical tests
+              forM_ [(ax,l) | ax@(splitClause.snd -> Just (axPres, _)) <- axioms kb, null axPres, l <- [0..]] $ \(ax,j) -> do
                 scoped (i,j) $ const $ do
                   (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int, j::Int) ax
                   eq post splitPost
-
+                  --currently, again, forbidding more than one split. This is exactly enough for a failed equality.
                   simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),j::Int,listId,i) {-(kb{splittable = (deleteAt splitIdx $ splittable kb)++ (([],) <$> return <$> pres) ++ [([],[post])]})-} (kb{splittable = (deleteAt splitIdx $ splittable kb), axioms = axioms kb ++ (([],) <$> return <$> pres) ++ [([],[splitPost])]}) goal origGoal
                   --TODO: This needs explicit ex falsum quodlibet rule!
                   pure ()
           |(splitClause.snd -> Just (splitPres, splitPost),splitIdx,i) <- zip3 (splittable kb) [0..] [(length $ clauses kb)..], null splitPres] ++
           [do
+              --------------------------------
+              --Ex Falsum Quodlibet
+              --------------------------------
               --just to make sure they are there...
               sequence $ [read $ head cl | (_,cl) <- clauses kb, length cl == 1]
               --TODO: WARNING: super hacky
@@ -136,8 +144,23 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
                 unless (any (==bot) kbreads) $ do
                   void $ write goal bot
                 when (any (==bot) kbreads) $ traceM "e.f.q."
-          ]
+          ] {-}++ [do
+              --------------------------------
+              --Implication Elimination
+              --------------------------------
+              --WARNING: implication hard wired!
 
+          ]-}
+
+{-
+How to prove an implication
+Proving the implication A -> B means that forall A, there is a B.
+One way to prove it is to assume A into the KB and see whether B follows.
+Another way is to say that B holds under ALL proofs of A. For that, A needs to unify with all rules from the KB, just as a goal would. The new A, together with its new premises, are now put into the KB.
+The third way to prove is by absurdity. If one of the goals in the KB is bot, then anything follows. This rule cannot apply if there are no nots in the KB. The problem is that it might not be known whether a bot could still occur. Therefore, it needs to be limited to bots up to a certain time. If at a fixpoint no bot has occurred yet, no bot will. This, and this is important, can only be deduced iff enough preliminary information was presented. If in the fixpoint it can be seen that neccessary variables have not been instantiated yet, the e.f.g. deduction cannot be excluded yet.
+
+There is a problem with infinite splits. Any recursive datatype can be split an arbitrary number of times, all of which hold a possible proof. This cannot really be prevented. For the course of this research, we should limit to splitting on datatypes that are non recursive (As we cannot do a proof by recursion yet anyway).
+-}
 
 
 deleteAt :: Int -> [a] -> [a]
