@@ -28,6 +28,7 @@ data KB i = KB {
   axioms :: [(Consts, Clause i)],
   splittable :: [(Consts, Clause i)]
 }
+  deriving (Show, Eq, Ord)
 
 clauses :: KB i -> [(Consts, Clause i)]
 clauses kb = (axioms kb) ++ (splittable kb)
@@ -121,11 +122,21 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
                 scoped (i,j) $ const $ do
                   (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int, j::Int) ax
                   eq post splitPost
-                  simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),j::Int,listId,i) (kb{splittable = (deleteAt splitIdx $ splittable kb)++ (([],) <$> return <$> pres) ++ [([],[post])]}) goal origGoal
-                  promote goal
+
+                  simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),j::Int,listId,i) {-(kb{splittable = (deleteAt splitIdx $ splittable kb)++ (([],) <$> return <$> pres) ++ [([],[post])]})-} (kb{splittable = (deleteAt splitIdx $ splittable kb), axioms = axioms kb ++ (([],) <$> return <$> pres) ++ [([],[splitPost])]}) goal origGoal
                   --TODO: This needs explicit ex falsum quodlibet rule!
                   pure ()
-          |(splitClause.snd -> Just (splitPres, splitPost),splitIdx,i) <- zip3 (splittable kb) [0..] [(length $ clauses kb)..], null splitPres]
+          |(splitClause.snd -> Just (splitPres, splitPost),splitIdx,i) <- zip3 (splittable kb) [0..] [(length $ clauses kb)..], null splitPres] ++
+          [do
+              --just to make sure they are there...
+              sequence $ [read $ head cl | (_,cl) <- clauses kb, length cl == 1]
+              --TODO: WARNING: super hacky
+              watchFixpoint ("e.f.q"::String, listId) $ do
+                kbreads <- sequence $ [read $ head cl | (_,cl) <- clauses kb, length cl == 1]
+                unless (any (==bot) kbreads) $ do
+                  void $ write goal bot
+                when (any (==bot) kbreads) $ traceM "e.f.q."
+          ]
 
 
 

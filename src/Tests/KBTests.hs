@@ -24,7 +24,7 @@ kbtest0 = runTestSEB @(TermId) $ do
   --var (DIRECT $ Sv 1)
   --goal <- fromVarsAsCells (DIRECT $ Sv 0) ["A", "C"]
   goal <- fromVarsAsCells (DIRECT $ Sv 0) ["B"]
-  kb <- pure [(["A"],[a])]
+  kb <- pure $ KB {axioms = [(["A"],[a])], splittable = []}
   --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.
   {-recursiveCall (C,C) $-}
   simpleKBNetwork' 3 K kb goal
@@ -34,7 +34,7 @@ kbtest0' :: IO ()
 kbtest0' = runTestSEB @(TermId) $ do
   a <- fromVarsAsCells (DIRECT A) ["A"]
   goal <- fromVarsAsCells (DIRECT $ Sv 0) []
-  kb <- pure [([],[a,a])]
+  kb <- pure $KB{axioms = [([],[a,a])], splittable = []}
   --this gives a solution because even though the proof failed, it is certain that the a needs to be unified.
   simpleKBNetwork' 1 K kb goal
   return [goal]
@@ -46,7 +46,7 @@ kbtest1 = runTestSEB @(TermId) $ do
   c <- fromVarsAsCells (DIRECT C) ["C"]
   goal <- fromVarsAsCells (DIRECT $ Sv 0) []
   eq goal b
-  kb <- pure [([],[a]),([],[a,b]),([],[c,b])]
+  kb <- pure $ KB {axioms = [([],[a]),([],[a,b]),([],[c,b])], splittable = []}
   --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.
   {-recursiveCall (C,C) $-}
   simpleKBNetwork' 3 K kb goal
@@ -58,7 +58,7 @@ kbtest1' = runTestSEB @(TermId) $ do
   b <- fromVarsAsCells (DIRECT B) ["B"]
   --c <- fromVarsAsCells (DIRECT C) ["C"]
   goal <- fromVarsAsCells (DIRECT $ Sv 0) ["B"]
-  kb <- pure [([],[a,b]){-,([],[a])-}]
+  kb <- pure $ KB {axioms = [([],[a,b]){-,([],[a])-}], splittable = []}
   --TODO: weird that this recursive call is needed. Apparently, variables cannot be read before they are created, but for the first step of this, a needs to be read.
   {-recursiveCall (C,C) $-}
   simpleKBNetwork' 2 K kb goal
@@ -79,7 +79,7 @@ kbtest2 = runTestSEB @(TermId) $ do
   --x <- fromVarsAsCells (DIRECT ("x" :: String)) ["A", "X"]
   b <- fromVarsAsCells (DIRECT B) ["B", "X"]
   goal <- fromVarsAsCells (DIRECT G) ["B",var (DIRECT $ Sv 1)]
-  kb <- pure [([],[a]),(["X"],[x,b])]
+  kb <- pure $ KB {axioms = [([],[a]),(["X"],[x,b])], splittable = []}
 
   --(splitClause -> Just ([pre1],post1)) <- refreshClause ("refresh1" :: String) --(["X"],[x,b])
   --(splitClause -> Just ([pre2],post2)) <- refreshClause ("refresh2" :: String) --(["X"],[x',b])
@@ -176,7 +176,21 @@ kbtest6 = runTestSEB @(TermId) $ do
   parseAndPerformProofSearch (-1) () exprtext
 
 
-
+kbtest7 :: IO ()
+kbtest7 = runTestSEB @(TermId) $ do
+  let exprtext = "expression nassoc 7 ( _ ) ;\n\
+                 \expression rassoc 13 _ -> _ ;\n\
+                 \expression rassoc 11 _ = _ ;\n\
+                 \expression rassoc 10 _ : _ ;\n\
+                 \expression lassoc 9 _ _ ;\n\
+                 \expression nassoc 8 A ;\n\
+                 \expression nassoc 8 B ;\n\
+                 \expression nassoc 8 K ;\n\
+                 \x = x ;\n\
+                 \A = B ;\n\
+                 \K ;\n\
+                 \" :: String
+  parseAndPerformProofSearch (-1) () exprtext
 
 
 

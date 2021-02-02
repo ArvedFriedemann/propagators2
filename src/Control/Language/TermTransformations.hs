@@ -3,7 +3,7 @@ module Control.Language.TermTransformations where
 import "this" Data.Terms.Terms
 import "this" Data.Terms.TermFunctions
 import "this" Data.Terms.TermId
-import "this" Control.Language.LogLang
+import "this" Control.Language.LogLang hiding (clauses)
 import "this" Control.Propagator
 import "this" Data.Some
 
@@ -30,7 +30,10 @@ buildClauseM k implOp ts = do
 
 buildKBM :: (MonadProp m, Std a, Std k) =>
   k -> TermStruc a -> [TermStruc a] -> m (KB TermId)
-buildKBM k implOp clauses = sequence $ [buildClauseM (k,i::Int) implOp c | (c,i) <- zip clauses [0..]]
+buildKBM k implOp clauses = do
+  axs <- sequence $ [buildClauseM (k,i::Int) implOp c | (c,i) <- zip clauses [0..]]
+  --WARNING! TODO! make this proper again!
+  return $ KB {axioms = (init axs), splittable = [last axs]}
 
 setupSearch :: (MonadProp m, Std a, Std k) =>
   k -> TermStruc a -> [TermStruc a] -> TermStruc a-> m (KB TermId, TermId)
