@@ -46,6 +46,6 @@ proof B from (A :: K) ->  proof (b : A => B) from K
 
 --Notes on Split:
 (X -> List X -> P) -> P -> (l : List X) -> P
-(a = a) -> (a = b) -> P         --this is the wired in part: a = a and a = b have to unify!
+(a = a) -> (a = b) -> P         --this is the wired in part: a = a and a = b
 
 -}
