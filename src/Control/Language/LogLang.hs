@@ -62,6 +62,8 @@ simpleKBNetwork ::
   , Identifier i (TermSet i)
   , Promoter i (TermSet i) m
   , Bound i
+  , Direct i
+  , PosTermId i
   , CopyTermId i
   , Std w) =>
   w -> KB i -> i -> m ()
@@ -75,6 +77,8 @@ simpleKBNetwork' :: forall m i w .
   , Identifier i (TermSet i)
   , Promoter i (TermSet i) m
   , Bound i
+  , Direct i
+  , PosTermId i
   , CopyTermId i
   , Std w) =>
   Int -> w ->  KB i -> i -> m ()
@@ -89,6 +93,8 @@ simpleKBNetwork'' :: forall m i w .
   , Identifier i (TermSet i)
   , Promoter i (TermSet i) m
   , Bound i
+  , Direct i
+  , PosTermId i
   , CopyTermId i
   , Std w) =>
   Int -> w ->  KB i -> i -> i -> m ()
@@ -121,15 +127,16 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
               --------------------------------
               --The Split Rule
               --------------------------------
-
+              traceM $ "Splitting with "++(show $ length $ splittable kb)++" splittables"
               --only using facts for the split. Not generally correct but necessary for practical tests
-              forM_ [(ax,l) | ax@(splitClause.snd -> Just (axPres, _)) <- axioms kb, null axPres, l <- [0..]] $ \(ax,j) -> do
+              forM_ [(ax,l) | (ax@(splitClause.snd -> Just (axPres, _)),l) <- zip (axioms kb) [0..], null axPres] $ \(ax,j) -> do
                 scoped (i,j) $ const $ do
-                  (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int, j::Int) ax
+                  (splitClause -> Just (_, post)) <- refreshClause ("copy" :: String, listId, i::Int, j::Int) ax
                   eq post splitPost
+
                   --currently, again, forbidding more than one split. This is exactly enough for a failed equality.
-                  simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),j::Int,listId,i) {-(kb{splittable = (deleteAt splitIdx $ splittable kb)++ (([],) <$> return <$> pres) ++ [([],[post])]})-} (kb{splittable = (deleteAt splitIdx $ splittable kb), axioms = axioms kb ++ (([],) <$> return <$> pres) ++ [([],[splitPost])]}) goal origGoal
-                  --TODO: This needs explicit ex falsum quodlibet rule!
+                  simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),j::Int,listId,i) {-(kb{splittable = (deleteAt splitIdx $ splittable kb)++ (([],) <$> return <$> pres) ++ [([],[post])]})-} (kb{splittable = (deleteAt splitIdx $ splittable kb) ,axioms = (axioms kb) ++ [([],[splitPost])]}) goal origGoal
+                  promoteTerm goal
                   pure ()
           |(splitClause.snd -> Just (splitPres, splitPost),splitIdx,i) <- zip3 (splittable kb) [0..] [(length $ clauses kb)..], null splitPres] ++
           [do
@@ -137,20 +144,37 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
               --Ex Falsum Quodlibet
               --------------------------------
               --just to make sure they are there...
-              sequence $ [read $ head cl | (_,cl) <- clauses kb, length cl == 1]
-              --TODO: WARNING: super hacky
+              sequence $ [read $ head cl | (_,cl) <- splittable kb, length cl == 1]
+              --TODO: WARNING: super hacky. Also, KB is not watched for bot!
               watchFixpoint ("e.f.q"::String, listId) $ do
-                kbreads <- sequence $ [read $ head cl | (_,cl) <- clauses kb, length cl == 1]
+                kbreads <- sequence $ [read $ head cl | (_,cl) <- splittable kb, length cl == 1]
                 unless (any (==bot) kbreads) $ do
                   void $ write goal bot
                 when (any (==bot) kbreads) $ traceM "e.f.q."
-          ] {-}++ [do
+          ] ++ [do
               --------------------------------
               --Implication Elimination
               --------------------------------
               --WARNING: implication hard wired!
+              let imp = direct (listId, "impltrm"::String)
+                  impr = direct (listId, "implrght"::String)
+                  impl = direct (listId, "impllft"::String)
+              fromVarsAsCells imp [var impl, ["->", var impr]]
+              requestTerm goal --TODO
+              eq goal imp
+              --TODO: find solution to also transfer universal variables!
+              --NOTE: premise does not need to be propagated extra, as it is part of the goal
+              --TODO: Just putting a simple implication does not work. THe clause needs to be lazily extracted!
+              {-
+              watchFixpoint (listId, "FP"::String) $ do
+                implt <- fromCellSize 100 impl
+                imprt <- fromCellSize 100 impr
+                impt <- fromCellSize 100 imp
+                traceM $ "Splitting impilcation\n"++show implt++" -> "++show imprt++"\noriginal impl: "++show impt
+              -}
 
-          ]-}
+              simpleKBNetwork'' (fuel-1) ("simpleKBNetwork'' impl elim"::String,(fuel-1),listId) (kb{splittable = trace "Adding in implsplit" $ ([],[impl]) : splittable kb}) impr origGoal
+          ]
 
 {-
 How to prove an implication

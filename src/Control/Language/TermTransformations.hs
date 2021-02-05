@@ -32,8 +32,7 @@ buildKBM :: (MonadProp m, Std a, Std k) =>
   k -> TermStruc a -> [TermStruc a] -> m (KB TermId)
 buildKBM k implOp clauses = do
   axs <- sequence $ [buildClauseM (k,i::Int) implOp c | (c,i) <- zip clauses [0..]]
-  --WARNING! TODO! make this proper again!
-  return $ KB {axioms = (init axs), splittable = [last axs]}
+  return $ KB {axioms = axs, splittable = []}
 
 setupSearch :: (MonadProp m, Std a, Std k) =>
   k -> TermStruc a -> [TermStruc a] -> TermStruc a-> m (KB TermId, TermId)
