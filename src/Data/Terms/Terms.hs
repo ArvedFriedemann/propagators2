@@ -135,7 +135,6 @@ promoteTerm t = watch t $ TermPromoter t
 data TermPromoter i = TermPromoter i deriving (Eq, Ord, Show)
 
 instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (TermPromoter i) where
-    propagate (TermPromoter this) Bot = promote this
     propagate (TermPromoter this) ts = do
       promote this
       forM_ (variables ts) $ \v -> do
@@ -152,7 +151,6 @@ data TermRequester i = TermRequester i deriving (Eq, Ord, Show)
 
 instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (TermRequester i) where
     --WARNING: Does not remove listeners after join!
-    propagate _ Bot = pure ()
     propagate (TermRequester this) ts = do
       request this
       forM_ (variables ts) $ \v -> do
@@ -168,7 +166,6 @@ data WatchTermRec i = WatchTermRec i deriving (Eq, Ord, Show)
 
 instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (WatchTermRec i) where
     --WARNING: Does not remove listeners after join!
-    propagate (WatchTermRec this) Bot = void $ watchTerm this
     propagate (WatchTermRec this) ts = do
       watchTerm this
       forM_ (variables ts) $ \v -> do
@@ -199,7 +196,6 @@ instance Show i => Show (RefreshVar i) where
 
 instance (MonadProp m, Identifier i (TermSet i), CopyTermId i)
          => Propagator m (TermSet i) (RefreshVar i) where
-    propagate (RefreshVar listId orig _) Bot = void $ write (copy listId orig) bot
     propagate (RefreshVar listId orig tbl) ts = do
         let copyListId = copy listId orig
 
