@@ -132,14 +132,13 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
               --The Split Rule
               --------------------------------
               --traceM $ "Splitting with "++(show $ length $ splittable kb)++" splittables"
-              --only using facts for the split. Not generally correct but necessary for practical tests
               forM_ (zip (axioms kb) [0..]) $ \(ax,j) -> do
                 scoped (i,j) $ const $ do
                   (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int, j::Int) ax
                   eq post splitPost
 
-                  --currently, again, forbidding more than one split. This is exactly enough for a failed equality.
                   simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),j::Int,listId,i)
+                    --TODO! neither the split post nor split pre are properly read as implications in the KB! KB should be more flexible!
                     (kb{
                         splittable = (deleteAt splitIdx $ splittable kb) ++
                                       (([],) <$> return <$> pres)
