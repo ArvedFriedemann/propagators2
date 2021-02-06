@@ -131,11 +131,16 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
               --only using facts for the split. Not generally correct but necessary for practical tests
               forM_ [(ax,l) | (ax@(splitClause.snd -> Just (axPres, _)),l) <- zip (axioms kb) [0..], null axPres] $ \(ax,j) -> do
                 scoped (i,j) $ const $ do
-                  (splitClause -> Just (_, post)) <- refreshClause ("copy" :: String, listId, i::Int, j::Int) ax
+                  (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int, j::Int) ax
                   eq post splitPost
 
                   --currently, again, forbidding more than one split. This is exactly enough for a failed equality.
-                  simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),j::Int,listId,i) {-(kb{splittable = (deleteAt splitIdx $ splittable kb)++ (([],) <$> return <$> pres) ++ [([],[post])]})-} (kb{splittable = (deleteAt splitIdx $ splittable kb) ,axioms = (axioms kb) ++ [([],[splitPost])]}) goal origGoal
+                  simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),j::Int,listId,i)
+                    (kb{
+                        splittable = (deleteAt splitIdx $ splittable kb) ++
+                                      (([],) <$> return <$> pres)
+                      , axioms = (axioms kb) ++ [([],[splitPost])]})
+                      goal origGoal
                   promoteTerm goal
                   pure ()
           |(splitClause.snd -> Just (splitPres, splitPost),splitIdx,i) <- zip3 (splittable kb) [0..] [(length $ clauses kb)..], null splitPres] ++
@@ -160,18 +165,18 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
                   impr = direct (listId, "implrght"::String)
                   impl = direct (listId, "impllft"::String)
               fromVarsAsCells imp [var impl, ["->", var impr]]
-              requestTerm goal --TODO
+              --requestTerm goal --TODO
               eq goal imp
               --TODO: find solution to also transfer universal variables!
               --NOTE: premise does not need to be propagated extra, as it is part of the goal
               --TODO: Just putting a simple implication does not work. The clause needs to be lazily extracted!
-
+              {-}
               watchFixpoint (listId, "FP"::String) $ do
                 implt <- fromCellSize 100 impl
                 imprt <- fromCellSize 100 impr
                 impt <- fromCellSize 100 imp
                 traceM $ "Splitting impilcation\n"++show implt++" -> "++show imprt++"\noriginal impl: "++show impt
-
+                -}
 
               simpleKBNetwork'' (fuel-1) ("simpleKBNetwork'' impl elim"::String,(fuel-1),listId) (kb{splittable = ([],[impl]) : splittable kb}) impr origGoal
           ]
