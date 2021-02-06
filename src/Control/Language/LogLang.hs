@@ -133,7 +133,7 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
               --------------------------------
               --traceM $ "Splitting with "++(show $ length $ splittable kb)++" splittables"
               --only using facts for the split. Not generally correct but necessary for practical tests
-              forM_ [(ax,l) | (ax@(splitClause.snd -> Just (axPres, _)),l) <- zip (axioms kb) [0..], null axPres] $ \(ax,j) -> do
+              forM_ (zip (axioms kb) [0..]) $ \(ax,j) -> do
                 scoped (i,j) $ const $ do
                   (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int, j::Int) ax
                   eq post splitPost
