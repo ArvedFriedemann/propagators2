@@ -43,9 +43,8 @@ data Term a
 -}
 
 data TermSet a
-    = TSBot
-    | TS
-        { constant :: Maybe TermConst
+    = TS
+        { constants :: Set TermConst
         , variables :: Set a
         , applications :: Set (a, a)
         }
@@ -57,8 +56,13 @@ instance IsString TermConst where
 instance IsString (TermSet a) where
     fromString = constTerm . CUST
 
+ets :: TermSet a
+ets = TS {constants = Set.empty
+        , variables = Set.empty
+        , applications = Set.empty}
+
 constTerm :: TermConst -> TermSet a
-constTerm c = top {constant = Just c}
+constTerm c = top {constants = Set.singleton c}
 
 varTerm :: a -> TermSet a
 varTerm v = top {variables = Set.singleton v}
@@ -67,36 +71,30 @@ aplTerm :: (a, a) -> TermSet a
 aplTerm app = top {applications = Set.singleton app}
 
 liftTS2 :: Ord a => (forall b. Ord b => Set b -> Set b -> Set b) -> TermSet a -> TermSet a -> TermSet a
-liftTS2 _ Bot _ = Bot
-liftTS2 _ _ Bot = Bot
-liftTS2 _ (TS (Just a) _ _) (TS (Just b) _ _) | a /= b = Bot
-liftTS2 f a b = cleanTermSet TS
-    { constant = on (<|>) constant a b
-    , variables = on f variables a b
-    , applications = on f applications a b
-    }
-  where
-    cleanTermSet ts@(TS cs _ as)
-        --cannot have two different constants
-        | (on (&&) (isJust.constant) a b) &&
-          (on (/=) (fromJust.constant) a b) = Bot
-        --the value cannot be application and constant atst.
-        | (not $ Set.null as) && isJust cs = Bot
-        | otherwise = ts
-    cleanTermSet _ = Bot
+liftTS2 f a b = TS {
+    constants = (f `on` constants) a b
+  , variables = (f `on` variables) a b
+  , applications = (f `on` applications) a b
+}
+
+isBotTS :: TermSet a -> Bool
+isBotTS ts = (BOT `Set.member` constants ts)
+          || ((Set.size . constants $ ts) > 1)
+          || ((not $ Set.null $ constants ts) &&
+              (not $ Set.null $ applications ts))
 
 instance Ord a => Meet (TermSet a) where
     (/\) = liftTS2 Set.union
 instance HasTop (TermSet a) where
-    isTop (TS Nothing v a) = Set.null v && Set.null a
-    isTop _ = False
-    top = TS Nothing Set.empty Set.empty
+    isTop ts = (Set.null . constants $ ts) &&
+               (Set.null . variables $ ts) &&
+               (Set.null . applications $ ts)
+    top = ets
 instance Ord a => Join (TermSet a) where
     (\/) = liftTS2 Set.intersection
 instance HasBot (TermSet a) where
-    isBot TSBot = True
-    isBot _ = False
-    bot = TSBot
+    isBot = isBotTS
+    bot = ets{constants = Set.singleton BOT}
 instance Ord a => BoundedMeet (TermSet a)
 instance Ord a => BoundedJoin (TermSet a)
 instance Ord a => Lattice (TermSet a)
@@ -109,8 +107,6 @@ watchTerm ct = watch ct $ TermListener ct
 data TermListener i = TermListener i deriving (Eq, Ord, Show)
 
 instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (TermListener i) where
-    --WARNING: Does not remove listeners after join!
-    propagate _ Bot = pure ()
     propagate (TermListener this) ts = do
         --equality for variables
         eqAll . Set.insert this . variables $ ts
@@ -123,8 +119,13 @@ instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (T
         --sequence_ $ read . snd <$> appList
         --as subvalues are not equivalent to this value, their bots have to be propagated as well
         let propBotThis a = propBot a this
+            propBotTo a = propBot this a
         mapM_ propBotThis $ fst <$> appList
         mapM_ propBotThis $ snd <$> appList
+
+        mapM_ propBotTo $ fst <$> appList
+        mapM_ propBotTo $ snd <$> appList
+        mapM_ propBotTo $ variables ts
 
 
 promoteTerm :: (Ord i, MonadProp m, Identifier i (TermSet i)) =>
@@ -204,7 +205,7 @@ instance (MonadProp m, Identifier i (TermSet i), CopyTermId i)
 
         watchTerm copyListId
 
-        constant ts `forM_` (write copyListId . \c -> maybe (constTerm c) varTerm . Map.lookup c $ tbl)
+        constants ts `forM_` (write copyListId . \c -> maybe (constTerm c) varTerm . Map.lookup c $ tbl)
                 --important! The tc cannot be wrapped in a copy because it is not a copy!
         --There is a problem here: When an application contains variables, that have been created by this copy (e.g. by equalling the copy to its original). This creates an infinite amount of copies. Two ways to solve: Either target addresses are made relative (with applLeft and applRight), but that could cause exponential blowup between terms. Other way is to have a look into the variable, whether it was created by this copy. Problem here: If several copies are stacked on top of each other, it does not solve the problem.
         applications ts `forM_` \(a,b) -> do

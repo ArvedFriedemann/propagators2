@@ -164,16 +164,16 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
               eq goal imp
               --TODO: find solution to also transfer universal variables!
               --NOTE: premise does not need to be propagated extra, as it is part of the goal
-              --TODO: Just putting a simple implication does not work. THe clause needs to be lazily extracted!
-              {-
+              --TODO: Just putting a simple implication does not work. The clause needs to be lazily extracted!
+
               watchFixpoint (listId, "FP"::String) $ do
                 implt <- fromCellSize 100 impl
                 imprt <- fromCellSize 100 impr
                 impt <- fromCellSize 100 imp
                 traceM $ "Splitting impilcation\n"++show implt++" -> "++show imprt++"\noriginal impl: "++show impt
-              -}
 
-              simpleKBNetwork'' (fuel-1) ("simpleKBNetwork'' impl elim"::String,(fuel-1),listId) (kb{splittable = trace "Adding in implsplit" $ ([],[impl]) : splittable kb}) impr origGoal
+
+              simpleKBNetwork'' (fuel-1) ("simpleKBNetwork'' impl elim"::String,(fuel-1),listId) (kb{splittable = ([],[impl]) : splittable kb}) impr origGoal
           ]
 
 {-

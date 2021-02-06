@@ -192,7 +192,7 @@ test47 = runTestSEB @(TermId) $ do
 test4' :: IO ()
 test4' = runTestSEB @(TermId) $ do
     let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId]
-    write t1 TSBot
+    write t1 bot
     write t2 "A"
     disjunctForkPromoter orig ()
         [ do
@@ -205,7 +205,7 @@ test4' = runTestSEB @(TermId) $ do
 test43' :: IO ()
 test43' = runTestSEB @(TermId) $ do
     let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId]
-    write t1 TSBot
+    write t1 bot
     write t2 "A"
     scope >>= \s -> traceM $ "\n\nscope0:"++show s++"\n\n"
     disjunctForkPromoter orig (1 :: Int)
@@ -226,10 +226,10 @@ test42' = runTestSEB @(TermId) $ do
 
     disjunctForkPromoter orig ()
         [ do
-            write t1 TSBot
+            write t1 bot
             orig `eq` t1
         , do
-            write t1 TSBot
+            write t1 bot
             orig `eq` t1
         ]
     return [orig, t1, t2]

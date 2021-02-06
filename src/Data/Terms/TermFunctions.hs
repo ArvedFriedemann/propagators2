@@ -125,10 +125,10 @@ fromTermSet' :: (MonadProp m, Ord i, Std i,
   Identifier i (TermSet i)) =>
   Int -> i -> TermSet i -> m (TermStruc i)
 fromTermSet' 0 _ _ = pure (SCON $ CUST $ "(...)")--pure STOP
-fromTermSet' _ _ Bot = pure SBOT
+fromTermSet' _ _ ts | isBot ts = pure SBOT
 fromTermSet' _ c Top = pure (SCON $ CUST $ "(@ "++show c++" @)")--pure STOP
-fromTermSet' _ _ (TS (Just c) _ _) = pure . SCON $ c
 fromTermSet' n _ ts
+    | not $ null $ constants ts = pure . SCON $ S.findMin (constants ts)
     | not $ null (applications ts) = do
         (a,b) <- pure . head . S.toList . applications $ ts
         a' <- fromCellSize (n-1) a
