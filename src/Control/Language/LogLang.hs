@@ -102,10 +102,11 @@ simpleKBNetwork'' 0 _ _ _ _ = return ()
 simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
     g <- read goal
     unless (isBot g) $ do
+        {-
         gt <- fromCellSize 100 goal
         kbt <- getKBSize 100 kb
         traceM $ "\n" ++ (unlines $ show <$> kbt) ++ "proving " ++ show gt++"\n"
-        --traceM $ "Executing branch "++show listId
+        -}
         disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) $ [do
             --sequence_ $ requestTerm <$> snd cls
             --sequence_ $ watchTermRec <$> snd cls
@@ -130,7 +131,7 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
               --------------------------------
               --The Split Rule
               --------------------------------
-              traceM $ "Splitting with "++(show $ length $ splittable kb)++" splittables"
+              --traceM $ "Splitting with "++(show $ length $ splittable kb)++" splittables"
               --only using facts for the split. Not generally correct but necessary for practical tests
               forM_ [(ax,l) | (ax@(splitClause.snd -> Just (axPres, _)),l) <- zip (axioms kb) [0..], null axPres] $ \(ax,j) -> do
                 scoped (i,j) $ const $ do
@@ -173,13 +174,13 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
               --TODO: find solution to also transfer universal variables!
               --NOTE: premise does not need to be propagated extra, as it is part of the goal
               --TODO: Just putting a simple implication does not work. The clause needs to be lazily extracted!
-
+              {-}
               watchFixpoint (listId, "FP"::String) $ do
                 implt <- fromCellSize 100 impl
                 imprt <- fromCellSize 100 impr
                 impt <- fromCellSize 100 imp
                 traceM $ "Splitting impilcation\n"++show implt++" -> "++show imprt++"\noriginal impl: "++show impt
-
+                -}
 
               simpleKBNetwork'' (fuel-1) ("simpleKBNetwork'' impl elim"::String,(fuel-1),listId) (kb{splittable = ([],[impl]) : splittable kb}) impr origGoal
           ]
