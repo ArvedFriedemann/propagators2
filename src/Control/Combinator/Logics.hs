@@ -78,9 +78,8 @@ instance (Std j, Typeable m, MonadProp m, Value a, BoundedJoin a, Identifier i a
          => Propagator m a (PropagateWinner i j m) where
     propagate (PropagateWinner forks finalDestr) _ = do
 
-        fconts <- fmap join . forM forks $ \(f,m) -> read f <&> \case
-            Bot -> []
-            _   -> [(f,m)]
+        fconts <- fmap join . forM forks $ \(f,m) -> read f <&> (\ts ->
+            if isBot ts then [] else [(f,m)])
         case fconts of
             [(f,m)] -> do
                 scoped f $ const m
