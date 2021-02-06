@@ -101,7 +101,7 @@ simpleKBNetwork'' :: forall m i w .
 simpleKBNetwork'' 0 _ _ _ _ = return ()
 simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
     g <- read goal
-    unless (g==bot) $ do
+    unless (isBot g) $ do
         --traceM $ "Executing branch "++show listId
         disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) $ [do
             --sequence_ $ requestTerm <$> snd cls
@@ -113,7 +113,7 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
 
             let {traceSolution = watchFixpoint (listId, i) $ ((do
               g' <- read origGoal
-              unless (g' == bot) $ do
+              unless (isBot g') $ do
                 og <- fromCellSize 100 origGoal
                 traceM $ "Possible solution on fixpoint: "++{-show (listId, i)++ -}"\n"++show og
                 watchFixpoint (listId, i) traceSolution
@@ -148,9 +148,9 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
               --TODO: WARNING: super hacky. Also, KB is not watched for bot!
               watchFixpoint ("e.f.q"::String, listId) $ do
                 kbreads <- sequence $ [read $ head cl | (_,cl) <- splittable kb, length cl == 1]
-                unless (any (==bot) kbreads) $ do
+                unless (any (isBot) kbreads) $ do
                   void $ write goal bot
-                when (any (==bot) kbreads) $ traceM "e.f.q."
+                when (any (isBot) kbreads) $ traceM "e.f.q."
           ] ++ [do
               --------------------------------
               --Implication Elimination
