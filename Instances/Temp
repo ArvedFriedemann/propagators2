@@ -5,8 +5,8 @@ expression lassoc 9 _ _ ;
 
 expression nassoc 8 A ;
 expression nassoc 8 B ;
-expression nassoc 8 bot ;
+expression nassoc 8 K ;
 
 x = x ;
 
-A = B -> bot ;
+A = B -> K ;

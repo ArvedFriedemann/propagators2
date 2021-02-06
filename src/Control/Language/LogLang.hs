@@ -102,6 +102,9 @@ simpleKBNetwork'' 0 _ _ _ _ = return ()
 simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
     g <- read goal
     unless (isBot g) $ do
+        gt <- fromCellSize 100 goal
+        kbt <- getKBSize 100 kb
+        traceM $ "\n" ++ (unlines $ show <$> kbt) ++ "proving " ++ show gt++"\n"
         --traceM $ "Executing branch "++show listId
         disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) $ [do
             --sequence_ $ requestTerm <$> snd cls
@@ -149,10 +152,10 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
               --Ex Falsum Quodlibet
               --------------------------------
               --just to make sure they are there...
-              sequence $ [read $ head cl | (_,cl) <- splittable kb, length cl == 1]
+              sequence $ [read $ head cl | (_,cl) <- clauses kb, length cl == 1]
               --TODO: WARNING: super hacky. Also, KB is not watched for bot!
               watchFixpoint ("e.f.q"::String, listId) $ do
-                kbreads <- sequence $ [read $ head cl | (_,cl) <- splittable kb, length cl == 1]
+                kbreads <- sequence $ [read $ head cl | (_,cl) <- clauses kb, length cl == 1]
                 unless (any (isBot) kbreads) $ do
                   void $ write goal bot
                 when (any (isBot) kbreads) $ traceM "e.f.q."
@@ -165,18 +168,18 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
                   impr = direct (listId, "implrght"::String)
                   impl = direct (listId, "impllft"::String)
               fromVarsAsCells imp [var impl, ["->", var impr]]
-              --requestTerm goal --TODO
+              requestTerm goal --TODO
               eq goal imp
               --TODO: find solution to also transfer universal variables!
               --NOTE: premise does not need to be propagated extra, as it is part of the goal
               --TODO: Just putting a simple implication does not work. The clause needs to be lazily extracted!
-              {-}
+
               watchFixpoint (listId, "FP"::String) $ do
                 implt <- fromCellSize 100 impl
                 imprt <- fromCellSize 100 impr
                 impt <- fromCellSize 100 imp
                 traceM $ "Splitting impilcation\n"++show implt++" -> "++show imprt++"\noriginal impl: "++show impt
-                -}
+
 
               simpleKBNetwork'' (fuel-1) ("simpleKBNetwork'' impl elim"::String,(fuel-1),listId) (kb{splittable = ([],[impl]) : splittable kb}) impr origGoal
           ]
@@ -191,6 +194,10 @@ The third way to prove is by absurdity. If one of the goals in the KB is bot, th
 There is a problem with infinite splits. Any recursive datatype can be split an arbitrary number of times, all of which hold a possible proof. This cannot really be prevented. For the course of this research, we should limit to splitting on datatypes that are non recursive (As we cannot do a proof by recursion yet anyway).
 -}
 
+getKBSize :: (MonadProp m, Identifier i (TermSet i)) =>
+  Int -> KB i -> m [[TermStruc i]]
+getKBSize n kb = forM (clauses kb) $ \(_,c) ->
+                  forM c (fromCellSize n)
 
 deleteAt :: Int -> [a] -> [a]
 deleteAt k lst
