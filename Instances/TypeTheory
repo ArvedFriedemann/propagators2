@@ -1,18 +1,51 @@
-expression nassoc 7 ( _ ) ;
-expression rassoc 13 _ = _ ;
 expression rassoc 15 _ -> _ ;
+expression rassoc 13 _ = _ ;
+expression rassoc 12 _[_/_] = _ ;
 expression rassoc 12 _ : _ ;
+expression rassoc 11 _ => _ ;
+expression rassoc 10 _ :: _ ;
 expression lassoc 9 _ _ ;
+expression nassoc 8 [] ;
+expression nassoc 7 ( _ ) ;
 
-
--- A in A ;
--- P in A -> P in (A ^ B) ;
--- P in B -> P in (A ^ B) ;
-
--- B in (A ^ KB) -> (A -> B) in KB ;
 
 x[x/y] = y ;
 (z=x -> bot) -> z[x/y] = z ;
-E1[x/y] = E1' ->
-  E2[x/y] = E2' ->
-  (E1 E2)[x/y] = (E1' E2') ;
+e1[x/y] = e1' ->
+  e2[x/y] = e2' ->
+  (e1 e2)[x/y] = (e1' e2') ;
+
+a in [] -> bot ;
+a in (a :: xs) ;
+a in xs -> a in (b :: xs) ;
+
+(a : A) in K -> proof (a : A) from K ;
+
+(f : (p' : P') => Q') in K ->
+  (f : (p' : P') => Q')[p'/p] = (f : (p : P) => Q) ->
+  proof (p : P) from K ->
+  proof (b : B) from ((f p : Q) :: K) ->
+  proof (b : B) from K ;
+
+proof B from (A :: K) ->  proof (b : A => B) from K ;
+
+proof P from [] -> makeProof P ;
+
+
+expression nassoc 8 makeProof ;
+expression nassoc 8 cq ;
+expression nassoc 8 ca ;
+expression nassoc 8 cA ;
+--GOAL:
+makeProof (cq : (ca : cA) => (p : cA))
+
+
+
+
+
+
+
+
+
+
+--
