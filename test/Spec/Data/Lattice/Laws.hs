@@ -1,8 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 module Spec.Data.Lattice.Laws where
 
-import "base" Data.Typeable
-
 import "tasty" Test.Tasty
 import "tasty-quickcheck" Test.Tasty.QuickCheck
 
@@ -56,9 +54,3 @@ boundedLattice = boundedmeet @l ++ boundedjoin @l ++ (reverse . take 2 . reverse
     , testProperty "JoinIdentity: top ⋁ b = top" $
         \ (b :: l) -> top ⋁ b === top
     ]
-
-tn :: forall a. Typeable a => String
-tn = show . typeRep $ Proxy @a
-
-tgrp :: forall a. Typeable a => [TestTree] -> TestTree
-tgrp = testGroup (tn @a)

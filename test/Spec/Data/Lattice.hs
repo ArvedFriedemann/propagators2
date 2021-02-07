@@ -1,26 +1,27 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Spec.Data.Lattice ( tests ) where
 
+import "base" Data.Monoid ( Dual(..) )
+
+import "containers" Data.Set ( Set )
+
 import "tasty" Test.Tasty
-import "tasty-quickcheck" Test.Tasty.QuickCheck ( Arbitrary(..) )
 
 import "this" Data.Lattice
+import "this" Spec.Util
+import "this" Spec.Data.Lattice.Arbitrary ()
 import "this" Spec.Data.Lattice.Laws qualified as Laws
-
-
-instance Arbitrary a => Arbitrary (Ordered a) where
-    arbitrary = Ordered <$> arbitrary
-instance Arbitrary a => Arbitrary (Monoidal a) where
-    arbitrary = Monoidal <$> arbitrary
 
 
 tests :: TestTree
 tests = testGroup "Data.Lattice"
-    [ Laws.tgrp @() $ Laws.boundedLattice @()
-    , Laws.tgrp @Bool $ Laws.boundedLattice @Bool
-    , Laws.tgrp @(Bool, Bool) $ Laws.boundedLattice @(Bool, Bool)
-    , Laws.tgrp @(Ordered Ordering) $ Laws.boundedLattice @(Ordered Ordering)
-    , Laws.tgrp @(Bool, Bool, Bool) $ Laws.boundedLattice @(Bool, Bool, Bool)
+    [ tgrp @(Dual (Ordered Ordering)) $ Laws.boundedLattice @(Dual (Ordered Ordering))
+    , tgrp @(Set Int) $ Laws.lattice @(Set Int) ++ Laws.boundedjoin @(Set Int)
+    , tgrp @(Ordered Ordering) $ Laws.boundedLattice @(Ordered Ordering)
+    , tgrp @() $ Laws.boundedLattice @()
+    , tgrp @(Bool, Bool) $ Laws.boundedLattice @(Bool, Bool)
+    , tgrp @(Bool, Bool, Bool) $ Laws.boundedLattice @(Bool, Bool, Bool)
+    , tgrp @Bool $ Laws.boundedLattice @Bool
+    , tgrp @(WithBounds (Set Ordering)) $ Laws.boundedLattice @(WithBounds (Set Ordering))
+    , tgrp @(Facts Ordering) $ Laws.boundedLattice @(Facts Ordering)
     ]
-

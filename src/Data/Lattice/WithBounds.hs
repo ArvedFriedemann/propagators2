@@ -6,12 +6,16 @@ import "base" Data.Functor.Classes
 import "base" Control.Applicative
 import "base" Control.Monad
 
+import "this" Data.Lattice.Class
 import "this" Data.Lattice.WithTop
 import "this" Data.Lattice.WithBot
 
 
 newtype WithBounds a = WithBounds (Compose WithTop WithBot a)
-  deriving newtype (Eq, Ord, Functor, Applicative, Eq1, Ord1, Foldable)
+  deriving newtype 
+    ( Eq, Ord, Functor, Applicative, Eq1, Ord1, Foldable
+    , Meet, HasTop, BoundedMeet, Join, HasBot, BoundedJoin, Lattice, BoundedLattice
+    )
 instance Show1 WithBounds where
     liftShowsPrec _ _ _ (WithBounds (Compose (SynthTop))) = showString "Top"
     liftShowsPrec _ _ _ (WithBounds (Compose (NotTop SynthBot))) = showString "Bot"

@@ -26,6 +26,7 @@ newtype Facts a = Fs (WithBot (Set a))
     ( HasTop, HasBot
     , Meet, BoundedMeet
     , Join, BoundedJoin
+    , Lattice, BoundedLattice
     ) via (Compose WithBot Dual (Set a))
 pattern Facts :: Set a -> Facts a
 pattern Facts s = Fs (NotBot s)
