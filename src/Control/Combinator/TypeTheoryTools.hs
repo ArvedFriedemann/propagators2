@@ -1,15 +1,94 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 module Control.Combinator.TypeTheoryTools where
 
+import "base" Prelude hiding ( read )
+import "base" Control.Monad
+import "base" Data.Typeable
+import "base" Debug.Trace
 
-import Data.Terms.Terms
-import Data.Terms.TermFunctions
+import "this" Data.Terms.Terms
+import "this" Data.Terms.TermId
+import "this" Data.Terms.TermFunctions
+import "this" Control.Propagator
+import "this" Data.Lattice
+import "this" Control.Combinator.Logics
 
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set (Set)
+import "containers" Data.Set qualified as Set
+
+type Constnts = Set.Set TermConst
 
 data LangDef = LangDef {
   implConst :: TermConst
 }
 
+type LazKB i = [(Constnts,i)]
 
+refreshTerm ::
+  ( MonadProp m
+  , Identifier i (TermSet i)
+  , CopyTermId i
+  , Bound i
+  , Std w) =>
+  w -> (Constnts, i) -> m i
+refreshTerm _ (Set.null -> True, trm) = pure trm
+refreshTerm lsid (binds, trm)
+    = refreshVarsTbl lsid (Map.fromSet (bound lsid) binds) trm
+
+lazySearch :: forall m i w.
+  (MonadProp m
+  , Typeable m
+  , Identifier i (TermSet i)
+  , Promoter i (TermSet i) m
+  , CopyTermId i
+  , Bound i
+  , Direct i
+  , PosTermId i
+  , Std w) => w -> LazKB i -> i -> i -> m ()
+lazySearch listId kb goal origGoal = watchFixpoint listId $ do
+  currg <- read goal
+  unless (isBot currg) $ disjunctForkPromoter goal ("djf"::String,listId) $
+    flip (zipWith ($)) [0..] $
+      [\i -> do
+        cpy <- refreshTerm ("refr"::String, listId, i::Int) cls
+        eq goal cpy
+
+        let {traceSolution = ((watchFixpoint (listId, i) $ do
+          g' <- read origGoal
+          unless (isBot g') $ do
+            og <- fromCellSize 100 origGoal
+            traceM $ "Possible solution on fixpoint: "++{-show (listId, i)++ -}"\n"++show og
+            watchFixpoint (listId, i) traceSolution
+        ) :: m ())}
+        watchTermRec origGoal >> requestTerm origGoal >> traceSolution
+
+      | cls <- kb] ++ [\i -> do
+        --this refresh will be called countless times (once for every premise)
+        --currently handled by refresh not being called when there are no bound variables
+        cpy <- refreshTerm ("refr"::String, listId, i::Int) cls
+        --this is dirty, but ok as we are in a safe scope
+        (imp, impl, impr) <- matchImpl (listId,i::Int) cpy
+        propBot imp goal --technically not needed, but might make things faster
+        lazySearch ("prem"::String,listId,i::Int) kb impl origGoal
+        lazySearch ("post"::String,listId,i::Int) ((Set.empty, impr) : kb) goal origGoal
+        --WARNING: this causes super high branching factor
+      | cls <- kb] ++ [\i -> do
+        (_, impl, impr) <- matchImpl (listId,i::Int) goal
+        --no propBot needed here because goal is already matched
+        lazySearch ((),listId,i::Int) ((Set.empty,impl) : kb) impr origGoal
+      ] {- ++ [\i -> do
+        --In the e.f.q case, more than the goal would need to be promoted. Here, the chosen clause would need to be set to bot in the orig. Problem: There might not be a reason as to why it should be bot.
+      | cls <- kb]-}
+
+matchImpl :: (MonadProp m, Identifier i (TermSet i), PosTermId i, Direct i, Std w) => w -> i -> m (i,i,i)
+matchImpl listId trm = do
+  let imp = direct (listId, "impltrm"::String)
+      impr = direct (listId, "implrght"::String)
+      impl = direct (listId, "impllft"::String)
+  fromVarsAsCells imp [var impl, ["->", var impr]]
+  eq trm imp
+  return (imp, impl, impr)
 
 {-
 split the goal for being an implication. Make the new premises splittable, the old ones stay as is. These new premises change quantifier direction. They need each possible proof.

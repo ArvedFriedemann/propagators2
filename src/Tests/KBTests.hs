@@ -144,7 +144,7 @@ kbtest4 = runTestSEB @(TermId) $ do
                  \(a B) (A A) ;\n\
                  \(a B) (A a) ;\n\
                  \" :: String
-  parseAndPerformProofSearch 1 () exprtext
+  parseAndPerformProofSearch () exprtext
 
 kbtest5 :: IO ()
 kbtest5 = runTestSEB @(TermId) $ do
@@ -157,7 +157,7 @@ kbtest5 = runTestSEB @(TermId) $ do
                  \A a  -> B a ;\n\
                  \B a ;\n\
                  \" :: String
-  parseAndPerformProofSearch 2 () exprtext
+  parseAndPerformProofSearch () exprtext
 
 
 kbtest6 :: IO ()
@@ -173,7 +173,7 @@ kbtest6 = runTestSEB @(TermId) $ do
                  \concat xs y zs -> concat (x : xs) y (x : zs) ;\n\
                  \concat (A : A : []) (A : []) y ;\n\
                  \" :: String
-  parseAndPerformProofSearch (-1) () exprtext
+  parseAndPerformProofSearch () exprtext
 
 
 kbtest7 :: IO ()
@@ -190,7 +190,7 @@ kbtest7 = runTestSEB @(TermId) $ do
                  \A = B ;\n\
                  \K ;\n\
                  \" :: String
-  parseAndPerformProofSearch (-1) () exprtext
+  parseAndPerformProofSearch () exprtext
 
 
 

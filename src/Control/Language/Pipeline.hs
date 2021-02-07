@@ -9,13 +9,15 @@ import "this" Data.Terms.TermId
 import "this" Parsing.Parser
 import "this" Tests.TestLogic
 
+import "this" Control.Combinator.TypeTheoryTools
+
 import "parsec" Text.Parsec
 
 import "base" Data.Typeable
 import "base" Debug.Trace
 
-parseAndPerformProofSearch :: (MonadFail m, MonadProp m, Typeable m, Std k) => Int -> k -> String -> m [TermId]
-parseAndPerformProofSearch fuel k inst = do
+parseAndPerformProofSearch :: (MonadFail m, MonadProp m, Typeable m, Std k) => k -> String -> m [TermId]
+parseAndPerformProofSearch k inst = do
   let parseRes = runParser (fst <$> parseKB stdlst (SCON . CUST :: String -> TermStruc String) (SVAR :: String -> TermStruc String)) () ("parseAndPerformProofSearch at "++show k) inst
   case parseRes of
     Left err -> error $ show err
@@ -24,15 +26,18 @@ parseAndPerformProofSearch fuel k inst = do
       sequence_ (traceM <$> show <$> init terms)
       traceM "Goal:"
       traceM $ show $ last terms
-
+      {-
       (kb, goal) <- setupSearch (k,"SetupSearch" :: String) (SCON $ CUST "->") (init terms) (last terms)
       simpleKBNetwork' fuel (k,"search" :: String) kb goal
+      -}
+      (kb, goal) <- setupLazySearch (k,"SetupSearch" :: String) (init terms) (last terms)
+      lazySearch (k,"search" :: String) kb goal goal
       return [goal]
 
-parseFileAndPerformProofSearch :: Int -> String -> IO ()
-parseFileAndPerformProofSearch fuel filename = do
+parseFileAndPerformProofSearch :: String -> IO ()
+parseFileAndPerformProofSearch filename = do
   s <- readFile filename
-  runTestSEB $ parseAndPerformProofSearch fuel () s
+  runTestSEB $ parseAndPerformProofSearch () s
 
 cleanBrackets :: (Eq a) => TermStruc a -> TermStruc a
 cleanBrackets = removeLrecBrackets (SCON $ CUST "(") (SCON $ CUST ")")

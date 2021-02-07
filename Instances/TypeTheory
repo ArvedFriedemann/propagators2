@@ -1,44 +1,52 @@
 expression rassoc 15 _ -> _ ;
-expression rassoc 13 _ = _ ;
-expression rassoc 12 _[_/_] = _ ;
-expression rassoc 12 _ : _ ;
+expression rassoc 14 _ = _ ;
+expression rassoc 13 _[_/_] is _ ;
+expression lassoc 12 _ : _ ;
+expression lassoc 12 _ in _ ;
+expression nassoc 12 proof _ from _ end ;
 expression rassoc 11 _ => _ ;
 expression rassoc 10 _ :: _ ;
 expression lassoc 9 _ _ ;
 expression nassoc 8 [] ;
+expression nassoc 8 bot ;
 expression nassoc 7 ( _ ) ;
 
+x=x ;
 
-x[x/y] = y ;
-(z=x -> bot) -> z[x/y] = z ;
-e1[x/y] = e1' ->
-  e2[x/y] = e2' ->
-  (e1 e2)[x/y] = (e1' e2') ;
+-- x[x/y] = y ;
+(z=x -> bot) -> z[x/y] is z ;
+-- e1[x/y] is e1' ->
+--   e2[x/y] is e2' ->
+--   (e1 e2)[x/y] is (e1' e2') ;
 
-a in [] -> bot ;
+{-
+-- a in [] -> bot ;
 a in (a :: xs) ;
 a in xs -> a in (b :: xs) ;
 
-(a : A) in K -> proof (a : A) from K ;
+(a : A) in K -> proof (a : A) from K end ;
 
 (f : (p' : P') => Q') in K ->
-  (f : (p' : P') => Q')[p'/p] = (f : (p : P) => Q) ->
-  proof (p : P) from K ->
-  proof (b : B) from ((f p : Q) :: K) ->
-  proof (b : B) from K ;
+  (f : (p' : P') => Q')[p'/p] is (f : (p : P) => Q) ->
+  proof (p : P) from K end ->
+  proof (b : B) from ((f p : Q) :: K) end ->
+  proof (b : B) from K end ;
 
-proof B from (A :: K) ->  proof (b : A => B) from K ;
+proof B from (A :: K) end ->  proof (b : A => B) from K end ;
 
-proof P from [] -> makeProof P ;
-
+proof P from [] end -> makeProof P ;
+-}
 
 expression nassoc 8 makeProof ;
 expression nassoc 8 cq ;
 expression nassoc 8 ca ;
+expression nassoc 8 cb ;
 expression nassoc 8 cA ;
 --GOAL:
-makeProof (cq : (ca : cA) => (p : cA))
-
+--makeProof (cq : (ca : cA) => (p : cA))
+--(cq : (ca : cA) => (cb : cA ca))[ca/p] is k
+cb[ca/p] is k
+--(ca=cb) -> bot
 
 
 
