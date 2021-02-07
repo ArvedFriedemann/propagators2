@@ -18,7 +18,7 @@ import "this" Control.Propagator.Class
 
 
 newtype Scope = Scope { segments :: [Some Std] }
-  deriving newtype (Eq, Ord, Monoid)
+  deriving newtype Eq
 {-# COMPLETE Root, (:/) #-}
 pattern Root :: Scope
 pattern Root <- Scope []
@@ -33,6 +33,10 @@ instance IsList Scope where
     fromList = Scope . reverse
 instance Semigroup Scope where
     Scope a <> Scope b = Scope (b <> a)
+instance Monoid Scope where
+    mempty = Root
+instance Ord Scope where
+    compare = compare `on` toList
 instance Show Scope where
     showsPrec _ = showScope . toList
       where
@@ -44,7 +48,7 @@ instance Show Scope where
             . showScope s
 
 pushScope :: Std i => i -> Scope -> Scope
-pushScope = mappend . Scope . pure . Some
+pushScope = flip mappend . Scope . pure . Some
 
 popScope :: Scope -> Maybe (Some Std, Scope)
 popScope = fmap (fmap Scope) . uncons . segments
