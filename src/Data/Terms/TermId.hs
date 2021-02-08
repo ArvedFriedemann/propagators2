@@ -1,15 +1,14 @@
 module Data.Terms.TermId where
 
-import "this" Data.Lattice
+import "base" Control.Monad
+import "base" Data.Typeable
+
 import "this" Data.Terms.Terms
 import "this" Data.Terms.TermFunctions
 import "this" Control.Propagator
 import "this" Control.Combinator.Logics
 import "this" Data.Typed
 
-import "base" Control.Monad
-import "base" Data.Typeable
-import "base" Debug.Trace
 
 data TermId
     = EMPTY

@@ -4,8 +4,9 @@ version: 0.1.0
 ghc-options:
   - -fprint-potential-instances
   - -Wall -Werror
-  - -Wno-unused-do-bind
   - -fshow-warning-groups
+  - -Wno-unused-do-bind
+  - -Wno-type-defaults
   - -Wwarn=unused-top-binds
   - -Wwarn=unused-imports
   - -Wwarn=type-defaults

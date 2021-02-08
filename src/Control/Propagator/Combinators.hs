@@ -6,10 +6,8 @@ import "base" Data.Functor
 import "base" Data.Typeable
 import "base" Control.Category
 import "base" Control.Monad
-import "base" Debug.Trace
 
 import "this" Data.Iso
-import "this" Data.Some
 import "this" Data.Lattice
 import "this" Control.Propagator.Class
 import "this" Control.Propagator.Base

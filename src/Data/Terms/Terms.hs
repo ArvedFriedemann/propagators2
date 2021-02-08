@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 module Data.Terms.Terms where
 
@@ -9,7 +8,6 @@ import "base" Control.Applicative
 import "base" Control.Monad
 import "base" GHC.Exts
 import "base" Data.Typeable
-import "base" Debug.Trace
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
@@ -20,7 +18,6 @@ import "containers" Data.Map qualified as Map
 import "this" Data.Lattice
 import "this" Data.Typed
 import "this" Control.Propagator
-import "this" Control.Propagator.Scope
 import "this" Data.Some
 
 

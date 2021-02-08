@@ -1,15 +1,13 @@
 module Parsing.Parser where
 
-import "parsec" Text.Parsec
-import "parsec" Text.Parsec.Char
-import "parsec" Text.Parsec.Token
---import "parsec" Text.Parsec.Expr
-
 import "base" Data.Functor
 import "base" Data.List
 import "base" Data.Maybe
 import "base" Control.Monad
-import "base" Debug.Trace
+
+import "parsec" Text.Parsec
+import "parsec" Text.Parsec.Token
+
 
 defCommentStart :: String
 defCommentStart = "{-"

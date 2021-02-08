@@ -5,11 +5,7 @@ import "base" Prelude hiding ( read )
 import "base" GHC.Generics
 import "base" Debug.Trace
 
-import "containers" Data.Map ( Map )
 import "containers" Data.Map qualified as Map
-
-import "containers" Data.Set ( Set )
-import "containers" Data.Set qualified as Set
 
 import "this" Data.Terms
 import "this" Control.Combinator.Logics

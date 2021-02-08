@@ -11,12 +11,10 @@ module Control.Combinator.Logics
 import "base" Prelude hiding ( read )
 import "base" Data.Functor
 import "base" Control.Monad
-import "base" Debug.Trace
 import "base" Data.Typeable
 
 import "this" Control.Propagator
 import "this" Data.Lattice
-import "this" Control.Propagator.Scope
 
 
 data DisjunctFork i j = DisjunctFork

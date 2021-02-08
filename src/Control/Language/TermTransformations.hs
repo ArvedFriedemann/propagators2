@@ -7,10 +7,8 @@ import "this" Control.Language.LogLang
 import "this" Control.Propagator
 import "this" Data.Some
 
-import "containers" Data.Map qualified as Map
 import "containers" Data.Set qualified as Set
 
-import "base" Debug.Trace
 
 buildClause :: (Std a, Std k) =>
   k -> TermStruc a -> TermStruc a -> (Consts, Clause (TermStruc TermId))

@@ -2,20 +2,16 @@
 module Control.Language.LogLang where
 
 import "base" Prelude hiding ( read )
-import "base" GHC.Exts
 import "base" Control.Monad
 import "base" Data.Typeable
 import "base" Debug.Trace
 
 import "containers" Data.Map qualified as Map
-import "containers" Data.Set (Set)
 import "containers" Data.Set qualified as Set
 
 import "this" Data.Terms
 import "this" Control.Combinator.Logics
 import "this" Control.Propagator
-import "this" Control.Propagator.Propagator
-import "this" Control.Propagator.Combinators
 import "this" Data.Lattice
 
 

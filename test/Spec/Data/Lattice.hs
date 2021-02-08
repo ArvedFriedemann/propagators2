@@ -22,6 +22,6 @@ tests = testGroup "Data.Lattice"
     , tgrp @(Bool, Bool) $ Laws.boundedLattice @(Bool, Bool)
     , tgrp @(Bool, Bool, Bool) $ Laws.boundedLattice @(Bool, Bool, Bool)
     , tgrp @Bool $ Laws.boundedLattice @Bool
-    , tgrp @(WithBounds (Set Ordering)) $ Laws.boundedLattice @(WithBounds (Set Ordering))
+    , tgrp @(WithTop (Set Ordering)) $ Laws.boundedLattice @(WithTop (Set Ordering))
     , tgrp @(Facts Ordering) $ Laws.boundedLattice @(Facts Ordering)
     ]

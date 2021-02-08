@@ -2,7 +2,6 @@
 module Control.Propagator.Base where
 
 import "base" Prelude hiding ( read )
-import "base" Debug.Trace
 
 import "this" Control.Propagator.Propagator
 import "this" Control.Propagator.Class

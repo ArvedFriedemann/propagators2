@@ -4,14 +4,14 @@ module Data.Terms.TermFunctions where
 import "base" Prelude hiding ( read )
 import "base" GHC.Exts
 import "base" Data.Functor
-import "base" Debug.Trace
 
 import "transformers" Control.Monad.Trans.Writer
+
+import "containers" Data.Set qualified as S
 
 import "this" Data.Terms.Terms
 import "this" Control.Propagator
 import "this" Data.Lattice
-import qualified "containers" Data.Set as S
 
 
 data TermStruc a

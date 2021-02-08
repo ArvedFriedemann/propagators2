@@ -1,13 +1,13 @@
-module Spec.Propagator.Base where
+module Spec.Control.Propagator.Base where
 
 import "tasty" Test.Tasty
-import "this" Control.Propagator.Base
+
 
 tests :: TestTree
 tests = testGroup "Control.Propagator.Event.EventT"
     [
     ]
-{-}
+{-
 class Reducible m where
   reduce :: m a -> (a -> m b) -> b
 

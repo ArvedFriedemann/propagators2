@@ -1,4 +1,4 @@
-{-# LANGUAGE StrictData #-}
+{-# LANGUAGE StrictData        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 module Control.Propagator.Event.Simple where
 
@@ -7,8 +7,6 @@ import "base" Data.Foldable
 import "base" Data.Bifunctor
 import "base" Data.Functor
 import "base" Data.Maybe
-import "base" Data.Typeable
-import "base" Control.Applicative
 import "base" Control.Monad
 import "base" Debug.Trace
 

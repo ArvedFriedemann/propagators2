@@ -1,6 +1,5 @@
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE NoImplicitPrelude    #-}
-{-# LANGUAGE StrictData           #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE StrictData        #-}
 module Control.Propagator.Event.EventT
     ( Evt
     , EventT(..)
@@ -10,8 +9,6 @@ module Control.Propagator.Event.EventT
 
 import "base" Prelude hiding ( read )
 import "base" Data.Maybe
-import "base" Control.Monad
-import "base" Debug.Trace
 import "base" Data.Typeable
 
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
@@ -23,10 +20,9 @@ import "mtl" Control.Monad.State.Class
 import "this" Control.Propagator.Base
 import "this" Control.Propagator.Scope
 import "this" Control.Propagator.Event.Types
-import "this" Control.Propagator.Reflection
+import "this" Control.Propagator.Combinators ( request )
 import "this" Data.Lattice
 
-import "this" Control.Propagator.Combinators (request)
 
 
 type Evt m = Event (EventT m)

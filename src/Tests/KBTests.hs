@@ -1,17 +1,13 @@
 module Tests.KBTests where
 
+import "parsec" Text.Parsec
+
 import "this" Tests.TestLogic
 import "this" Data.Terms
-import "this" Data.Terms.TermFunctions
 import "this" Control.Language.LogLang
 import "this" Control.Language.Pipeline
 import "this" Control.Propagator
-import "this" Control.Propagator.Event
 import "this" Parsing.Parser
-
-import "base" Debug.Trace
-
-import "parsec" Text.Parsec
 
 
 data Cell = Sv Int | A | B | C | D | G | H | I | J | K | X | Y | Z deriving (Eq, Ord, Show)
