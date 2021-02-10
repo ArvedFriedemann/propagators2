@@ -43,7 +43,7 @@ test3 = runTestSEB @(TermId) $ do
 
 test4 :: IO ()
 test4 = runTestSEB @(TermId) $ do
-    scoped () $ \_ -> do
+    scoped () $ do
         promote (DIRECT A)
         write (DIRECT A) "A"
     return [DIRECT A]
@@ -51,7 +51,7 @@ test4 = runTestSEB @(TermId) $ do
 test42 :: IO ()
 test42 = runTestSEB @(TermId) $ do
 
-    scoped () $ \_ -> do
+    scoped () $ do
       --read (DIRECT A)
       push (DIRECT A) (DIRECT B)
       --eq (DIRECT A) (DIRECT B)
@@ -61,9 +61,9 @@ test42 = runTestSEB @(TermId) $ do
 test44' :: IO ()
 test44' = runTestSEB @(TermId) $ do
 
-    scoped () $ \_ -> do
+    scoped () $ do
       promote (DIRECT B)
-      scoped () $ \_ -> do
+      scoped () $ do
         push (DIRECT A) (DIRECT B)
     write (DIRECT A) "A"
     return [DIRECT A, DIRECT B]
@@ -71,10 +71,10 @@ test44' = runTestSEB @(TermId) $ do
 test43 :: IO ()
 test43 = runTestSEB @(TermId) $ do
 
-    scoped () $ \_ -> do
+    scoped () $ do
       --read (DIRECT A)
       push (DIRECT B) (DIRECT B)
-      scoped () $ \_ -> do
+      scoped () $ do
         push (DIRECT A) (DIRECT B)
         --eq (DIRECT A) (DIRECT B)
     write (DIRECT A) "A"
@@ -83,10 +83,10 @@ test43 = runTestSEB @(TermId) $ do
 test44 :: IO ()
 test44 = runTestSEB @(TermId) $ do
 
-    scoped () $ \_ -> do
+    scoped () $ do
       --read (DIRECT A)
       promoteTerm (DIRECT B)
-      scoped () $ \_ -> do
+      scoped () $ do
         promoteTerm (DIRECT B)
         eq (DIRECT A) (DIRECT B)
         --eq (DIRECT A) (DIRECT B)
@@ -96,16 +96,16 @@ test44 = runTestSEB @(TermId) $ do
 test46 :: IO ()
 test46 = runTestSEB @(TermId) $ do
 
-    scoped () $ \_ -> do
+    scoped () $ do
       --read (DIRECT A)
       promoteTerm (DIRECT B)
-      scoped () $ \_ -> do
+      scoped () $ do
         --read (DIRECT A)
         promoteTerm (DIRECT B)
-        scoped () $ \_ -> do
+        scoped () $ do
           --read (DIRECT A)
           promoteTerm (DIRECT B)
-          scoped () $ \_ -> do
+          scoped () $ do
             promoteTerm (DIRECT B)
             eq (DIRECT A) (DIRECT B)
             --eq (DIRECT A) (DIRECT B)
@@ -125,8 +125,6 @@ test45 = runTestSEB @(TermId) $ do
         eq (DIRECT A) post
 
         disjunctForkPromoter pre ("djf1" :: String) [(do
-            s <- scope
-            traceM $ "Fork2: "++show s
             fromVarsAsCells (DIRECT D) ["A","A"]
             --promoteTerm (DIRECT C)
             eq (DIRECT D) pre
@@ -154,8 +152,6 @@ test47 = runTestSEB @(TermId) $ do
             --fromVarsAsCells (DIRECT A) ["A","B"]
             --promoteTerm (DIRECT A)
             disjunctForkPromoter (DIRECT A) ("djf2" :: String) [(do
-                s <- scope
-                traceM $ "Arrived at scope "++show s
                 watch (DIRECT A) $ UniversalPropagator $ ((do
                   da <- fromCellSize 100 (DIRECT A)
                   traceM $ "DIRECT A index=0 is "++show da
@@ -164,8 +160,6 @@ test47 = runTestSEB @(TermId) $ do
                 fromVarsAsCells (DIRECT A) ["A","B"]
                 pure ()
               ),(do
-                s <- scope
-                traceM $ "Actually killing djf2 index=1 in "++show s
                 watch (DIRECT A) $ UniversalPropagator $ ((do
                   da <- fromCellSize 100 (DIRECT A)
                   traceM $ "DIRECT A index=1 is "++show da
@@ -203,14 +197,11 @@ test43' = runTestSEB @(TermId) $ do
     let [orig, t1, t2] = DIRECT <$> [A, B, C] :: [TermId]
     write t1 TSBot
     write t2 "A"
-    scope >>= \s -> traceM $ "\n\nscope0:"++show s++"\n\n"
     disjunctForkPromoter orig (1 :: Int)
         [ do
-            scope >>= \s -> traceM $ "\n\nscope1:"++show s++"\n\n"
             orig `eq` t2
             disjunctForkPromoter t2 (2 :: Int)
               [do
-                scope >>= \s -> traceM $ "\n\nscope2:"++show s++"\n\n"
                 t2 `eq` t1
               ]
         ]

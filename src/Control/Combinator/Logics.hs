@@ -54,7 +54,7 @@ disjunctForkDestr :: forall i j a m.
 disjunctForkDestr _ _ [] finDestr = finDestr
 disjunctForkDestr sucvar name ms finDestr = djfs `forM_` \(djf, (constr , _)) -> do
     watch djf $ PropagateWinner djfsDestr finDestr
-    scoped djf $ \_ -> do
+    scoped djf $ do
         push sucvar djf
         constr
   where
@@ -81,7 +81,7 @@ instance (Std j, Typeable m, MonadProp m, Value a, BoundedJoin a, Identifier i a
             _   -> [(f,m)]
         case fconts of
             [(f,m)] -> do
-                scoped f $ const m
+                scoped f m
             []   -> do
               finalDestr
             _ -> pure ()

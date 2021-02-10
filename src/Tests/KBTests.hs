@@ -96,13 +96,13 @@ kbtest2' = runTestSEB @(TermId) $ do
   b <- fromVarsAsCells (DIRECT B) ["B", "X"]
   goal <- fromVarsAsCells (DIRECT G) ["B",var (DIRECT $ Sv 1)]
   (splitClause -> Just ([pre],post)) <- refreshClause ("refresh" :: String) (["X"],[x,b])
-  scoped () $ const $ do
+  scoped () $ do
     eq goal post
     promoteTerm goal
     --watchTermRec pre
     --watchTermRec post
     --watchTermRec goal
-    scoped () $ const $ do
+    scoped () $ do
       eq a pre
       promoteTerm pre
       watchTermRec pre

@@ -12,12 +12,6 @@ import "this" Data.Lattice
 import "this" Control.Propagator.Class
 import "this" Control.Propagator.Base
 import "this" Control.Propagator.Propagator
-import "this" Control.Propagator.Scope
-
-
---TODO: No idea whether I did this right
---recursiveCall :: (MonadProp m, Identifier w a) => w -> m () -> m ()
---recursiveCall = undefined -- TODO
 
 
 data IsoTo i b = IsoTo i b deriving (Eq, Ord, Show)
@@ -63,50 +57,24 @@ instance (MonadProp m, Value a, Identifier i a) => Propagator m a (Write i) wher
 
 data ParScoped i = ParScoped i deriving (Eq, Ord, Show)
 instance (MonadProp m, Propagator m a i) => Propagator m a (ParScoped i) where
-    propagate (ParScoped i) = liftParent . propagate i
+    propagate (ParScoped i) v = void $ parScoped $ \_ -> propagate i v
 
 data Forked j i = Forked j i deriving (Eq, Ord, Show)
 instance (MonadProp m, Std j, Propagator m a i) => Propagator m a (Forked j i) where
-    propagate (Forked j i) a = scoped j (const $ propagate i a)
+    propagate (Forked j i) a = scoped j $ propagate i a
 
 
 push :: (MonadProp m, Value a, Identifier i a, Identifier j a) => i -> j -> m ()
 push i j = void $ watch i (ParScoped $ Write j)
 
 pull :: (MonadProp m, Value a, Identifier i a, Identifier j a) => i -> j -> m ()
-pull i j = do
-  s <- scope
-  case s of
-    (_ :/ n) -> void $ liftParent $ do
-      watch i $ Forked n (Write j)
-    _ -> pure ()
-
+pull i j = void $ parScoped $ \ n -> watch i $ Forked n (Write j)
 
 promote :: (MonadProp m, Value a, Identifier t a) => t -> m ()
 promote i = push i i
 
 request :: (MonadProp m, Value a, Identifier t a) => t -> m ()
 request i = pull i i
-
-{-
-push :: (MonadProp m, Value a, Identifier i a, Identifier j a) => Scope -> i -> j -> m ()
-push s i j = void . watch i . Scoped s . Write $ j
-
-promote :: (MonadProp m, Value a, Identifier t a) => Scope -> t -> m ()
-promote s i = push s i i
--}
-
-scoped :: (MonadProp m, Std i) => i -> (Scope -> m a) -> m a
-scoped i f = do
-    s <- scope
-    inScope (s :/ i) $ f s
-
---This function should be safe to use, however, the way it is implemented is sure as hell not (absolute scopes)
-watchFixpoint :: (MonadProp m, Typeable m, Std k) => k -> m () -> m ()
-watchFixpoint name act = do
-  s <- scope
-  void $ inScope Root $ watch Fixpoint (UniversalNamedPropagator (s,name) (inScope s act))
-
 
 data Const i a = Const a i deriving (Eq, Ord, Show)
 instance Propagator m a i => Propagator m a (Const i a) where

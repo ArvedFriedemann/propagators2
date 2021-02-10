@@ -9,37 +9,26 @@ import "parsec" Text.Parsec
 import "parsec" Text.Parsec.Token
 
 
-defCommentStart :: String
-defCommentStart = "{-"
-defCommentEnd :: String
-defCommentEnd = "-}"
-defCommentLine :: String
-defCommentLine = "--"
-defNestedComments :: Bool
-defNestedComments = True
-illegalChars :: [Char]
+illegalChars :: String
 illegalChars = ";_ \n\r\t"
-defReservedNames :: [String]
-defReservedNames = ["expression","lassoc","rassoc","nassoc","_",";"]
-defCaseSensitive :: Bool
-defCaseSensitive = True
 
 --this is a language def solely to extract operator precedence from a file. Only reason for language def is to properly skip comments
-optblLangDef :: (Stream s m Char) => GenLanguageDef s u m
-optblLangDef = LanguageDef {
-    commentStart = defCommentStart
-  , commentEnd = defCommentEnd
-  , commentLine = defCommentLine
-  , nestedComments = defNestedComments
-  , identStart = noneOf illegalChars
-  , identLetter = noneOf illegalChars
-  --there should be no operators in the language
-  , opStart = pure ' '
-  , opLetter = pure ' '
-  , reservedNames = defReservedNames
-  , reservedOpNames = []
-  , caseSensitive = defCaseSensitive
-}
+optblLangDef :: Stream s m Char => GenLanguageDef s u m
+optblLangDef = LanguageDef 
+    { commentStart = "{-"
+    , commentEnd = "-}"
+    , commentLine = "--"
+    , nestedComments = True
+    , identStart = noneOf illegalChars
+    , identLetter = noneOf illegalChars
+    --there should be no operators in the language
+    , opStart = pure ' '
+    , opLetter = pure ' '
+    , reservedNames = ["expression","lassoc","rassoc","nassoc","_",";"]
+    , reservedOpNames = []
+    , caseSensitive = True
+    }
+
 
 tpLD :: (Stream s m Char) => GenTokenParser s u m
 tpLD = makeTokenParser optblLangDef
@@ -112,13 +101,13 @@ mixfixDeclaration tp = do
                       , associativity = asc
                       , prescedence = presc}
 
-mixfixDeclarationsParser :: (Stream s m Char) => ParsecT s u m ([MixFixDecl], GenTokenParser s u m)
+mixfixDeclarationsParser :: forall s u m. Stream s m Char => ParsecT s u m ([MixFixDecl], GenTokenParser s u m)
 mixfixDeclarationsParser = do
   let sep = reserved tpLD ";"
   tbl <- concat <$> flip sepEndBy sep
                             ((pure <$> mixfixDeclaration tpLD)
                             <|> (many (notFollowedBy sep >> anyChar) $> []))
-  let names = defReservedNames ++ concatMap allNames (template <$> tbl)
+  let names = reservedNames (optblLangDef :: GenLanguageDef s u m) ++ concatMap allNames (template <$> tbl)
       reservedParsers = choice (try . symbol tpLD <$> names)--TODO: notFollowedBy something reserved for valid identifier letters
   return (tbl, makeTokenParser $ optblLangDef{
         reservedNames = names

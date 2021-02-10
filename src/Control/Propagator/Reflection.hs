@@ -10,3 +10,8 @@ import "this" Data.Some
 
 data PropagatorsOf m i = PropagatorsOf i deriving (Eq, Ord, Show)
 instance (Typeable m, Identifier i a) => Identifier (PropagatorsOf m i) (Facts (Some (Propagator m a)))
+
+
+data Fixpoint = Fixpoint
+  deriving (Show, Ord, Eq)
+instance Identifier Fixpoint ()

@@ -65,6 +65,12 @@ instance (Typeable m, MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (E
       --request (PropagatorsOf @(EventT m) i)
       fmap (fromMaybe Top) . withScope . flip getVal $ i
 
-    scope = ask
+    parScoped m = do
+        s <- ask
+        case s of
+            (s' :/ i) -> pure <$> (local (const s') $ m i)
+            _ -> pure Nothing
 
-    inScope s = local (const s)
+    scoped i = local (:/ i)
+
+    watchFixpoint i m = fire' $ WatchFixpointEvt . WatchFixpoint i m

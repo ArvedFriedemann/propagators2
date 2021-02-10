@@ -5,15 +5,43 @@ import "base" Prelude hiding ( read )
 
 import "this" Control.Propagator.Propagator
 import "this" Control.Propagator.Class
-import "this" Control.Propagator.Scope
 
 
 class (Std i, Value a) => Identifier i a | i -> a
 
-data Fixpoint = Fixpoint
-  deriving (Show, Ord, Eq)
-instance Identifier Fixpoint ()
+{-|
+@
+do
+  write i a
+fixpoint
+do
+  a' <- read i
+  a' >= a
+@
 
+@
+do
+  watch i (Write j)
+  write i a
+fixpoint
+do
+  a' <- read i
+  a' >= a
+@
+
+@
+do
+  s <- scope
+  s' <- inScope scope
+  s == s'
+@
+
+initially
+@
+do
+  Root <- scope
+@
+-}
 class Monad m => MonadProp m where
 
     write :: Identifier i a => i -> a -> m i
@@ -22,20 +50,8 @@ class Monad m => MonadProp m where
 
     watch :: (Identifier i a, Propagator m a p) => i -> p -> m i
 
-    scope :: m Scope
+    watchFixpoint :: Std i => i -> m () -> m ()
 
-    inScope :: Scope -> m a -> m a
+    parScoped :: (forall i. Std i => i -> m a) -> m (Maybe a)
 
-    liftParent :: m a -> m a
-    liftParent m = do
-      s' <- scope
-
-      case s' of
-        (s :/ _) -> inScope s m
-        _ -> error "Current scope should have a parent!"
-
-    --takes something with a lift function into the fork and operates in in parent
-    fromParent :: ((m a -> m a) -> m a) -> m a
-    fromParent mf = do
-      s <- scope
-      liftParent $ mf (inScope s)
+    scoped :: Std i => i -> m a -> m a
