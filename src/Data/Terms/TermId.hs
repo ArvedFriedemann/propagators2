@@ -56,12 +56,12 @@ instance Ord TermId where
     compare x y = compare (constrOrd x) (constrOrd y)
 
 instance Show TermId where
-    show EMPTY = "EMPTY"
-    show (DIRECT x) = "DIRECT "++ show x
-    show (APPLLEFT x) = "APPLLEFT "++ show x
-    show (APPLRIGHT x) = "APPLRIGHT "++ show x
-    show (COPY x y) = "COPY "++ show x ++ " " ++ show y
-    show (BOUND x y) = "BOUND "++ show x ++ " " ++ show y
+    showsPrec _ EMPTY = showString "EMPTY"
+    showsPrec d (DIRECT x) = showParen (d > 10) $ showString "DIRECT " . showsPrec 11 x
+    showsPrec d (APPLLEFT x) = showParen (d > 10) $ showString "APPLLEFT " . showsPrec 11 x
+    showsPrec d (APPLRIGHT x) = showParen (d > 10) $ showString "APPLRIGHT " . showsPrec 11 x
+    showsPrec d (COPY x y) = showParen (d > 10) $ showString "COPY " . showsPrec 11 x . showString " " . showsPrec 11 y
+    showsPrec d (BOUND x y) = showParen (d > 10) $ showString "BOUND " . showsPrec 11 x . showString " " . showsPrec 11 y
 
 
 instance HasValue TermId (Some Std) where
