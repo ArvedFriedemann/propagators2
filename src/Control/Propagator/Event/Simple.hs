@@ -5,6 +5,8 @@
 module Control.Propagator.Event.Simple where
 
 import "base" Prelude hiding ( read )
+import "base" Data.Monoid
+import "base" Data.List
 import "base" Data.Foldable
 import "base" Data.Functor
 import "base" Data.Function ( on )
@@ -76,10 +78,30 @@ instance Semigroup SEBState where
 instance Monoid SEBState where
     mempty = SEBState mempty mempty mempty mempty
 
-prettyPrintValues :: SEBState -> String
-prettyPrintValues = unlines . fmap prettyPrintValue . Map.toList . values
+
+data ScopeTree = ST
+    { stVals :: HashMap (Some Std) (Some Value)
+    , stChildren :: HashMap (Some Std) ScopeTree
+    }
+instance Semigroup ScopeTree where
+    ST v c <> ST w d = ST (v <> w) (Map.unionWith (<>) c d)
+instance Monoid ScopeTree where
+    mempty = ST mempty mempty
+prettyPrintValues :: SEBState -> ShowS
+prettyPrintValues = showsTree id . foldMap toST . Map.toList . values
   where
-    prettyPrintValue (SEBId s i, Some a :: Some Value) = show s ++ "    " ++ show i ++ " := " ++ show a
+    indentStep = showString "    "
+    showsTree :: ShowS -> ScopeTree -> ShowS
+    showsTree indent (ST vx cx)
+        = showsMap showsVal vx
+        . showsMap showsChild cx
+      where
+        showsMap f = appEndo . foldMap (Endo . f) . sortBy (compare `on` fst) . Map.toList
+        showsVal (Some i :: Some Std, Some v :: Some Value) = showString "\n" . indent . shows i . showString " := " . shows v
+        showsChild (Some i :: Some Std, c) = showString "\n" . indent . showString "/" . shows i . showsTree (indent . indentStep) c
+    toST (SEBId s i, v) = upTo s $ mempty { stVals = Map.singleton (Some i) v }
+    upTo Root h = h
+    upTo (s :/ i) h = upTo s $ mempty { stChildren = Map.singleton (Some i) h }
 
 -------------------------------------------------------------------------------
 -- SimpleEventBus

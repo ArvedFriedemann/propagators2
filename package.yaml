@@ -7,6 +7,8 @@ ghc-options:
   - -Wno-unused-do-bind
   - -Wno-type-defaults
   - -Wwarn=unused-top-binds
+  - -Wwarn=unused-local-binds
+  - -Wwarn=unused-matches
   - -Wwarn=unused-imports
   - -Wwarn=type-defaults
   - -rtsopts -threaded -O2
