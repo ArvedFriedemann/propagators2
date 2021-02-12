@@ -25,9 +25,18 @@ data DisjunctFork i j = DisjunctFork
     { name :: j
     , target :: i
     , index :: {-# UNPACK #-} Int
-    } deriving (Eq, Ord, Show, Generic)
+    } deriving (Eq, Ord, Generic)
 instance (Hashable i, Hashable j) => Hashable (DisjunctFork i j)
 instance (Std j, Identifier i a) => Identifier (DisjunctFork i j) a
+instance (Show i, Show j) => Show (DisjunctFork i j) where
+    showsPrec _ (DisjunctFork i j n)
+        = showString "Fork"
+        . showsPrec 11 i
+        . showString "@"
+        . showsPrec 11 j
+        . showString "#"
+        . shows n
+
 
 disjunctFork :: forall i j a m.
              ( MonadProp m
@@ -67,10 +76,8 @@ disjunctForkDestr sucvar name ms finDestr = djfs `forM_` \(djf, (constr , _)) ->
   where
     djfs :: [(DisjunctFork i j, (m (), m ()))]
     djfs = zipWith (\n m -> (DisjunctFork name sucvar n, m) ) [0..] ms
-    {-# INLINE djfs#-}
     djfsDestr :: [(DisjunctFork i j, m ())]
     djfsDestr = map (\(x,(_,z)) -> (x, z)) djfs
-    {-# INLINE djfsDestr #-}
 {-# INLINE disjunctForkDestr #-}
 
 data PropagateWinner i j m = PropagateWinner [(DisjunctFork i j, m ())] (m ())
