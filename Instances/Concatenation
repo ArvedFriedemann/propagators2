@@ -13,5 +13,6 @@ concat xs y zs -> concat (x : xs) y (x : zs) ;
 
 expression nassoc 8 A ;
 
+concat (A : []) (A : []) y ;
 --concat (A : A : []) (A : []) y ;
-concat (A : A : []) y (A : A : A : []) ;
+--concat (A : A : []) y (A : A : A : []) ;

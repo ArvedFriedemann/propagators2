@@ -64,43 +64,74 @@ lazySearch' listId kb goal origGoal = do
   sequence_ $ requestTerm . snd <$> kb
   watchFixpoint listId $ do
     currg <- read goal
+    {-}
     unless (isBot currg) $ do
       gt <- fromCellSize 100 goal
       kbt <- sequence $ fromCellSize 100 . snd <$> kb
       traceM $ "\n" ++ (unlines $ show <$> kbt) ++ "proving:\n" ++ show gt++"\n"
-
+      -}
     unless (isBot currg) $ disjunctForkPromoter goal ("djf"::String,listId) $
       flip (zipWith ($)) [0..] $
         [\i -> do
           cpy <- refreshTerm ("refr"::String, listId, i::Int) cls
-          eq goal cpy
-
-          let {traceSolution = ((watchFixpoint (listId, i) $ do
-            g' <- read origGoal
-            unless (isBot g') $ do
-              og <- fromCellSize 100 origGoal
-              traceM $ "Possible solution on fixpoint: "++{-show (listId, i)++ -}"\n"++show og
-              watchFixpoint (listId, i) traceSolution
-          ) :: m ())}
-          watchTermRec origGoal >> requestTerm origGoal >> traceSolution
-
-        | cls <- kb] ++ [\i -> do
-          --this refresh will be called countless times (once for every premise)
-          --currently handled by refresh not being called when there are no bound variables
-          cpy <- refreshTerm ("refr"::String, listId, i::Int) cls
-          --this is dirty, but ok as we are in a safe scope
-          (imp, impl, impr) <- matchImpl (listId,i::Int) cpy
-          propBot imp goal --technically not needed, but might make things faster
-          lazySearch' ("prem"::String,listId,i::Int) kb impl origGoal
-          lazySearch' ("post"::String,listId,i::Int) ((Set.empty, impr) : kb) goal origGoal
-          --WARNING: this causes super high branching factor. This should maybe commit to a clause, but that will obviously not work when the clause hasn't yet been build
-        | cls <- kb] ++ [\i -> do
+          aimFromTo ("aim"::String, listId, i::Int) kb cpy goal origGoal
+        | cls <- kb] {- ++ [\i -> do
           (_, impl, impr) <- matchImpl (listId,i::Int) goal
           --no propBot needed here because goal is already matched
           lazySearch' ((),listId,i::Int) ((Set.empty,impl) : kb) impr origGoal
-        ] {- ++ [\i -> do
+        ]-} {- ++ [\i -> do
           --In the e.f.q case, more than the goal would need to be promoted. Here, the chosen clause would need to be set to bot in the orig. Problem: There might not be a reason as to why it should be bot.
         | cls <- kb]-}
+
+aimFromTo :: forall m i w.
+  (MonadProp m
+  , Typeable m
+  , Identifier i (TermSet i)
+  , Promoter i (TermSet i) m
+  , CopyTermId i
+  , Bound i
+  , Direct i
+  , PosTermId i
+  , Std w) => w -> LazKB i -> i -> i -> i -> m ()
+aimFromTo listId kb implication goal origGoal = watchFixpoint listId $ do
+  currg <- read goal
+  currImpl <- read implication
+  unless (isBot currg || isBot currImpl) $ disjunctForkPromoter goal ("aimdjf"::String,listId) $
+    [(do
+        --this is dirty, but ok as we are in a safe scope
+        (imp, impl, impr) <- matchImpl ("impl"::String,listId) implication
+        propBot imp goal --technically not needed, but might make things faster
+        lazySearch' ("prem"::String,listId) kb impl origGoal
+        requestTerm impr
+        aimFromTo ("post"::String,listId) kb impr goal origGoal
+
+        let {traceSolution = ((watchFixpoint (listId, "solution"::String) $ do
+          g' <- read origGoal
+          unless (isBot g') $ do
+            oimpl <- fromCellSize 100 implication
+            ogl <- fromCellSize 100 goal
+            traceM $ "Possible solution on implication split: "++{-show (listId, i)++ -}"\n"++"at goal and implication:\n"++show ogl++"\n"++show oimpl++"\n"
+            watchFixpoint (listId, "solution"::String) traceSolution
+        ) :: m ())}
+        watchTermRec origGoal >> requestTerm origGoal >> traceSolution
+
+      ),(do
+        eq implication goal
+
+        {-}
+        let {traceSolution = ((watchFixpoint (listId, "solution"::String) $ do
+          g' <- read origGoal
+          unless (isBot g') $ do
+            oimpl <- fromCellSize 100 implication
+            ogl <- fromCellSize 100 goal
+            og <- fromCellSize 100 origGoal
+            traceM $ "Possible solution on fixpoint: "++{-show (listId, i)++ -}"\n"++show og++"\nat goal and implication:\n"++show ogl++"\n"++show oimpl++"\n"
+            watchFixpoint (listId, "solution"::String) traceSolution
+        ) :: m ())}
+        watchTermRec origGoal >> requestTerm origGoal >> traceSolution
+        -}
+      )
+    ]
 
 matchImpl :: (MonadProp m, Identifier i (TermSet i), PosTermId i, Direct i, Std w) => w -> i -> m (i,i,i)
 matchImpl listId trm = do
