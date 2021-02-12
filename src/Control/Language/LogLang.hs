@@ -94,7 +94,7 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
     g <- read goal
     unless (isBot g) $ do
         --traceM $ "Executing branch "++show listId
-        disjunctForkPromoter goal (listId, goal) [do
+        disjunctForkPromoter goal ("djf"::String,listId) [do
             --sequence_ $ requestTerm <$> snd cls
             --sequence_ $ watchTermRec <$> snd cls
             (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int) cls
@@ -112,7 +112,7 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
             when (null pres) $ watchTermRec origGoal >> requestTerm origGoal >> traceSolution
 
             forM_ (zip pres [0..]) $ \(p,j) -> do
-              simpleKBNetwork'' (fuel-1) ((fuel-1),p,j::Int,listId,i) kb p origGoal --TODO: pack the kb
+              simpleKBNetwork'' (fuel-1) ((fuel-1),j::Int,listId,i) kb p origGoal --TODO: pack the kb
               propBot p goal
             |(cls,i) <- zip kb [0..]]
 

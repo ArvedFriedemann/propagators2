@@ -172,7 +172,7 @@ kbtest6 = runTestSEB @(TermId) $ do
                  \expression nassoc 8 A ;\n\
                  \concat [] y y ;\n\
                  \concat xs y zs -> concat (x : xs) y (x : zs) ;\n\
-                 \concat (A : A : []) (A : []) y ;\n\
+                 \concat (A : A : A : A : []) (A : A : A []) y ;\n\
                  \" :: String
   parseAndPerformProofSearch (-1) () exprtext
 

@@ -2,5 +2,5 @@
 /dist-newstyle
 /*.cabal
 /.history
-log
+/log*
 

@@ -48,6 +48,7 @@ dependencies:
   - vector
   - constraints
   - semigroupoids
+  - criterion
 
 # enable modern Haskell
 default-extensions:

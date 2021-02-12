@@ -206,7 +206,6 @@ instance (MonadProp m, Identifier i (TermSet i), CopyTermId i)
     propagate (RefreshVar listId orig _) Bot = void $ write (copy listId orig) bot
     propagate (RefreshVar listId orig tbl) ts = do
         let copyListId = copy listId orig
-
         watchTerm copyListId
 
         constant ts `forM_` (write copyListId . \c -> maybe (constTerm c) varTerm . HashMap.lookup c $ tbl)
@@ -214,5 +213,5 @@ instance (MonadProp m, Identifier i (TermSet i), CopyTermId i)
         --There is a problem here: When an application contains variables, that have been created by this copy (e.g. by equalling the copy to its original). This creates an infinite amount of copies. Two ways to solve: Either target addresses are made relative (with applLeft and applRight), but that could cause exponential blowup between terms. Other way is to have a look into the variable, whether it was created by this copy. Problem here: If several copies are stacked on top of each other, it does not solve the problem.
         applications ts `forM_` \(a,b) -> do
             write copyListId (aplTerm (copy listId a, copy listId b))
-            watch a $ RefreshVar listId a tbl
-            watch b $ RefreshVar listId b tbl
+            refreshVarsTbl listId tbl a
+            refreshVarsTbl listId tbl b

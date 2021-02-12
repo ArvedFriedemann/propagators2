@@ -10,6 +10,7 @@ module Control.Propagator.Event.EventT
 import "base" Prelude hiding ( read )
 import "base" Data.Maybe
 import "base" Data.Typeable
+import "base" Control.Monad.IO.Class
 
 import "transformers" Control.Monad.Trans.Reader ( ReaderT(..) )
 import "transformers" Control.Monad.Trans.Class
@@ -38,7 +39,7 @@ class Monad m => MonadRef m where
 newtype EventT m a = EventT
     { runEventT :: ReaderT Scope m a
     }
-  deriving newtype (Functor, Applicative, Monad, MonadFail, MonadReader Scope)
+  deriving newtype (Functor, Applicative, Monad, MonadFail, MonadReader Scope, MonadIO)
 deriving newtype instance MonadState s m => MonadState s (EventT m)
 
 instance MonadTrans EventT where
