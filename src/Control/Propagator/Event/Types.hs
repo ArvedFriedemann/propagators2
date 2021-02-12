@@ -1,3 +1,4 @@
+{-# LANGUAGE StrictData #-}
 module Control.Propagator.Event.Types where
 
 import "base" GHC.Generics
@@ -15,12 +16,17 @@ import "this" Data.Typed
 -- Event
 -------------------------------------------------------------------------------
 
+data Address where
+    Address :: Identifier i a => i -> Scope -> Address
+instance Hashable Address where
+    hashWithSalt n (Address i a) = n `hashWithSalt` i `hashWithSalt` a
+
 data Write where
     Write :: Identifier i a => i -> a -> Scope -> Write
 
 deriving instance Show Write
 instance Hashable Write where
-    hashWithSalt n (Write i a s) = hashWithSalt n (i, a, s)
+    hashWithSalt n (Write i a s) = n `hashWithSalt` i `hashWithSalt` a `hashWithSalt` s
 instance Eq Write where
     Write i a s == Write j b t = i =~= j && a =~= b && s == t
 instance Ord Write where
@@ -62,7 +68,7 @@ instance Show (Watch m) where
 instance Eq (Watch m) where
     a == b = compare a b == EQ
 instance Hashable (Watch m) where
-    hashWithSalt n (Watch i p s) = hashWithSalt n (i, p, s)
+    hashWithSalt n (Watch i p s) = n `hashWithSalt` i `hashWithSalt` p `hashWithSalt` s
 instance Ord (Watch m) where
     Watch iA pA sA `compare` Watch iB pB sB
         = compareTyped iA iB

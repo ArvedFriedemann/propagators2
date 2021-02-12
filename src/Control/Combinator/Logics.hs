@@ -24,7 +24,7 @@ import "this" Data.Lattice
 data DisjunctFork i j = DisjunctFork
     { name :: j
     , target :: i
-    , index :: Int
+    , index :: {-# UNPACK #-} Int
     } deriving (Eq, Ord, Show, Generic)
 instance (Hashable i, Hashable j) => Hashable (DisjunctFork i j)
 instance (Std j, Identifier i a) => Identifier (DisjunctFork i j) a
@@ -36,6 +36,7 @@ disjunctFork :: forall i j a m.
              , Std j
              ) => i -> j -> [m ()] -> m ()
 disjunctFork goal name ms = disjunctForkDestr goal name (zip ms (repeat $ promote goal)) (void $ write goal bot)
+{-# INLINE disjunctFork #-}
 
 class (Identifier i a) => Promoter i a m | i -> a where
   promoteAction :: i -> m ()
@@ -49,6 +50,7 @@ disjunctForkPromoter :: forall i j a m.
              , Std j
              ) => i -> j -> [m ()] -> m ()
 disjunctForkPromoter goal name ms = disjunctForkDestr goal name (zip ms (repeat $ promoteAction goal )) (void $ write goal bot)
+{-# INLINE disjunctForkPromoter #-}
 
 disjunctForkDestr :: forall i j a m.
              ( MonadProp m
@@ -65,8 +67,11 @@ disjunctForkDestr sucvar name ms finDestr = djfs `forM_` \(djf, (constr , _)) ->
   where
     djfs :: [(DisjunctFork i j, (m (), m ()))]
     djfs = zipWith (\n m -> (DisjunctFork name sucvar n, m) ) [0..] ms
+    {-# INLINE djfs#-}
     djfsDestr :: [(DisjunctFork i j, m ())]
     djfsDestr = map (\(x,(_,z)) -> (x, z)) djfs
+    {-# INLINE djfsDestr #-}
+{-# INLINE disjunctForkDestr #-}
 
 data PropagateWinner i j m = PropagateWinner [(DisjunctFork i j, m ())] (m ())
 instance (Hashable i, Hashable j) => Hashable (PropagateWinner i j m) where

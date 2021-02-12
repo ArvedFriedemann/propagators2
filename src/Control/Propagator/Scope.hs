@@ -1,3 +1,4 @@
+{-# LANGUAGE StrictData #-}
 module Control.Propagator.Scope
     ( Scope
     , pattern Root

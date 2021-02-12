@@ -53,8 +53,10 @@ instance Hashable SEBId where
 
 type SEBEvt = Evt SimpleEventBus
 
+type SEBEvents = HashSet SEBEvt
+
 data SEBState = SEBState
-    { events :: HashSet SEBEvt
+    { events :: SEBEvents
     , values :: HashMap SEBId (Some Value)
     , fixpointWatches :: HashMap (Some Std) (Scope, SEB ())
     , dirty :: HashSet SEBId
@@ -79,21 +81,25 @@ newtype SimpleEventBus a = SEB
 type SEB = EventT SimpleEventBus
 
 
-runSEB :: SEBState -> Scope -> SEB a -> IO (a, SEBState)
-runSEB st sc = flip runStateT st . unSEB . flip runReaderT sc . runEventT
 
 evalSEB :: forall a b. SEB a -> (a -> SEB b) -> IO b
-evalSEB start end = fmap fst . runSEB mempty mempty $ do
+evalSEB start end = fst <$> runSEB start end
+
+runSEB :: SEB a -> (a -> SEB b) -> IO (b, SEBState)
+runSEB start end = runSEB' mempty mempty $ do
     a <- start
     go mempty
     end a
   where
+    runSEB' :: SEBState -> Scope -> SEB a -> IO (a, SEBState)
+    runSEB' st sc = flip runStateT st . unSEB . flip runReaderT sc . runEventT
+    {-# INLINE runSEB' #-}
     go :: HashMap (Some Std) (Scope, SEB ()) -> SEB ()
     go pre = do
         flushSEB
         --traceM "Reached Fixpoint."
         SEBState{ fixpointWatches } <- get
-        unless (null fixpointWatches || ((==) `on` Map.keys) pre fixpointWatches) $ do
+        unless (null fixpointWatches || on (==) Map.keys pre fixpointWatches) $ do
             forM_ fixpointWatches $ \(s, m) -> local (const s) m
             go fixpointWatches
 
@@ -106,7 +112,7 @@ flushSEB = do
         forM_ drty $ \(SEBId s i) -> notify s i
         flushSEB
 
-pollEvents :: SEB (HashSet SEBEvt)
+pollEvents :: SEB SEBEvents
 pollEvents = state $ \st -> (events st, st{ events = mempty })
 {-# INLINE pollEvents #-}
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE StrictData #-}
 module Data.Lattice.Domain
     ( Domain
     , pattern Domain

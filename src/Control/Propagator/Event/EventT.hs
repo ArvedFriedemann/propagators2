@@ -43,34 +43,43 @@ deriving newtype instance MonadState s m => MonadState s (EventT m)
 
 instance MonadTrans EventT where
     lift = EventT . lift
+    {-# INLINE lift #-}
 
 withScope :: Monad m => (Scope -> m a) -> EventT m a
 withScope f = ask >>= lift . f
+{-# INLINE withScope #-}
 
 fire' :: MonadEvent (Evt m) m => (Scope -> Evt m) -> EventT m ()
 fire' ctr = withScope $ fire . ctr
+{-# INLINE fire' #-}
 
 instance (Typeable m, MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (EventT m) where
 
     write i a = do
       --read i
       i <$ (fire' $ WriteEvt . Write i a)
+    {-# INLINE write #-}
 
     watch i p = do
       read i
       i <$ (fire' $ WatchEvt . Watch i p)
+    {-# INLINE watch #-}
 
     read i = do
       request i
       --request (PropagatorsOf @(EventT m) i)
       fmap (fromMaybe Top) . withScope . flip getVal $ i
+    {-# INLINE read #-}
 
     parScoped m = do
         s <- ask
         case s of
             (s' :/ i) -> pure <$> (local (const s') $ m i)
             _ -> pure Nothing
+    {-# INLINE parScoped #-}
 
     scoped i = local (:/ i)
+    {-# INLINE scoped #-}
 
     watchFixpoint i m = fire' $ WatchFixpointEvt . WatchFixpoint i m
+    {-# INLINE watchFixpoint #-}

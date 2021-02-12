@@ -61,6 +61,7 @@ simpleKBNetwork ::
   , Std w) =>
   w -> KB i -> i -> m ()
 simpleKBNetwork = simpleKBNetwork' (-1)
+{-# INLINE simpleKBNetwork #-}
 
 
 simpleKBNetwork' :: forall m i w .
@@ -74,6 +75,7 @@ simpleKBNetwork' :: forall m i w .
   , Std w) =>
   Int -> w ->  KB i -> i -> m ()
 simpleKBNetwork' fuel listId kb goal = simpleKBNetwork'' fuel listId kb goal goal
+{-# INLINE simpleKBNetwork' #-}
 
 --TODO, WARNING: empty clauses!
 --TODO: Proper indices!
@@ -90,7 +92,7 @@ simpleKBNetwork'' :: forall m i w .
 simpleKBNetwork'' 0 _ _ _ _ = return ()
 simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
     g <- read goal
-    unless (g==bot) $ do
+    unless (isBot g) $ do
         --traceM $ "Executing branch "++show listId
         disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) [do
             --sequence_ $ requestTerm <$> snd cls
