@@ -7,7 +7,7 @@ import "this" Control.Language.LogLang
 import "this" Control.Propagator
 import "this" Data.Some
 
-import "containers" Data.Set qualified as Set
+import "unordered-containers" Data.HashSet qualified as Set
 
 
 buildClause :: (Std a, Std k) =>

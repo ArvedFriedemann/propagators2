@@ -2,7 +2,6 @@ name: my-propagators
 version: 0.1.0
 
 ghc-options:
-  - -fprint-potential-instances
   - -Wall -Werror
   - -fshow-warning-groups
   - -Wno-unused-do-bind
@@ -10,13 +9,13 @@ ghc-options:
   - -Wwarn=unused-top-binds
   - -Wwarn=unused-imports
   - -Wwarn=type-defaults
-  - -rtsopts -threaded -O
+  - -rtsopts -threaded -O2
 
 executable:
   source-dirs: src
   main: Main.hs
 
-tests:
+_tests:
   spec:
     source-dirs:
     - src

@@ -5,18 +5,21 @@ import "base" Prelude hiding ( read )
 import "base" GHC.Generics
 import "base" Debug.Trace
 
-import "containers" Data.Map qualified as Map
+import "unordered-containers" Data.HashMap.Strict qualified as Map
+
+import "hashable" Data.Hashable
 
 import "this" Data.Terms
 import "this" Control.Combinator.Logics
 import "this" Control.Propagator
-import "this" Control.Propagator.Event ( evalSEB , SEB)
+import "this" Control.Propagator.Event ( evalSEB )
 import "this" Tests.TestLogic
 import "this" Data.Lattice
 import "this" Control.Language.LogLang
 
 
-data Cell = STR String | Sv Int | A | B | C | D deriving (Eq, Ord, Show)
+data Cell = STR String | Sv Int | A | B | C | D deriving (Eq, Ord, Show, Generic)
+instance Hashable Cell
 instance Identifier Cell (TermSet Cell)
 
 test1 :: IO ()
@@ -152,18 +155,10 @@ test47 = runTestSEB @(TermId) $ do
             --fromVarsAsCells (DIRECT A) ["A","B"]
             --promoteTerm (DIRECT A)
             disjunctForkPromoter (DIRECT A) ("djf2" :: String) [(do
-                watch (DIRECT A) $ UniversalPropagator $ ((do
-                  da <- fromCellSize 100 (DIRECT A)
-                  traceM $ "DIRECT A index=0 is "++show da
-                  ):: SEB ())
                 --promoteTerm (DIRECT A)
                 fromVarsAsCells (DIRECT A) ["A","B"]
                 pure ()
               ),(do
-                watch (DIRECT A) $ UniversalPropagator $ ((do
-                  da <- fromCellSize 100 (DIRECT A)
-                  traceM $ "DIRECT A index=1 is "++show da
-                  ):: SEB ())
                 write (DIRECT A) bot
                 pure ()
               )]
@@ -238,7 +233,7 @@ testFixpoint :: IO ()
 testFixpoint = runTestSEB @(TermId) $ do
   fromVarsAsCells (DIRECT A) ["A","B","C"]
   watchFixpoint B (do
-    traceM "Fired Fixpoint Listener!"
+    --traceM "Fired Fixpoint Listener!"
     fromVarsAsCells (DIRECT A) ["K"]
     pure ()
     )
@@ -251,7 +246,7 @@ testRefreshTo = runTestSEB $ do
     --so the term listeners are placed
     --v1 <- fromVarsAsCells (DIRECT C) []
     --cpy <- return $ DIRECT D
-    traceM $ show $ ([(CUST ("B" :: String),bound B "B")] ::[(TermConst,TermId)])
+    --traceM $ show $ ([(CUST ("B" :: String),bound B "B")] ::[(TermConst,TermId)])
     cpy <- refreshVarsTbl ("refresh0" :: String) (Map.fromList [(CUST ("B" :: String),bound B "B")]) orig
     cpy' <- refreshVarsTbl ("refresh1" :: String) (Map.fromList [(CUST ("B" :: String),bound C "B")]) orig
 
@@ -285,8 +280,10 @@ testRefreshUnification = runTestSEB @(TermId) $ do
 
 data TD = TD_A | TD_B | TD_C
   deriving (Eq, Ord, Show, Generic, Enum, Bounded)
+instance Hashable TD
 
-data TC = Orig | TC Int deriving (Eq, Ord, Show)
+data TC = Orig | TC Int deriving (Eq, Ord, Show, Generic)
+instance Hashable TC
 instance Identifier TC (Domain TD)
 
 test5 :: IO ()
@@ -299,5 +296,6 @@ test5 = flip evalSEB (>> pure ()) $ do
     watch Orig $ Const ([TD_A] :: Domain TD) $ Write $ TC 2
 
     pure $ do
-        v <- read Orig
-        traceM $ show v
+        --v <- read Orig
+        --traceM $ show v
+        pure ()

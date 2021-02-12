@@ -3,11 +3,16 @@ module Data.Some where
 import "base" Text.Show
 import "base" Data.Typeable
 
+import "hashable" Data.Hashable
+
 import "this" Data.Typed
 
 
 data Some c where
     Some :: (Typeable a, c a) => a -> Some c
+
+some :: forall c a. (Typeable a, c a) => a -> Some c
+some = Some
 
 extractSome :: (forall a. (Typeable a, c a) => a -> b) -> Some c -> b
 extractSome f (Some a) = f a
@@ -18,6 +23,10 @@ fromSome = extractSome cast
 mapSome :: (forall a. (Typeable a, c a) => a -> a) -> Some c -> Some c
 mapSome f (Some a) = Some (f a)
 
+
+instance (forall a. c a => Hashable a) => Hashable (Some c) where
+    hashWithSalt i (Some a) = hashWithSalt i a
+    hash (Some a) = hash a
 instance (forall a. c a => Eq a) => Eq (Some c) where
     Some a /= Some b = not (a =~= b)
     Some a == Some b = a =~= b

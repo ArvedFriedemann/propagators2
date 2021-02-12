@@ -1,5 +1,9 @@
 module Tests.KBTests where
 
+import "base" GHC.Generics
+
+import "hashable" Data.Hashable
+
 import "parsec" Text.Parsec
 
 import "this" Tests.TestLogic
@@ -10,7 +14,8 @@ import "this" Control.Propagator
 import "this" Parsing.Parser
 
 
-data Cell = Sv Int | A | B | C | D | G | H | I | J | K | X | Y | Z deriving (Eq, Ord, Show)
+data Cell = Sv Int | A | B | C | D | G | H | I | J | K | X | Y | Z deriving (Eq, Ord, Show, Generic)
+instance Hashable Cell
 instance Identifier Cell ()
 instance Identifier (Cell, Cell) ()
 

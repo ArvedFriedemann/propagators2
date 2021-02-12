@@ -20,10 +20,10 @@ parseAndPerformProofSearch fuel k inst = do
   case parseRes of
     Left err -> error $ show err
     Right (map cleanBrackets -> terms) -> do
-      traceM "KB:"
+      --traceM "KB:"
       sequence_ (traceM <$> show <$> init terms)
-      traceM "Goal:"
-      traceM $ show $ last terms
+      --traceM "Goal:"
+      --traceM $ show $ last terms
 
       (kb, goal) <- setupSearch (k,"SetupSearch" :: String) (SCON $ CUST "->") (init terms) (last terms)
       simpleKBNetwork' fuel (k,"search" :: String) kb goal

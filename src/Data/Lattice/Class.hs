@@ -15,6 +15,11 @@ import "base" GHC.Exts ( IsList(..) )
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
 
+import "unordered-containers" Data.HashSet ( HashSet )
+import "unordered-containers" Data.HashSet qualified as HashSet
+
+import "hashable" Data.Hashable
+
 
 {- | A meet-semilattice
 
@@ -129,7 +134,7 @@ newtype Monoidal a = Monoidal
     { getMonoidal :: a
     }
   deriving stock (Show, Read)
-  deriving newtype (Eq, Ord, Bounded, Enum, IsList, IsString)
+  deriving newtype (Eq, Ord, Bounded, Enum, IsList, IsString, Hashable)
   deriving (Functor, Applicative, Monad) via Identity
 
 instance (Eq a, Semigroup a) => Meet (Monoidal a) where
@@ -154,11 +159,22 @@ instance Ord a => BoundedJoin (Set a)
 instance Ord a => Lattice (Set a)
 
 
+instance (Eq a, Hashable a) => Meet (HashSet a) where
+    (/\) = HashSet.intersection
+instance (Eq a, Hashable a) => Join (HashSet a) where
+    (\/) = HashSet.union
+instance (Eq a, Hashable a) => HasBot (HashSet a) where
+    isBot = HashSet.null
+    bot = HashSet.empty
+instance (Eq a, Hashable a) => BoundedJoin (HashSet a)
+instance (Eq a, Hashable a) => Lattice (HashSet a)
+
+
 newtype Ordered a = Ordered
     { getOrdered :: a
     }
   deriving stock (Show, Read)
-  deriving newtype (Eq, Ord, Bounded, Enum, Num, IsList, IsString)
+  deriving newtype (Eq, Ord, Bounded, Enum, Num, IsList, IsString, Hashable)
   deriving (Functor, Applicative, Monad) via Identity
 
 instance Ord a => Meet (Ordered a) where
@@ -229,7 +245,7 @@ newtype Applied f a = Applied
     { getApplied :: f a
     }
   deriving stock (Show, Read)
-  deriving newtype (Eq, Ord, Bounded, Enum, IsList, IsString, Semigroup, Monoid)
+  deriving newtype (Eq, Ord, Bounded, Enum, IsList, IsString, Semigroup, Monoid, Hashable)
   deriving (Functor, Applicative, Alternative, Monad, MonadPlus, Eq1, Ord1) via f
 
 instance (Applicative f, Meet a) => Meet (Applied f a) where

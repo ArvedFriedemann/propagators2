@@ -1,4 +1,5 @@
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE StrictData        #-}
 module Data.Terms.Terms where
 
 import "base" Prelude hiding ( read )
@@ -7,13 +8,15 @@ import "base" Data.Function
 import "base" Control.Applicative
 import "base" Control.Monad
 import "base" GHC.Exts
-import "base" Data.Typeable
+import "base" GHC.Generics
 
-import "containers" Data.Set ( Set )
-import "containers" Data.Set qualified as Set
+import "unordered-containers" Data.HashSet ( HashSet )
+import "unordered-containers" Data.HashSet qualified as HashSet
 
-import "containers" Data.Map ( Map )
-import "containers" Data.Map qualified as Map
+import "unordered-containers" Data.HashMap.Strict ( HashMap )
+import "unordered-containers" Data.HashMap.Strict qualified as HashMap
+
+import "hashable" Data.Hashable
 
 import "this" Data.Lattice
 import "this" Data.Typed
@@ -30,7 +33,8 @@ data TermConst
     | CUST String
     | GEN (Some Std)
     | ID Int
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Generic)
+instance Hashable TermConst
   {-}
 data Term a
     = Var a
@@ -43,11 +47,13 @@ data TermSet a
     = TSBot
     | TS
         { constant :: Maybe TermConst
-        , variables :: Set a
-        , applications :: Set (a, a)
+        , variables :: HashSet a
+        , applications :: HashSet (a, a)
         }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
 {-# COMPLETE Bot, TS #-}
+
+instance Hashable a => Hashable (TermSet a)
 
 instance IsString TermConst where
     fromString = CUST
@@ -57,13 +63,13 @@ instance IsString (TermSet a) where
 constTerm :: TermConst -> TermSet a
 constTerm c = top {constant = Just c}
 
-varTerm :: a -> TermSet a
-varTerm v = top {variables = Set.singleton v}
+varTerm :: Hashable a => a -> TermSet a
+varTerm v = top {variables = HashSet.singleton v}
 
-aplTerm :: (a, a) -> TermSet a
-aplTerm app = top {applications = Set.singleton app}
+aplTerm :: Hashable a => (a, a) -> TermSet a
+aplTerm app = top {applications = HashSet.singleton app}
 
-liftTS2 :: Ord a => (forall b. Ord b => Set b -> Set b -> Set b) -> TermSet a -> TermSet a -> TermSet a
+liftTS2 :: (Eq a, Hashable a) => (forall b. (Eq b, Hashable b) => HashSet b -> HashSet b -> HashSet b) -> TermSet a -> TermSet a -> TermSet a
 liftTS2 _ Bot _ = Bot
 liftTS2 _ _ Bot = Bot
 liftTS2 _ (TS (Just a) _ _) (TS (Just b) _ _) | a /= b = Bot
@@ -78,41 +84,41 @@ liftTS2 f a b = cleanTermSet TS
         | (on (&&) (isJust.constant) a b) &&
           (on (/=) (fromJust.constant) a b) = Bot
         --the value cannot be application and constant atst.
-        | (not $ Set.null as) && isJust cs = Bot
+        | (not $ HashSet.null as) && isJust cs = Bot
         | otherwise = ts
     cleanTermSet _ = Bot
 
-instance Ord a => Meet (TermSet a) where
-    (/\) = liftTS2 Set.union
+instance (Eq a, Hashable a) => Meet (TermSet a) where
+    (/\) = liftTS2 HashSet.union
 instance HasTop (TermSet a) where
-    isTop (TS Nothing v a) = Set.null v && Set.null a
+    isTop (TS Nothing v a) = HashSet.null v && HashSet.null a
     isTop _ = False
-    top = TS Nothing Set.empty Set.empty
-instance Ord a => Join (TermSet a) where
-    (\/) = liftTS2 Set.intersection
+    top = TS Nothing HashSet.empty HashSet.empty
+instance (Eq a, Hashable a) => Join (TermSet a) where
+    (\/) = liftTS2 HashSet.intersection
 instance HasBot (TermSet a) where
     isBot TSBot = True
     isBot _ = False
     bot = TSBot
-instance Ord a => BoundedMeet (TermSet a)
-instance Ord a => BoundedJoin (TermSet a)
-instance Ord a => Lattice (TermSet a)
-instance Ord a => BoundedLattice (TermSet a)
+instance (Eq a, Hashable a) => BoundedMeet (TermSet a)
+instance (Eq a, Hashable a) => BoundedJoin (TermSet a)
+instance (Eq a, Hashable a) => Lattice (TermSet a)
+instance (Eq a, Hashable a) => BoundedLattice (TermSet a)
 
 
 watchTerm :: (Ord i, MonadProp m, Identifier i (TermSet i)) => i -> m i
 watchTerm ct = watch ct $ TermListener ct
 
-data TermListener i = TermListener i deriving (Eq, Ord, Show)
+newtype TermListener i = TermListener i deriving (Eq, Ord, Show, Generic, Hashable)
 
 instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (TermListener i) where
     --WARNING: Does not remove listeners after join!
     propagate _ Bot = pure ()
     propagate (TermListener this) ts = do
         --equality for variables
-        eqAll . Set.insert this . variables $ ts
+        eqAll . HashSet.insert this . variables $ ts
         --equality for applications
-        let appList = Set.toList . applications $ ts
+        let appList = HashSet.toList . applications $ ts
         eqAll $ fst <$> appList
         eqAll $ snd <$> appList
 
@@ -128,7 +134,7 @@ promoteTerm :: (Ord i, MonadProp m, Identifier i (TermSet i)) =>
                 i -> m i
 promoteTerm t = watch t $ TermPromoter t
 
-data TermPromoter i = TermPromoter i deriving (Eq, Ord, Show)
+newtype TermPromoter i = TermPromoter i deriving (Eq, Ord, Show, Generic, Hashable)
 
 instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (TermPromoter i) where
     propagate (TermPromoter this) Bot = promote this
@@ -144,7 +150,7 @@ requestTerm :: (Ord i, MonadProp m, Identifier i (TermSet i)) =>
                 i -> m i
 requestTerm t = watch t $ TermRequester t
 
-data TermRequester i = TermRequester i deriving (Eq, Ord, Show)
+newtype TermRequester i = TermRequester i deriving (Eq, Ord, Show, Generic, Hashable)
 
 instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (TermRequester i) where
     --WARNING: Does not remove listeners after join!
@@ -160,7 +166,7 @@ instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (T
 watchTermRec :: (Ord i, MonadProp m, Identifier i (TermSet i)) => i -> m i
 watchTermRec ct = watch ct $ WatchTermRec ct
 
-data WatchTermRec i = WatchTermRec i deriving (Eq, Ord, Show)
+newtype WatchTermRec i = WatchTermRec i deriving (Eq, Ord, Show, Generic, Hashable)
 
 instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (WatchTermRec i) where
     --WARNING: Does not remove listeners after join!
@@ -179,18 +185,20 @@ class CopyTermId i where
   --copyTermIdContents :: forall w. (Std w) => i -> Maybe (w,i)
 
 refreshVarsTbl :: (MonadProp m, Identifier i (TermSet i), CopyTermId i, Std w)
-               => w -> Map TermConst i -> i -> m i
+               => w -> HashMap TermConst i -> i -> m i
 refreshVarsTbl listId tbl orig = do
     watch orig $ RefreshVar listId orig tbl
     return (copy listId orig)
 
-data RefreshVar i = forall w.(Eq w, Ord w, Show w, Typeable w) => RefreshVar w i (Map TermConst i)
+data RefreshVar i = forall w. Std w => RefreshVar w i (HashMap TermConst i)
+instance Hashable i => Hashable (RefreshVar i) where
+    hashWithSalt n (RefreshVar w i m) = hashWithSalt n (w, i, m)
 instance Eq i => Eq (RefreshVar i) where
-  (RefreshVar w i mp) == (RefreshVar w' i' mp') = w =~= w' && i == i' && mp == mp'
+    (RefreshVar w i mp) == (RefreshVar w' i' mp') = w =~= w' && i == i' && mp == mp'
 instance Ord i => Ord (RefreshVar i) where
-  compare (RefreshVar w i mp) (RefreshVar w' i' mp') = compareTyped w w' <>  compare i i' <> compare mp mp'
+    compare (RefreshVar w i mp) (RefreshVar w' i' mp') = compareTyped w w' <>  compare i i' <> compare mp mp'
 instance Show i => Show (RefreshVar i) where
-  show (RefreshVar w i mp) = "RefreshVar "++show w++" "++show i++" "++show mp
+    show (RefreshVar w i mp) = "RefreshVar "++show w++" "++show i++" "++show mp
 
 
 instance (MonadProp m, Identifier i (TermSet i), CopyTermId i)
@@ -201,7 +209,7 @@ instance (MonadProp m, Identifier i (TermSet i), CopyTermId i)
 
         watchTerm copyListId
 
-        constant ts `forM_` (write copyListId . \c -> maybe (constTerm c) varTerm . Map.lookup c $ tbl)
+        constant ts `forM_` (write copyListId . \c -> maybe (constTerm c) varTerm . HashMap.lookup c $ tbl)
                 --important! The tc cannot be wrapped in a copy because it is not a copy!
         --There is a problem here: When an application contains variables, that have been created by this copy (e.g. by equalling the copy to its original). This creates an infinite amount of copies. Two ways to solve: Either target addresses are made relative (with applLeft and applRight), but that could cause exponential blowup between terms. Other way is to have a look into the variable, whether it was created by this copy. Problem here: If several copies are stacked on top of each other, it does not solve the problem.
         applications ts `forM_` \(a,b) -> do

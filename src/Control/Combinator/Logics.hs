@@ -1,5 +1,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns      #-}
+{-# LANGUAGE StrictData        #-}
 module Control.Combinator.Logics
     ( disjunctFork
     , disjunctForkDestr
@@ -12,6 +13,9 @@ import "base" Prelude hiding ( read )
 import "base" Data.Functor
 import "base" Control.Monad
 import "base" Data.Typeable
+import "base" GHC.Generics
+
+import "hashable" Data.Hashable
 
 import "this" Control.Propagator
 import "this" Data.Lattice
@@ -21,7 +25,8 @@ data DisjunctFork i j = DisjunctFork
     { name :: j
     , target :: i
     , index :: Int
-    } deriving (Eq, Ord, Show)
+    } deriving (Eq, Ord, Show, Generic)
+instance (Hashable i, Hashable j) => Hashable (DisjunctFork i j)
 instance (Std j, Identifier i a) => Identifier (DisjunctFork i j) a
 
 disjunctFork :: forall i j a m.
@@ -64,13 +69,14 @@ disjunctForkDestr sucvar name ms finDestr = djfs `forM_` \(djf, (constr , _)) ->
     djfsDestr = map (\(x,(_,z)) -> (x, z)) djfs
 
 data PropagateWinner i j m = PropagateWinner [(DisjunctFork i j, m ())] (m ())
-  --deriving (Eq, Ord, Show)
+instance (Hashable i, Hashable j) => Hashable (PropagateWinner i j m) where
+    hashWithSalt n (PropagateWinner a _) = hashWithSalt n (fst <$> a)
 instance (Eq i, Eq j) => Eq (PropagateWinner i j m) where
-  (PropagateWinner a _) == (PropagateWinner b _) = (fst <$> a) == (fst <$> b)
+    (PropagateWinner a _) == (PropagateWinner b _) = (fst <$> a) == (fst <$> b)
 instance (Ord i, Ord j) => Ord (PropagateWinner i j m) where
-  compare (PropagateWinner a _) (PropagateWinner b _) = compare (fst <$> a) (fst <$> b)
+    compare (PropagateWinner a _) (PropagateWinner b _) = compare (fst <$> a) (fst <$> b)
 instance (Show i, Show j) => Show (PropagateWinner i j m) where
-  show (PropagateWinner a _) = "PropagateWinner " ++ (show (fst <$> a))
+    show (PropagateWinner a _) = "PropagateWinner " ++ (show (fst <$> a))
 
 instance (Std j, Typeable m, MonadProp m, Value a, BoundedJoin a, Identifier i a)
          => Propagator m a (PropagateWinner i j m) where

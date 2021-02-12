@@ -5,6 +5,9 @@ import "base" Data.Functor.Classes
 import "base" Data.String ( IsString(..) )
 import "base" Control.Applicative
 import "base" GHC.Exts ( IsList(..) )
+import "base" GHC.Generics
+
+import "hashable" Data.Hashable
 
 import "this" Data.Lattice.Class
 
@@ -12,8 +15,9 @@ import "this" Data.Lattice.Class
 data WithTop a
     = SynthTop
     | NotTop a
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic)
 
+instance Hashable a => Hashable (WithTop a)
 instance Eq1 WithTop where
     liftEq _ SynthTop SynthTop = True
     liftEq f (NotTop a) (NotTop b) = f a b

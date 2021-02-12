@@ -6,6 +6,9 @@ import "base" Data.String ( IsString(..) )
 import "base" Control.Applicative
 import "base" Control.Monad
 import "base" GHC.Exts ( IsList(..) )
+import "base" GHC.Generics
+
+import "hashable" Data.Hashable
 
 import "this" Data.Lattice.Class
 
@@ -13,8 +16,9 @@ import "this" Data.Lattice.Class
 data WithBot a
     = SynthBot
     | NotBot a
-  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable)
-  
+  deriving (Eq, Ord, Show, Read, Functor, Foldable, Traversable, Generic)
+
+instance Hashable a => Hashable (WithBot a)
 instance Eq1 WithBot where
     liftEq _ SynthBot SynthBot = True
     liftEq f (NotBot a) (NotBot b) = f a b

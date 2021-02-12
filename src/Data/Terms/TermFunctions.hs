@@ -1,13 +1,17 @@
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE StrictData        #-}
 module Data.Terms.TermFunctions where
 
 import "base" Prelude hiding ( read )
-import "base" GHC.Exts
 import "base" Data.Functor
+import "base" GHC.Exts
+import "base" GHC.Generics
 
 import "transformers" Control.Monad.Trans.Writer
 
-import "containers" Data.Set qualified as S
+import "unordered-containers" Data.HashSet qualified as S
+
+import "hashable" Data.Hashable
 
 import "this" Data.Terms.Terms
 import "this" Control.Propagator
@@ -20,7 +24,8 @@ data TermStruc a
     | SCON TermConst
     | SVAR a
     | SAPPL (TermStruc a) (TermStruc a)
-  deriving (Eq, Ord, Functor)
+  deriving (Eq, Ord, Functor, Generic)
+instance Hashable a => Hashable (TermStruc a)
 instance HasTop (TermStruc a) where
     top = STOP
     isTop STOP = True

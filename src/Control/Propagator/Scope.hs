@@ -13,12 +13,14 @@ import "base" Data.Function
 import "base" GHC.Exts ( IsList(..) )
 import "base" Data.Maybe
 
+import "hashable" Data.Hashable
+
 import "this" Data.Some
 import "this" Control.Propagator.Class
 
 
 newtype Scope = Scope { segments :: [Some Std] }
-  deriving newtype Eq
+  deriving newtype (Eq, Hashable)
 {-# COMPLETE Root, (:/) #-}
 pattern Root :: Scope
 pattern Root <- Scope []

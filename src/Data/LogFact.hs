@@ -22,7 +22,7 @@ instance HasBot (LogFact a) where
     isBot LBot = True
     isBot _ = False
     bot = LBot
-instance HasValue LogFact where
+instance HasValue (LogFact a) a where
     fromValue (LAtom a) = Just a
     fromValue _ = Nothing
     toValue = LAtom

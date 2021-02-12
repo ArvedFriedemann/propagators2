@@ -4,7 +4,7 @@ import "parsec" Text.Parsec
 import "parsec" Text.Parsec.Token
 
 import "base" Data.Either
-import "base" Debug.Trace
+--import "base" Debug.Trace
 
 import "this" Parsing.Parser
 import "this" Data.Terms.TermFunctions
@@ -31,7 +31,7 @@ parsetest2 = do
               Right t -> t
               Left err -> error $ show err
   putStrLn exprtext
-  traceM $ show tbl
+  --traceM $ show tbl
   parseTest (mixfixTermParser tp tbl stdlst (SCON . CUST :: String -> TermStruc String) ((SCON . CUST) <$> (lexeme tp $ identifier tp)) ) concExpr
 
 parsetest2' :: IO ()
@@ -45,7 +45,7 @@ parsetest2' = do
               Right t -> t
               Left err -> error $ show err
   putStrLn exprtext
-  traceM $ show tbl
+  --traceM $ show tbl
   parseTest (mixfixTermParser tp tbl stdlst (SCON . CUST :: String -> TermStruc String) (SVAR <$> (lexeme tp $ identifier tp)) ) concExpr
 
 parsetest3 :: IO ()
