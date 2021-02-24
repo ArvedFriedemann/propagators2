@@ -4,7 +4,7 @@
 {-# LANGUAGE BangPatterns      #-}
 module Control.Propagator.Event.Simple where
 
-import "base" Prelude hiding ( read )
+import "base" Prelude hiding ( read, log )
 import "base" Data.Monoid
 import "base" Data.List
 import "base" Data.Foldable
@@ -12,7 +12,7 @@ import "base" Data.Functor
 import "base" Data.Function ( on )
 import "base" Data.Maybe
 import "base" Control.Monad
---import "base" Debug.Trace
+import "base" Control.Monad.IO.Class
 
 import "unordered-containers" Data.HashSet ( HashSet )
 import "unordered-containers" Data.HashSet qualified as Set
@@ -56,7 +56,16 @@ instance Hashable SEBId where
 
 type SEBEvt = Evt SimpleEventBus
 
-type SEBEvents = HashSet SEBEvt
+data SEBEvents = SEBEvents
+    { writes :: HashSet Write
+    , watches :: HashSet (Watch (EventT SimpleEventBus))
+    , watchFixpoints :: [WatchFixpoint (EventT SimpleEventBus)]
+    }
+  deriving stock (Eq, Ord, Show)
+instance Semigroup SEBEvents where
+    SEBEvents a b c <> SEBEvents d e f = SEBEvents (a <> d) (b <> e) (c <> f)
+instance Monoid SEBEvents where
+    mempty = SEBEvents mempty mempty mempty
 
 -------------------------------------------------------------------------------
 -- SEBState
@@ -110,11 +119,12 @@ prettyPrintValues = showsTree id . foldMap toST . Map.toList . values
 newtype SimpleEventBus a = SEB
     { unSEB :: StateT SEBState IO a
     }
-  deriving newtype (Functor, Applicative, Monad, MonadFail, MonadState SEBState)
+  deriving newtype (Functor, Applicative, Monad, MonadFail, MonadState SEBState, MonadIO)
 
 type SEB = EventT SimpleEventBus
 
-
+log :: String -> SEB ()
+log s = pure ()-- liftIO . putStrLn $ s
 
 evalSEB :: forall a b. SEB a -> (a -> SEB b) -> IO b
 evalSEB start end = fst <$> runSEB start end
@@ -123,6 +133,7 @@ runSEB :: SEB a -> (a -> SEB b) -> IO (b, SEBState)
 runSEB start end = runSEB' mempty mempty $ do
     a <- start
     go mempty
+    log "done"
     end a
   where
     runSEB' :: SEBState -> Scope -> SEB a -> IO (a, SEBState)
@@ -139,9 +150,18 @@ runSEB start end = runSEB' mempty mempty $ do
 
 flushSEB :: SEB ()
 flushSEB = do
+    log "flush"
     evts <- pollEvents
-    unless (Set.null evts) $ do
-        forM_ evts handleEvent
+    unless (evts == mempty) $ do
+        forM_ (writes evts) $ \evt -> do
+            log $ show evt
+            handleWrite evt
+        forM_ (watches evts) $ \evt -> do
+            log $ show evt
+            handleWatch evt
+        forM_ (watchFixpoints evts) $ \evt -> do
+            log $ show evt
+            handleFixpointWatch evt
         drty <- pollDirty
         forM_ drty $ \(SEBId s i) -> notify s i
         flushSEB
@@ -166,7 +186,12 @@ markDirty !s !i = modify $ \st@SEBState{ dirty } -> st{ dirty = Set.insert (SEBI
 {-# INLINE markDirty #-}
 
 handleEvent :: SEBEvt -> SEB ()
-handleEvent !(WriteEvt (Write i a s)) = do
+handleEvent !(WriteEvt evt) = handleWrite evt
+handleEvent !(WatchEvt evt) = handleWatch evt
+handleEvent !(WatchFixpointEvt evt) = handleFixpointWatch evt
+
+handleWrite :: Write -> SEB ()
+handleWrite (Write i a s) = do
     v <- lift $ newValue <$> getVal s i
     forM_ v $ \a' -> do
         alterCell s i . const $ a'
@@ -175,7 +200,9 @@ handleEvent !(WriteEvt (Write i a s)) = do
     newValue Nothing = Just a
     newValue (Just old) = let a' = old /\ a in guard (a' /= old) $> a'
     {-# INLINE newValue #-}
-handleEvent !(WatchEvt (Watch i prop s)) = do
+
+handleWatch :: Watch (EventT SimpleEventBus) -> SEB ()
+handleWatch (Watch i prop s) = do
     --handleEvent . WriteEvt . Write (PropagatorsOf @SEB i) [Some p] $ s
     v <- lift $ getValTop s (PropagatorsOf @SEB i)
     case v of
@@ -188,7 +215,9 @@ handleEvent !(WatchEvt (Watch i prop s)) = do
   where
     newValue !old = let p' = old /\ (Value $ Some prop) in guard (p' /= old) $> p'
     {-# INLINE newValue #-}
-handleEvent !(WatchFixpointEvt (WatchFixpoint i m s)) = do
+
+handleFixpointWatch :: WatchFixpoint (EventT SimpleEventBus) -> SEB ()
+handleFixpointWatch (WatchFixpoint i m s) = do
     modify $ \st@SEBState{ fixpointWatches } -> st{ fixpointWatches = Map.insert (Some i) (s, m) fixpointWatches }
 
 val :: Identifier i a => Scope -> i -> SEB a
@@ -207,7 +236,11 @@ execListener !s !a (Some p) = local (const s) (propagate p a)
 {-# INLINE execListener #-}
 
 instance MonadEvent (Evt SimpleEventBus) SimpleEventBus where
-    fire !e = SEB . modify $ \st@SEBState{ events } -> st{ events = Set.insert e events }
+    fire !e = SEB . modify $ \st@SEBState{ events } -> st{ events = fire' e events }
+      where
+        fire' (WriteEvt evt) evts@SEBEvents{ writes } = evts{ writes = Set.insert evt writes }
+        fire' (WatchEvt evt) evts@SEBEvents{ watches } = evts{ watches = Set.insert evt watches }
+        fire' (WatchFixpointEvt evt) evts@SEBEvents{ watchFixpoints } = evts{ watchFixpoints = evt : watchFixpoints }
     {-# INLINE fire #-}
 
 instance MonadRef SimpleEventBus where
