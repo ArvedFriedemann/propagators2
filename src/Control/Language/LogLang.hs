@@ -6,7 +6,7 @@ import "base" Prelude hiding ( read )
 import "base" Control.Monad
 import "base" Control.Arrow
 import "base" Data.Typeable
---import "base" Debug.Trace
+import "base" Debug.Trace
 import "base" GHC.Generics
 
 import "unordered-containers" Data.HashMap.Strict qualified as Map
@@ -105,8 +105,8 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
             let {traceSolution = watchFixpoint (listId, i) $ ((do
               g' <- read origGoal
               unless (g' == bot) $ do
-                --og <- fromCellSize 100 origGoal
-                --traceM $ "Possible solution on fixpoint: "++{-show (listId, i)++ -}"\n"++show og
+                og <- fromCellSize 100 origGoal
+                traceM $ "Possible solution on fixpoint: "++{-show (listId, i)++ -}"\n"++show og
                 watchFixpoint (listId, i) traceSolution
             ) :: m ())}
             when (null pres) $ watchTermRec origGoal >> requestTerm origGoal >> traceSolution
