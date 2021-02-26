@@ -29,7 +29,6 @@ a in xs -> a in (b :: xs) ;
 (f : (p' : P') => Q') in K ->
   (f : (p' : P') => Q')[p'/p] is (f : (p : P) => Q) ->
   proof (p : P) from K end ->
-  --TODO: below part is not correct because of left associativity
   proof (b : B) from ((f p : Q) :: K) end ->
   proof (b : B) from K end ;
 
@@ -38,16 +37,23 @@ proof B from (A :: K) end ->  proof (b : A => B) from K end ;
 proof P from [] end -> makeProof P ;
 
 --Solution to high branching factors: Explicit search strategy. Here, we can already exclude most of the clauses, so either the implication is split further or an axiom is applied. No other rules should be employed.
---Ad hoc solution:
-aim from (a : A) to (a : A) from K end ;
-(f : (p' : P') => Q')[p'/p] is (f : (p : P) => Q) ->
-  proof (p : P) from K ->
-  aim from Q to (a : A) from K end ->
-  -TODO: left associativity
-  aim from (f : (p' : P') => Q') to (f a : A) from K end ;
+--solution from paper:
+a in (a :: xs) ;
+a in xs -> a in (b :: xs) ;
 
-Q in K -> aim from Q to (a : A) from K end -> proof (a : A) from K end ;
-proof B from (A :: K) end -> proof (f : A => B) from K end ;
+proof A with A from K end ;
+
+(f : (p' : P') => Q')[p'/p] is (f : (p : P) => Q) ->
+  proof (p : P) from K end ->
+  proof (b : B) with (f p : Q) from K end ->
+  proof (b : B) with (f : (p' : P') => Q') from K end ;
+
+proof B from (A :: K) end ->  proof (b : A => B) from K end ;
+
+A in K -> proof P with A from K end -> proof P from K end ;
+
+proof P from [] end -> makeProof P ;
+
 
 -}
 
