@@ -3,4 +3,5 @@
 /*.cabal
 /.history
 /log*
+.envrc
 
