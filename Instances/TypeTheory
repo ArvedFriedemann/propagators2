@@ -1,8 +1,13 @@
 expression nassoc 7 ( _ ) ;
 expression rassoc 13 _ = _ ;
+expression rassoc 13 _ /= _ ;
 expression rassoc 15 _ -> _ ;
 expression rassoc 12 _ : _ ;
 expression lassoc 9 _ _ ;
+expression nassoc 8 A ;
+expression nassoc 8 B ;
+expression nassoc 8 pA ;
+expression nassoc 8 pB ;
 
 
 x = x ;
@@ -11,7 +16,7 @@ a in (a :: xs) ;
 a in xs -> a in (b :: xs) ;
 
 x[x/y] = y ;
-(e = x -> bot) -> e[x/y] = e ;
+(e /= x) -> e[x/y] = e ;
 
 e1[x/y] = e1' ->
   e2[x/y] = e2' ->

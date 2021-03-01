@@ -65,6 +65,12 @@ instance HasValue TermId where
     fromValue (DIRECT w) = Just w
     fromValue _ = Nothing
 -}
+
+class Direct i where
+  direct :: forall w. (Std w) => w -> i
+instance Direct TermId where
+    direct = DIRECT
+
 class Bound i where
     bound :: forall w. (Std w) => w -> TermConst -> i
 

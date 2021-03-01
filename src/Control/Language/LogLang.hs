@@ -119,22 +119,35 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
             ) :: m ())}
             when (null pres) $ watchTermRec origGoal >> requestTerm origGoal >> traceSolution
 
-            forM_ (zip pres [0..]) $ \(p,j) -> do
-              simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),p,j::Int,listId,i) kb p origGoal --TODO: pack the kb
-              propBot p goal
+            watchFixpoint (listId,i,"goalbot"::String) $ do
+              g' <- read goal
+              unless (isBot g') $ do
+                forM_ (zip pres [0..]) $ \(p,j) -> do
+                  simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),p,j::Int,listId,i) kb p origGoal --TODO: pack the kb
+                  propBot p goal
           |cls <- kb] ++ [\i -> do
             requestTerm goal
             scoped (listId,i) $ const $ do
               requestTerm goal
-              eqt <- fromVarsAsCells (listId,i,"vacr"::String) [var (listId,i,"left"::String),"/=",var (listId,i,"right"::String)]
+              eqt <- fromVarsAsCells (direct (listId,i,"vacr"::String)) [var $ direct (listId,i,"left"::String),["/=",var $ direct (listId,i,"right"::String)]]
               goal `eq` eqt
               watchFixpoint (listId,i,"checkEq"::String) $ do
                 gl <- read goal
-                unless (isBot gl) $ do
-                  eqt2 <- fromVarsAsCells (listId,i,"vacr2"::String) [var (listId,i,"eq"::String),"/=",var (listId,i,"eq"::String)]
+                if (isBot gl)
+                then do
+                  --traceM "goal was not /="
+                  --goal fails, wasn't the equality we were looking for.
+                  write goal bot
+                  promote goal
+                else do
+                  traceM "Structure is (a /= b)"
+                  eqt2 <- fromVarsAsCells (direct (listId,i,"vacr2"::String)) [var $ direct (listId,i,"eq"::String),["/=",var $ direct (listId,i,"eq"::String)]]
                   goal `eq` eqt2
                   watchFixpoint (listId,i,"checkEqCont"::String) $ do
-                    unless (isBot goal) $ do
+                    gl2 <- read goal
+                    if (isBot gl2)
+                    then return ()--traceM "Inequality held"
+                    else do
                       --goal needs to have failed in the fixpoint. Otherwise this branch fails.
                       write goal bot
                       promote goal

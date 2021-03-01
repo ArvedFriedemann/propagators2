@@ -83,6 +83,7 @@ instance (Std j, Typeable m, MonadProp m, Value a, BoundedJoin a, Identifier i a
             _   -> [(f,m)]
         case fconts of
             [(f,m)] -> do
+                --traceM $ "There is a winner in " ++ (show f)
                 scoped f $ const m
             []   -> do
               finalDestr
