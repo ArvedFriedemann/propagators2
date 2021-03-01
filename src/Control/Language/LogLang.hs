@@ -91,8 +91,12 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
     unless (g==bot) $ do
         --traceM $ "Executing branch "++show listId
         disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) [do
-            --sequence_ $ requestTerm <$> snd cls
-            --sequence_ $ watchTermRec <$> snd cls
+
+            requestTerm goal
+            requestTerm origGoal
+            forM_ kb (\(_,clause) ->
+              forM_ clause requestTerm)
+
             (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int) cls
 
             watchTermRec goal

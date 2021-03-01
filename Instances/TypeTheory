@@ -5,15 +5,14 @@ expression rassoc 12 _ : _ ;
 expression lassoc 9 _ _ ;
 
 
-A in A ;
-P in A -> P in (A ^ B) ;
-P in B -> P in (A ^ B) ;
+x = x ;
 
-B in (A ^ KB) -> (A -> B) in KB ;
+a in (a :: xs) ;
+a in xs -> a in (b :: xs) ;
 
-X[X/Y] = Y ;
-E1[x/y] = E1' ->
-  E2[x/y] = E2' ->
-  (E1 E2)[x/y] = (E1' E2') ;
+x[x/y] = y ;
+(e = x -> bot) -> e[x/y] = e ;
 
---PROBLEM: need something like (x=y) -> bot
+e1[x/y] = e1' ->
+  e2[x/y] = e2' ->
+  (e1 e2)[x/y] = (e1' e2') ;
