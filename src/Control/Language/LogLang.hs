@@ -12,6 +12,7 @@ import "containers" Data.Set (Set)
 import "containers" Data.Set qualified as Set
 
 import "this" Data.Terms
+import "this" Data.Terms.TermId
 import "this" Control.Combinator.Logics
 import "this" Control.Propagator
 import "this" Control.Propagator.Propagator
@@ -55,6 +56,8 @@ simpleKBNetwork ::
   , Identifier i (TermSet i)
   , Promoter i (TermSet i) m
   , Bound i
+  , Direct i
+  , PosTermId i
   , CopyTermId i
   , Std w) =>
   w -> KB i -> i -> m ()
@@ -68,6 +71,8 @@ simpleKBNetwork' :: forall m i w .
   , Identifier i (TermSet i)
   , Promoter i (TermSet i) m
   , Bound i
+  , Direct i
+  , PosTermId i
   , CopyTermId i
   , Std w) =>
   Int -> w ->  KB i -> i -> m ()
@@ -82,6 +87,8 @@ simpleKBNetwork'' :: forall m i w .
   , Identifier i (TermSet i)
   , Promoter i (TermSet i) m
   , Bound i
+  , Direct i
+  , PosTermId i
   , CopyTermId i
   , Std w) =>
   Int -> w ->  KB i -> i -> i -> m ()
