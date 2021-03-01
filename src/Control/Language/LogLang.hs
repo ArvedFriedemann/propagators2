@@ -90,7 +90,8 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
     g <- read goal
     unless (g==bot) $ do
         --traceM $ "Executing branch "++show listId
-        disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) [do
+        disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) $
+          (flip (zipWith ($))) [0..] $ [\i -> do
 
             requestTerm goal
             requestTerm origGoal
@@ -114,10 +115,34 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
             forM_ (zip pres [0..]) $ \(p,j) -> do
               simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),p,j::Int,listId,i) kb p origGoal --TODO: pack the kb
               propBot p goal
-            |(cls,i) <- zip kb [0..]]
+          |cls <- kb] ++ [\i -> do
+            requestTerm goal
+            scoped (listId,i) $ const $ do
+              requestTerm goal
+              eqt <- fromVarsAsCells (listId,i,"vacr"::String) [var (listId,i,"left"::String),"/=",var (listId,i,"right"::String)]
+              goal `eq` eqt
+              watchFixpoint (listId,i,"checkEq"::String) $ do
+                gl <- read goal
+                unless (isBot gl) $ do
+                  eqt2 <- fromVarsAsCells (listId,i,"vacr2"::String) [var (listId,i,"eq"::String),"/=",var (listId,i,"eq"::String)]
+                  goal `eq` eqt2
+                  watchFixpoint (listId,i,"checkEqCont"::String) $ do
+                    unless (isBot goal) $ do
+                      --goal needs to have failed in the fixpoint. Otherwise this branch fails.
+                      write goal bot
+                      promote goal
+
+          ]
 
 
+{-
+--This is the split and e.f.q., but only for the statement (a = b) -> bot
+scoped (listId,i) $ do
+  eqt <- fromVarsAsCells (listId,i) [(listId,i,"eq"::String),"=",(listId,i,"eq"::String)]
+  imp <- fromVarsAsCells (listId,i) [[(listId,i,"eq"::String),"=",(listId,i,"eq"::String)],["->","bot"]]
+  goal `eq` eqt
 
+-}
 
 
 
