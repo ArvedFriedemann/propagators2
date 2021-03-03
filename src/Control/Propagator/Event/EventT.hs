@@ -61,11 +61,11 @@ instance (Typeable m, MonadRef m, MonadEvent (Evt m) m, Monad m) => MonadProp (E
       i <$ (fire' $ WriteEvt . Write i a)
 
     watch i p = do
-      --read i --WARNING
+      read i --needed for implicit upwards propagation
       i <$ (fire' $ WatchEvt . Watch i p)
 
     read i = do
-      --request i --WARNING
+      request i --needed for implicit upwards propagation
       --request (PropagatorsOf @(EventT m) i)
       fmap (fromMaybe Top) . withScope . flip getVal $ i
 

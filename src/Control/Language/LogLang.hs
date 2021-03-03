@@ -99,17 +99,21 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
         --traceM $ "Executing branch "++show listId
         disjunctForkPromoter goal ("disjunctForkPromoter"::String, listId, goal) $
           (flip (zipWith ($))) [0..] $ [\i -> do
-
+            {-
+            --requesting everything can be done manually to check whether the implicit upwards propagation causes slag
             requestTerm goal
             requestTerm origGoal
             forM_ kb (\(_,clause) ->
               forM_ clause requestTerm)
+              -}
 
             (splitClause -> Just (pres, post)) <- refreshClause ("copy" :: String, listId, i::Int) cls
 
+            --Here is the actual unification with the clauses head
             watchTermRec goal
             eq post goal
 
+            --This whole part is just to trace solutions while the search is still running to know the algorithm is still alive.
             let {traceSolution = watchFixpoint (listId, i) $ ((do
               g' <- read origGoal
               unless (g' == bot) $ do
@@ -119,6 +123,7 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
             ) :: m ())}
             when (null pres) $ watchTermRec origGoal >> requestTerm origGoal >> traceSolution
 
+            --this is the recursive call
             watchFixpoint (listId,i,"goalbot"::String) $ do
               g' <- read goal
               unless (isBot g') $ do
@@ -126,9 +131,10 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
                   simpleKBNetwork'' (fuel-1) ("simpleKBNetwork''"::String,(fuel-1),p,j::Int,listId,i) kb p origGoal --TODO: pack the kb
                   propBot p goal
           |cls <- kb] ++ [\i -> do
-            requestTerm goal
+            --Here is the inequality hack
+            --requestTerm goal
             scoped (listId,i) $ const $ do
-              requestTerm goal
+              --requestTerm goal
               eqt <- fromVarsAsCells (direct (listId,i,"vacr"::String)) [var $ direct (listId,i,"left"::String),["/=",var $ direct (listId,i,"right"::String)]]
               goal `eq` eqt
               watchFixpoint (listId,i,"checkEq"::String) $ do

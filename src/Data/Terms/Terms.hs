@@ -119,8 +119,6 @@ instance (Identifier i (TermSet i), MonadProp m) => Propagator m  (TermSet i) (T
         eqAll $ fst <$> appList
         eqAll $ snd <$> appList
 
-        --sequence_ $ read . fst <$> appList
-        --sequence_ $ read . snd <$> appList
         --as subvalues are not equivalent to this value, their bots have to be propagated as well
         let propBotThis a = propBot a this
         mapM_ propBotThis $ fst <$> appList
