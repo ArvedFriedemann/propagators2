@@ -33,3 +33,17 @@ The Oz and Prolog instances can be found in the folders "Oz Examples" and "PROLO
 
 Please excuse if the code looks a bit messy, a team member left the project unexpectedly and I am still compensating. By the time your reviews will reach me however, there is a good chance that I have caught up (same with optimisations).
 
+## The Language
+
+Most of our language features work as described in the paper, however there are a few known bugs that have not been fixed yet (but will soon be).
+After every clause there needs to be a semicolon. Reason is the default Token Parser that eats my precious newlines.
+Don't use custom mixfix operators without associativity that still have a hole in the front (and the back might also cause problems). The parser will not terminate. 
+Yes, brackets, implication, application and inequality need to be defined extra. It's not a bug, it's a feature.
+
+## Thank you!
+
+Thank you so much for your interest in our system! It's our little baby and we love it!
+Looking forward to continuing the research and to be reading your review.
+
+
+
