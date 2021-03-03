@@ -140,7 +140,7 @@ simpleKBNetwork'' fuel listId kb goal origGoal = watchFixpoint listId $ do
                   write goal bot
                   promote goal
                 else do
-                  traceM "Structure is (a /= b)"
+                  --traceM "Structure is (a /= b)"
                   eqt2 <- fromVarsAsCells (direct (listId,i,"vacr2"::String)) [var $ direct (listId,i,"eq"::String),["/=",var $ direct (listId,i,"eq"::String)]]
                   goal `eq` eqt2
                   watchFixpoint (listId,i,"checkEqCont"::String) $ do
