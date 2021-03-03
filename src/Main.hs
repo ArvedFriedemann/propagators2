@@ -14,3 +14,5 @@ main = do
 
 proofSearch :: String -> IO ()
 proofSearch filename = parseFileAndPerformProofSearch (-1) filename
+
+--
