@@ -1,17 +1,16 @@
 module Main where
 
 import "this" Tests.UnificationTest
-
+import "this" Control.Language.Pipeline
 
 main :: IO ()
 main = do
-    printTest 1 >> test1
-    printTest 2 >> test2
-    printTest 3 >> test3
-    printTest 4 >> test4
-  where
-    printTest :: Int -> IO ()
-    printTest i = do
-        putStrLn (replicate 80 '-')
-        putStrLn $ "-- test" ++ show i
-        putStrLn (replicate 80 '-')
+  putStrLn "Hello and Welcome!"
+  putStrLn "Please input a file to start the proof search."
+  putStrLn "Note that the last term in your file will mark the goal for the proof search!"
+  ln <- readLn
+  putStrLn "Thanks! Let's get started!"
+  parseFileAndPerformProofSearch (-1) ln
+
+proofSearch :: String -> IO ()
+proofSearch filename = parseFileAndPerformProofSearch (-1) filename
