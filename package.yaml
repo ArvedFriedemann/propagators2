@@ -11,22 +11,22 @@ ghc-options:
   - -Wwarn=unused-matches
   - -Wwarn=unused-imports
   - -Wwarn=type-defaults
-  - -rtsopts -threaded -O2
+  - -rtsopts -threaded -O #-O2
 
 executable:
   source-dirs: src
   main: Main.hs
 
-_tests:
-  spec:
-    source-dirs:
-    - src
-    - test
-    main: Spec.hs
-    dependencies:
-    - tasty
-    - tasty-quickcheck
-    - tasty-hunit
+# _tests:
+#   spec:
+#     source-dirs:
+#     - src
+#     - test
+#     main: Spec.hs
+#     dependencies:
+#     - tasty
+#     - tasty-quickcheck
+#     - tasty-hunit
 
 dependencies:
   # essentially standard library
