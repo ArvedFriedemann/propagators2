@@ -18,6 +18,14 @@ class Monad m => MonadProp m v where
   --TODO: how to do scopes when we only have normal references?
   --possible solution: have an actual create event for scopes that gives a reference
   --that can be found quicker in a map
+  --Hint from : use doubly linked tree, like
+  {-
+    data Ref a = Ref
+    { parent :: IORef (Ref a)
+    , value :: IORef a
+    , children :: IORef (Map ScopeName (Ref a))
+    }
+  -}
   newScope :: (Std n) => n -> m (v Scope)
   scoped :: v Scope -> m () -> m ()
   parScoped :: m () -> m ()
