@@ -5,7 +5,6 @@
 - install the [nix package-manager](https://nixos.org/guides/install-nix.html).
 
 ## run
-
 - run `./run`
 
 ## develop
