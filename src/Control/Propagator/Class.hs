@@ -2,13 +2,16 @@
 module Control.Propagator.Class where
 
 import "base" Prelude hiding ( read )
+import "base" Data.Typeable
+
+import "this" Data.Lattice
 
 class (Eq a, Ord a, Show a, Typeable a) => Std a
 class (BoundedJoin a) => Value a
 
-type Scope = Scope
+data Scope = Scope
 
-class Monad m => MonadProp m v where
+class Monad m => MonadProp m v | m -> v where
   read :: (Value a) => v a -> m a
   write :: (Value a) => v a -> a -> m ()
   watch :: (Value a, Std n) => v a -> n -> m () -> m ()
