@@ -1,4 +1,4 @@
-module MonadVar.Classes
+module Control.MonadVar.MonadVar.Classes
   ( MonadNew(..)
   , MonadLock(..)
   , MonadRead(..)
@@ -12,7 +12,7 @@ module MonadVar.Classes
   , MonadFoldMutateM(..)
   ) where
 
-import           MonadVar.Prelude
+import "this" Control.MonadVar.MonadVar.Prelude
 
 -- | A type class for containers that can be created and
 -- initialized with a single value.

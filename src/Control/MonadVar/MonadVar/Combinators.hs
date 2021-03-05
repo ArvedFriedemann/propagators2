@@ -1,4 +1,4 @@
-module MonadVar.Combinators
+module Control.MonadVar.MonadVar.Combinators
   ( postMutate_
   , preMutate_
   , postMutate
@@ -8,9 +8,9 @@ module MonadVar.Combinators
   , postMutateM
   , preMutateM
   ) where
-  
-import           MonadVar.Prelude
-import           MonadVar.Classes
+
+import "this" Control.MonadVar.MonadVar.Prelude
+import "this" Control.MonadVar.MonadVar.Classes
 
 -- | Mutate a variable and also return its old value.
 postMutate_

@@ -1,6 +1,6 @@
-module MonadVar.Prelude
+module Control.MonadVar.MonadVar.Prelude
   ( module Export
-  , module MonadVar.Prelude
+  , module Control.MonadVar.MonadVar.Prelude
   ) where
 
 import           Prelude                as Export hiding (read)

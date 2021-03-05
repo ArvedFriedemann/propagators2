@@ -1,4 +1,5 @@
-module MonadVar.Default
+{-# LANGUAGE NoImplicitPrelude #-}
+module Control.MonadVar.MonadVar.Default
   ( defaultLockUnsafeWrite
   , defaultReadWriteSwap
   , defaultLockUnsafeSwap
@@ -14,8 +15,8 @@ module MonadVar.Default
   , defaultLockIOMutateM
   ) where
 
-import           MonadVar.Prelude
-import           MonadVar.Classes
+import "this" Control.MonadVar.MonadVar.Prelude
+import "this" Control.MonadVar.MonadVar.Classes
 
 -- | Default exception-unsafe 'write' for 'MonadLock' entities.
 defaultLockUnsafeWrite

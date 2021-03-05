@@ -11,6 +11,8 @@ ghc-options:
   - -Wwarn=unused-matches
   - -Wwarn=unused-imports
   - -Wwarn=type-defaults
+  - -XBangPatterns
+  - -fno-warn-orphans
   - -rtsopts -threaded -O #-O2
 
 executable:
@@ -49,6 +51,7 @@ dependencies:
   - constraints
   - semigroupoids
   - criterion
+  - stm
 
 # enable modern Haskell
 default-extensions:

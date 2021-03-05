@@ -1,8 +1,8 @@
-module MonadVar.Instances.TVar where
+module Control.MonadVar.MonadVar.Instances.TVar where
 
-import           MonadVar.Prelude
-import           MonadVar.Classes
-import           MonadVar.Default
+import "this" Control.MonadVar.MonadVar.Prelude
+import "this" Control.MonadVar.MonadVar.Classes
+import "this" Control.MonadVar.MonadVar.Default
 import           Control.Concurrent.STM
 
 instance MonadNew   STM TVar where

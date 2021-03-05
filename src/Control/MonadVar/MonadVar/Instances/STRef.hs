@@ -1,7 +1,8 @@
-module MonadVar.Instances.STRef where
+{-# LANGUAGE NoImplicitPrelude #-}
+module Control.MonadVar.MonadVar.Instances.STRef where
 
-import           MonadVar.Classes
-import           MonadVar.Default
+import "this" Control.MonadVar.MonadVar.Classes
+import "this" Control.MonadVar.MonadVar.Default
 import           Control.Monad.ST
 import           Data.STRef
 

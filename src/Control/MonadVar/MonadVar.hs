@@ -1,11 +1,14 @@
-{-Disclaimer: MonadVar taken from https://github.com/effectfully/monad-var-}
+{-
+Disclaimer: MonadVar taken from https://github.com/effectfully/monad-var
+package was broken.
+-}
 module Control.MonadVar.MonadVar (module Export) where
 
-import           MonadVar.Classes         as Export
-import           MonadVar.Combinators     as Export
-import           MonadVar.Default         as Export
-import           MonadVar.Instances.IORef as Export ()
-import           MonadVar.Instances.MVar  as Export ()
-import           MonadVar.Instances.STRef as Export ()
-import           MonadVar.Instances.TMVar as Export ()
-import           MonadVar.Instances.TVar  as Export ()
+import "this" Control.MonadVar.MonadVar.Classes         as Export
+import "this" Control.MonadVar.MonadVar.Combinators     as Export
+import "this" Control.MonadVar.MonadVar.Default         as Export
+import "this" Control.MonadVar.MonadVar.Instances.IORef as Export ()
+import "this" Control.MonadVar.MonadVar.Instances.MVar  as Export ()
+import "this" Control.MonadVar.MonadVar.Instances.STRef as Export ()
+import "this" Control.MonadVar.MonadVar.Instances.TMVar as Export ()
+import "this" Control.MonadVar.MonadVar.Instances.TVar  as Export ()

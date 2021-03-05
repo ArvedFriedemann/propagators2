@@ -1,5 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
-module MonadVar.Lens
+module Control.MonadVar.MonadVar.Lens
   ( (./)
   , effectful
   , (.!)
@@ -7,9 +7,9 @@ module MonadVar.Lens
   , _Var
   ) where
 
-import           MonadVar.Prelude
-import           MonadVar.Compat
-import           MonadVar.Classes
+import "this" Control.MonadVar.MonadVar.Prelude
+import "this" Control.MonadVar.MonadVar.Compat
+import "this" Control.MonadVar.MonadVar.Classes
 import           Data.Functor.Identity
 import           Data.Functor.Compose
 
