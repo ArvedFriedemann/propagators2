@@ -7,7 +7,7 @@ import "base" Data.Typeable
 import "this" Data.Lattice
 
 class (Eq a, Ord a, Show a, Typeable a) => Std a
-class (BoundedJoin a) => Value a
+class (BoundedJoin a, Meet a, Eq a) => Value a
 
 data Scope = Scope
 

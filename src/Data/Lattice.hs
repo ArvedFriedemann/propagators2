@@ -7,3 +7,4 @@ import "this" Data.Lattice.WithBot as Exp
 import "this" Data.Lattice.WithBounds as Exp
 import "this" Data.Lattice.Facts as Exp
 import "this" Data.Lattice.Domain as Exp
+import "this" Data.Lattice.Util as Exp
