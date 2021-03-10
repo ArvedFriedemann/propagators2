@@ -68,7 +68,6 @@ data PropState v = PropState {
   addresses :: forall a b. (Ord a) =>  v (Map a (v b))
 }
 
-class Dep a b | a -> b
 
 instance (Dep m v
         , MonadFork m
@@ -105,10 +104,5 @@ notify ptr = do
   propset <- readCPPropagators ptr >>= mapM MV.read . Set.toList
   forkF propset
 
-
-class (Monad m) => MonadFork m where
-  fork :: m () -> m ()
-  forkF :: (Foldable t) => t (m ()) -> m ()
-  forkF = foldr (\m t -> fork m >> t) (return ())
 
 --
