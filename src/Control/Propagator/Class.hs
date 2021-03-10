@@ -7,7 +7,9 @@ import "base" Data.Typeable
 import "this" Data.Lattice
 
 class (Eq a, Ord a, Show a, Typeable a) => Std a
-class (BoundedJoin a, Meet a, Eq a) => Value a
+class (HasTop a, Meet a, Eq a) => Value a
+
+class Identifier i a | i -> a
 
 data Scope = Scope
 
@@ -16,7 +18,7 @@ class Monad m => MonadProp m v | m -> v where
   write :: (Value a) => v a -> a -> m ()
   watch :: (Value a, Std n) => v a -> n -> m () -> m ()
 
-  new :: (Std n) => n -> m (v a)
+  new :: (Identifier n a, Std n) => n -> m (v a)
 
   --TODO: how to do scopes when we only have normal references?
   --possible solution: have an actual create event for scopes that gives a reference
@@ -29,7 +31,7 @@ class Monad m => MonadProp m v | m -> v where
     , children :: IORef (Map ScopeName (Ref a))
     }
   -}
-  newScope :: (Std n) => n -> m (v Scope)
+  newScope :: (Identifier n Scope, Std n) => n -> m (v Scope)
   scoped :: v Scope -> m () -> m ()
   parScoped :: m () -> m ()
 
