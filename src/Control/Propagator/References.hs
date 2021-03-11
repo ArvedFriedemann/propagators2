@@ -59,9 +59,6 @@ readValue ptr = do
     Nothing -> createTopCell >>= writeLattPtr (unpkCP ptr) >> return top
     Just ptr -> MV.read ptr
 
---returns whether value has changed
-writeLattPtr :: (Meet a, Eq a, MonadMutate m v) => v a -> a -> m Bool
-writeLattPtr ptr val = MV.mutate ptr (meetDiff val)
 
 
 data PropState v = PropState {

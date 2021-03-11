@@ -45,14 +45,10 @@ instance (Dep m v
 
   writeS :: (Value a) => CellPtr m v a -> a -> m ()
   writeS ptr val = do
-    hasChanged <- MV.mutate (unpkCP ptr)
+    (props, hasChanged) <- MV.mutate (unpkCP ptr)
       (\pc -> let (a,b) = meetDiff val (value pc)
-              in (pc{value=a},b))
-    if hasChanged
-    then do
-      (propagators -> prp) <- MV.read (unpkCP ptr)
-      forkF prp
-    else return ()
+              in (pc{value=a},propagators pc, b))
+    when hasChanged $ forkF props
 
   watchS :: CellPtr m v a -> m () -> m ()
   watchS ptr act = do

@@ -11,16 +11,15 @@ class (HasTop a, Meet a, Eq a) => Value a
 
 class Dep a b | a -> b
 
-class Monad m => MonadPropSimple m v | m -> v where
+class MonadPropSimple m v | m -> v where
   readS :: v a -> m a
   writeS ::(Value a) =>  v a -> a -> m ()
   watchS :: v a -> m () -> m ()
 
-class (Monad m) => MonadFork m where
+class MonadFork m where
   fork :: m () -> m ()
   forkF :: (Foldable t) => t (m ()) -> m ()
   forkF = foldr (\m t -> fork m >> t) (return ())
-
 
 class Identifier i a | i -> a
 
