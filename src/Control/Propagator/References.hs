@@ -3,6 +3,7 @@ module Control.Propagator.References where
 
 import "base" Prelude hiding ( read )
 import "base" Control.Applicative
+import "base" Control.Monad
 import "base" Data.Maybe
 
 import "this" Control.MonadVar.MonadVar (MonadNew, MonadMutate, MonadRead)
@@ -45,19 +46,28 @@ readCP ptr = MV.read $ unpkCP ptr
 readSelector :: (MonadRead m v) => (TreeCell v a -> b) -> CellPtr v a -> m b
 readSelector sel ptr = sel <$> readCP ptr
 
-accessRelName :: (Std i, Identifier i b, Value b, MonadAtomic v m' m) => CellPtr v a -> m' b -> i -> m b
-accessRelName ptr con adr = do
-  mabVal <- lkp adr ptr
+accessLazyNameMap :: (Std i, Identifier i b, Value b, MonadAtomic v m' m) => m (Map SEBId (Some Value)) -> m' (Map SEBId (Some Value)) -> (i -> b -> m' ()) -> m' b -> i -> m b
+accessLazyNameMap getMap getMap' putMap con adr = do
+  mabVal <- Map.lookup (SEBId adr) <$> getMap
   case mabVal of
     Just val -> return $ fromJust $ fromSome val
     Nothing -> atomically $ do
-      mabVal2 <- lkp adr ptr
+      mabVal2 <- Map.lookup (SEBId adr) <$> getMap'
       case mabVal2 of
         Just val -> return $ fromJust $ fromSome val
         Nothing -> do
           nptr <- con
-          MV.mutate (unpkCP ptr) (\cp -> (cp{relnames = Map.insert (SEBId adr) (Some nptr) (relnames cp)},nptr))
-  where lkp a p = Map.lookup (SEBId a) <$>  readSelector relnames p
+          putMap adr nptr
+          return nptr
+
+accessRelName :: (Std i, Identifier i b, Value b, MonadAtomic v m' m) => CellPtr v a -> m' b -> i -> m b
+accessRelName ptr con adr =
+  accessLazyNameMap
+    (readSelector relnames ptr)
+    (readSelector relnames ptr)
+    (\adr' nptr -> void $ MV.mutate (unpkCP ptr) (\cp -> (cp{relnames = Map.insert (SEBId adr') (Some nptr) (relnames cp)},nptr)))
+    con
+    adr
 
 
 
