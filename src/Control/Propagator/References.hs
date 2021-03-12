@@ -30,6 +30,7 @@ instance Eq SEBId where
 instance Ord SEBId where
     SEBId i `compare` SEBId j = compareTyped i j
 
+--TODO: scopes should be some list structure. In a cell, you can go up only one scope. When reading from a distant scope, you have to go down the stack until the orig and then successively punp the value up.
 data TreeCell m' v a = TreeCell {
   parent :: Maybe (CellPtr m' v a) --TODO: cannot be created, needs to be existing reference
 , value :: v a
