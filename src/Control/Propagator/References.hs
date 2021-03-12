@@ -18,21 +18,20 @@ import qualified "containers" Data.Set as Set
 import "mtl" Control.Monad.State.Class
 
 
+data SEBId where
+    SEBId :: Identifier i a => i -> SEBId
+instance Eq SEBId where
+    SEBId s i == SEBId t j = s == t && i =~= j
+instance Ord SEBId where
+    SEBId s i `compare` SEBId t j = compare s t <> compareTyped i j
+
 data TreeCell m v a = TreeCell {
   parent :: Maybe (CellPtr m v a) --TODO: cannot be created, needs to be existing reference
-, value :: Maybe (v a)
-, children :: Maybe (v (Map (v Scope) (TreeCell m v a)))
-, propagators :: Maybe (CellPtr m v (Set (v (m ()))) )
+, value :: v a
+, relnames :: Map SEBId (Some Value)
 }
 
 data CellPtr m v a = CP (v (TreeCell m v a))
-
-instance HasTop (TreeCell m v a) where
-  top = TreeCell Nothing Nothing Nothing Nothing
-
-instance Meet (TreeCell m v a) where
-  (TreeCell a b c d) /\ (TreeCell a' b' c' d') =
-    TreeCell (a <|> a') (b <|> b') (c <|> c') (d <|> d')
 
 unpkCP :: CellPtr m v a -> v (TreeCell m v a)
 unpkCP (CP ptr) = ptr
@@ -43,21 +42,8 @@ readCP ptr = MV.read $ unpkCP ptr
 readSelector :: (MonadRead m v) => (TreeCell m v a -> b) -> CellPtr m v a -> m b
 readSelector sel ptr = sel <$> readCP ptr
 
-createValTreeCell :: (Value a, MonadNew m v) => a -> m (TreeCell m v a)
-createValTreeCell v = do
-  val <- MV.new v
-  return $ top{value = Just val}
+accessRelName :: (Identifier i b, MonadAtomic v m' m) => CellPtr m v a -> m b -> i -> m b
 
-createTopCell :: (Value a, MonadNew m v) => m (TreeCell m v a)
-createTopCell = createValTreeCell top
-
-readValue :: (Value a, MonadRead m v, MonadMutate m v) =>
-  CellPtr m v a -> m a
-readValue ptr = do
-  mabVal <- readSelector value ptr
-  case mabVal of
-    Nothing -> createTopCell >>= writeLattPtr (unpkCP ptr) >> return top
-    Just ptr -> MV.read ptr
 
 
 

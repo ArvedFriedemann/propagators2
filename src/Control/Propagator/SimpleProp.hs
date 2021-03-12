@@ -36,9 +36,7 @@ readSelector sel ptr = sel <$> readCP ptr
 
 instance (Dep m v
         , MonadFork m
-        , MonadNew m v
-        , MonadMutate m v
-        , MonadRead m v) => MonadPropSimple m (CellPtr m v) where
+        , MonadVar m v) => MonadPropSimple m (CellPtr m v) where
 
   readS :: CellPtr m v a -> m a
   readS = readSelector value
