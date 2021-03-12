@@ -5,6 +5,7 @@ import "base" Prelude hiding ( read )
 import "base" Control.Applicative
 import "base" Control.Monad
 import "base" Data.Maybe
+import "base" Data.Typeable
 
 import "this" Control.MonadVar.MonadVar (MonadNew, MonadMutate, MonadRead)
 import qualified "this" Control.MonadVar.MonadVar as MV
@@ -32,7 +33,7 @@ instance Ord SEBId where
 data TreeCell v a = TreeCell {
   parent :: Maybe (CellPtr v a) --TODO: cannot be created, needs to be existing reference
 , value :: v a
-, relnames :: Map SEBId (Some Value)
+, relnames :: Map SEBId (Some Something)
 }
 
 data CellPtr v a = CP (v (TreeCell v a))
@@ -46,7 +47,21 @@ readCP ptr = MV.read $ unpkCP ptr
 readSelector :: (MonadRead m v) => (TreeCell v a -> b) -> CellPtr v a -> m b
 readSelector sel ptr = sel <$> readCP ptr
 
-accessLazyNameMap :: (Std i, Identifier i b, Value b, MonadAtomic v m' m) => m (Map SEBId (Some Value)) -> m' (Map SEBId (Some Value)) -> (i -> b -> m' ()) -> m' b -> i -> m b
+createValCell :: (MonadNew m v) => a -> m (TreeCell v a)
+createValCell v = do
+  val <- MV.new v
+  return $ TreeCell{parent = Nothing, value = val, relnames = Map.empty}
+
+createTopCell :: (MonadNew m v, Value a) => m (TreeCell v a)
+createTopCell = createValCell top
+
+createTopCellPtr :: (MonadNew m v, Value a) => m (CellPtr v a)
+createTopCellPtr = CP <$> (createTopCell >>= MV.new)
+
+createValCellPtr :: (MonadNew m v) => a -> m (CellPtr v a)
+createValCellPtr val = CP <$> (createValCell val >>= MV.new)
+
+accessLazyNameMap :: (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => m (Map SEBId (Some Something)) -> m' (Map SEBId (Some Something)) -> (i -> b -> m' ()) -> m' b -> i -> m b
 accessLazyNameMap getMap getMap' putMap con adr = do
   mabVal <- Map.lookup (SEBId adr) <$> getMap
   case mabVal of
@@ -60,7 +75,7 @@ accessLazyNameMap getMap getMap' putMap con adr = do
           putMap adr nptr
           return nptr
 
-accessRelName :: (Std i, Identifier i b, Value b, MonadAtomic v m' m) => CellPtr v a -> m' b -> i -> m b
+accessRelName :: (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => CellPtr v a -> m' b -> i -> m b
 accessRelName ptr con adr =
   accessLazyNameMap
     (readSelector relnames ptr)
@@ -69,7 +84,8 @@ accessRelName ptr con adr =
     con
     adr
 
-
+writeLattPtr :: (MonadMutate m v, Value a) => v a -> a -> m Bool
+writeLattPtr ptr val = MV.mutate ptr (\old -> meetDiff val old)
 
 data PropState v = PropState {
   addresses :: forall a b. (Ord a) =>  v (Map a (v b))
@@ -79,20 +95,22 @@ data PropState v = PropState {
 instance (Dep m v
         , MonadFork m
         , MonadState (PropState v) m
-        , MonadNew m v
-        , MonadMutate m v
-        , MonadRead m v) => MonadProp m (CellPtr v) where
+        , MonadVar m v
+        , MonadVar m' v
+        , MonadAtomic v m' m
+        , Typeable m
+        , Typeable v) => MonadProp m' m (CellPtr v) where
 
-  read :: (Value a) => CellPtr v a -> m a
+  read :: CellPtr v a -> m a
   read ptr = readCP ptr >>= MV.read . value
 
   write :: (Value a) => CellPtr v a -> a -> m ()
-  write ptr val = undefined {- do
+  write ptr val = do
     cp <- readCP ptr
     hasChanged <- writeLattPtr (value cp) val
     if hasChanged
     then notify ptr
-    else return () -}
+    else return ()
 
   new :: (Identifier n a, Value a, Std n) => n -> m (CellPtr v a)
   new name = undefined{- do
@@ -105,11 +123,20 @@ instance (Dep m v
       Nothing -> return () --TODO: put parent and propagators?
       -}
 
-{-}
-notify :: (MonadRead m v, MonadFork m) => CellPtr v a -> m ()
+data PropOf m v = PropOf
+  deriving (Show, Eq, Ord, Typeable)
+instance (Typeable k, Typeable l, Typeable m, Typeable v) => Std (PropOf (m :: k -> *) (v :: l -> *))
+
+instance Identifier (PropOf m v) (CellPtr v (Map (Some Std) (m ())) )
+
+notify :: forall (m' :: * -> *) m v a.
+  ( MonadAtomic v m' m
+  , MonadFork m
+  , MonadProp m' m (CellPtr v)
+  , Typeable m, Typeable v) => CellPtr v a -> m ()
 notify ptr = do
-  propset <- readCPPropagators ptr >>= mapM MV.read . Set.toList
-  forkF propset
--}
+  propset <- read =<< accessRelName ptr (createValCellPtr @m' Map.empty) (PropOf @m @v)
+  forkF (Map.elems propset)
+
 
 --
