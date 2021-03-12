@@ -30,35 +30,35 @@ instance Eq SEBId where
 instance Ord SEBId where
     SEBId i `compare` SEBId j = compareTyped i j
 
-data TreeCell v a = TreeCell {
-  parent :: Maybe (CellPtr v a) --TODO: cannot be created, needs to be existing reference
+data TreeCell m' v a = TreeCell {
+  parent :: Maybe (CellPtr m' v a) --TODO: cannot be created, needs to be existing reference
 , value :: v a
 , relnames :: Map SEBId (Some Something)
 }
 
-data CellPtr v a = CP (v (TreeCell v a))
+data CellPtr m' v a = CP (v (TreeCell m' v a))
 
-unpkCP :: CellPtr v a -> v (TreeCell v a)
+unpkCP :: CellPtr m' v a -> v (TreeCell m' v a)
 unpkCP (CP ptr) = ptr
 
-readCP :: (MonadRead m v) => CellPtr v a -> m (TreeCell v a)
+readCP :: (MonadRead m v) => CellPtr m' v a -> m (TreeCell m' v a)
 readCP ptr = MV.read $ unpkCP ptr
 
-readSelector :: (MonadRead m v) => (TreeCell v a -> b) -> CellPtr v a -> m b
+readSelector :: (MonadRead m v) => (TreeCell m' v a -> b) -> CellPtr m' v a -> m b
 readSelector sel ptr = sel <$> readCP ptr
 
-createValCell :: (MonadNew m v) => a -> m (TreeCell v a)
+createValCell :: (MonadNew m v) => a -> m (TreeCell m' v a)
 createValCell v = do
   val <- MV.new v
   return $ TreeCell{parent = Nothing, value = val, relnames = Map.empty}
 
-createTopCell :: (MonadNew m v, Value a) => m (TreeCell v a)
+createTopCell :: (MonadNew m v, Value a) => m (TreeCell m' v a)
 createTopCell = createValCell top
 
-createTopCellPtr :: (MonadNew m v, Value a) => m (CellPtr v a)
+createTopCellPtr :: (MonadNew m v, Value a) => m (CellPtr m' v a)
 createTopCellPtr = CP <$> (createTopCell >>= MV.new)
 
-createValCellPtr :: (MonadNew m v) => a -> m (CellPtr v a)
+createValCellPtr :: (MonadNew m v) => a -> m (CellPtr m' v a)
 createValCellPtr val = CP <$> (createValCell val >>= MV.new)
 
 accessLazyNameMap :: (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => m (Map SEBId (Some Something)) -> m' (Map SEBId (Some Something)) -> (i -> b -> m' ()) -> m' b -> i -> m b
@@ -75,7 +75,7 @@ accessLazyNameMap getMap getMap' putMap con adr = do
           putMap adr nptr
           return nptr
 
-accessRelName :: (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => CellPtr v a -> m' b -> i -> m b
+accessRelName :: (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => CellPtr m' v a -> m' b -> i -> m b
 accessRelName ptr con adr =
   accessLazyNameMap
     (readSelector relnames ptr)
@@ -99,12 +99,13 @@ instance (Dep m v
         , MonadVar m' v
         , MonadAtomic v m' m
         , Typeable m
-        , Typeable v) => MonadProp m' m (CellPtr v) where
+        , Typeable m'
+        , Typeable v) => MonadProp m (CellPtr m' v) where
 
-  read :: CellPtr v a -> m a
+  read :: CellPtr m' v a -> m a
   read ptr = readCP ptr >>= MV.read . value
 
-  write :: (Value a) => CellPtr v a -> a -> m ()
+  write :: (Value a) => CellPtr m' v a -> a -> m ()
   write ptr val = do
     cp <- readCP ptr
     hasChanged <- writeLattPtr (value cp) val
@@ -112,7 +113,7 @@ instance (Dep m v
     then notify ptr
     else return ()
 
-  new :: (Identifier n a, Value a, Std n) => n -> m (CellPtr v a)
+  new :: (Identifier n a, Value a, Std n) => n -> m (CellPtr m' v a)
   new name = undefined{- do
     addr <- gets addresses
     pt <- topTreeCellPtr
@@ -123,19 +124,19 @@ instance (Dep m v
       Nothing -> return () --TODO: put parent and propagators?
       -}
 
-data PropOf m v = PropOf
+data PropOf m' m v = PropOf
   deriving (Show, Eq, Ord, Typeable)
-instance (Typeable k, Typeable l, Typeable m, Typeable v) => Std (PropOf (m :: k -> *) (v :: l -> *))
+instance (Typeable m', Typeable m, Typeable v) => Std (PropOf (m' :: * -> *) (m :: * -> *) (v :: * -> *))
 
-instance Identifier (PropOf m v) (CellPtr v (Map (Some Std) (m ())) )
+instance Identifier (PropOf m' m v) (CellPtr m' v (Map (Some Std) (m ())) )
 
 notify :: forall (m' :: * -> *) m v a.
   ( MonadAtomic v m' m
   , MonadFork m
-  , MonadProp m' m (CellPtr v)
-  , Typeable m, Typeable v) => CellPtr v a -> m ()
+  , MonadProp m (CellPtr m' v)
+  , Typeable m', Typeable m, Typeable v) => CellPtr m' v a -> m ()
 notify ptr = do
-  propset <- read =<< accessRelName ptr (createValCellPtr @m' Map.empty) (PropOf @m @v)
+  propset <- read =<< accessRelName ptr (createValCellPtr @m' Map.empty) (PropOf @m' @m @v)
   forkF (Map.elems propset)
 
 
