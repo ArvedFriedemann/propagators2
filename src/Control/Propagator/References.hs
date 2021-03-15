@@ -2,7 +2,7 @@
 module Control.Propagator.References where
 
 import "base" Prelude hiding ( read )
-import "base" Control.Applicative
+import "base" Control.Applicative hiding (some)
 import "base" Control.Monad
 import "base" Data.Maybe
 import "base" Data.Typeable
@@ -53,8 +53,8 @@ readCP ptr = MV.read $ unpkCP ptr
 readSelector :: (MonadRead m v) => (TreeCell m' v a -> b) -> CellPtr m' v a -> m b
 readSelector sel ptr = sel <$> readCP ptr
 
-readName :: (MonadRead m v) => CellPtr m' v a -> m a
-readName ptr = readCP ptr >>= MV.read . value
+readValue :: (MonadRead m v) => CellPtr m' v a -> m a
+readValue ptr = readCP ptr >>= MV.read . value
 
 createValCell :: (MonadNew m v) => a -> m (TreeCell m' v a)
 createValCell v = do
@@ -145,10 +145,19 @@ instance (Dep m v
     then notify ptr'
     else return ()
 
+  watch :: (Value a, Std n) => CellPtr m' v a -> n -> m () -> m ()
+  watch ptr name act = do
+    propset <- getPropset ptr >>= readSelector value
+    hasChanged <- MV.mutate propset (\ps -> let (mabChan,mp) = Map.insertLookupWithKey (\k n o -> n) (Some name) act ps in (mp, not $ isJust mabChan))
+    when hasChanged act
+
   new :: (Identifier n a, Value a, Std n) => n -> m (CellPtr m' v a)
   new name = do --TODO: also check lower scopes? WARNING
     mp <- reader createdPointers
     accessLazyNameMap' mp createTopCellPtr name
+
+
+
 
 
 getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a. (Monad m, MonadRead m v, MonadAtomic v m' m, Eq (v Scope), Std (v Scope), Typeable v, Value a) => CellPtr m' v a -> m (CellPtr m' v a)
@@ -171,15 +180,18 @@ data PropOf m' m v = PropOf
   deriving (Show, Eq, Ord, Typeable)
 instance (Typeable m', Typeable m, Typeable v) => Std (PropOf (m' :: * -> *) (m :: * -> *) (v :: * -> *))
 
-instance Identifier (PropOf m' m v) (CellPtr m' v (Map (Some Std) (m ())) )
+type PropSetPtr m' m v = CellPtr m' v (Map (Some Std) (m ()))
+instance Identifier (PropOf m' m v) (PropSetPtr m' m v)
 
 notify :: forall (m' :: * -> *) m v a.
   ( MonadAtomic v m' m
   , MonadFork m
   , Typeable m', Typeable m, Typeable v) => CellPtr m' v a -> m ()
 notify ptr = do
-  propset <- readName =<< accessRelName ptr (createValCellPtr @m' Map.empty) (PropOf @m' @m @v)
+  propset <- getPropset ptr >>= readValue
   forkF (Map.elems propset)
 
+getPropset :: forall (m' :: * -> *) m v a. (Typeable m', Typeable m, Typeable v, MonadAtomic v m' m) => CellPtr m' v a -> m (PropSetPtr m' m v)
+getPropset ptr = accessRelName ptr (createValCellPtr @m' Map.empty) (PropOf @m' @m @v)
 
 --
