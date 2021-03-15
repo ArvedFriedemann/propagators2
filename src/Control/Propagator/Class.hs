@@ -35,7 +35,7 @@ data Scope = Scope
 instance Std Scope
 
 class Monad m => MonadProp m v | m -> v where
-  read :: v a -> m a
+  read :: (Value a) => v a -> m a
   write :: (Value a) => v a -> a -> m ()
   watch :: (Value a, Std n) => v a -> n -> m () -> m ()
 

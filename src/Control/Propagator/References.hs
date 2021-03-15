@@ -38,6 +38,7 @@ data TreeCell m' v a = TreeCell {
 , parent :: Maybe (CellPtr m' v a) --TODO: cannot be created, needs to be existing reference
 , value :: v a
 , relnames :: SEBIdMap
+, scopenames :: Map (v Scope) (CellPtr m' v a)
 }
 
 data CellPtr m' v a = CP (v (TreeCell m' v a))
@@ -51,10 +52,14 @@ readCP ptr = MV.read $ unpkCP ptr
 readSelector :: (MonadRead m v) => (TreeCell m' v a -> b) -> CellPtr m' v a -> m b
 readSelector sel ptr = sel <$> readCP ptr
 
+readName :: (MonadRead m v) => CellPtr m' v a -> m a
+readName ptr = readCP ptr >>= MV.read . value
+
 createValCell :: (MonadNew m v) => a -> m (TreeCell m' v a)
 createValCell v = do
   val <- MV.new v
-  return $ TreeCell{parent = Nothing, value = val, relnames = Map.empty}
+  s <- scope
+  return $ TreeCell{parent = Nothing, origScope = s, value = val, relnames = Map.empty, scopenames = Map.empty}
 
 createTopCell :: (MonadNew m v, Value a) => m (TreeCell m' v a)
 createTopCell = createValCell top
@@ -65,15 +70,15 @@ createTopCellPtr = CP <$> (createTopCell >>= MV.new)
 createValCellPtr :: (MonadNew m v) => a -> m (CellPtr m' v a)
 createValCellPtr val = CP <$> (createValCell val >>= MV.new)
 
-accessLazyNameMap :: (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => m SEBIdMap -> m' SEBIdMap -> (i -> b -> m' ()) -> m' b -> i -> m b
+accessLazyNameMap :: (Ord i, MonadAtomic v m' m) => m (Map i b) -> m' (Map i b) -> (i -> b -> m' ()) -> m' b -> i -> m b
 accessLazyNameMap getMap getMap' putMap con adr = do
-  mabVal <- Map.lookup (SEBId adr) <$> getMap
+  mabVal <- Map.lookup adr <$> getMap
   case mabVal of
-    Just val -> return $ fromJust $ fromSome val
+    Just val -> return val
     Nothing -> atomically $ do
-      mabVal2 <- Map.lookup (SEBId adr) <$> getMap'
+      mabVal2 <- Map.lookup adr <$> getMap'
       case mabVal2 of
-        Just val -> return $ fromJust $ fromSome val
+        Just val -> return val
         Nothing -> do
           nptr <- con
           putMap adr nptr
@@ -81,12 +86,21 @@ accessLazyNameMap getMap getMap' putMap con adr = do
 
 accessRelName :: forall m' m v a i b. (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => CellPtr m' v a -> m' b -> i -> m b
 accessRelName ptr con adr =
+  fromJust . fromSome <$> accessLazyNameMap
+    (readSelector relnames ptr)
+    (readSelector relnames ptr)
+    (\adr' nptr -> void $ MV.mutate (unpkCP ptr) (\cp -> (cp{relnames = Map.insert adr' (Some nptr) (relnames cp)},nptr)))
+    (Some <$> con)
+    (SEBId adr)
+
+accessScopeName :: forall m' m v a. (Value a, Typeable v, Ord (v Scope), MonadAtomic v m' m) => CellPtr m' v a -> v Scope -> m (CellPtr m' v a)
+accessScopeName ptr scp =
   accessLazyNameMap
-    (readSelector relnames ptr)
-    (readSelector relnames ptr)
-    (\adr' nptr -> void $ MV.mutate (unpkCP ptr) (\cp -> (cp{relnames = Map.insert (SEBId adr') (Some nptr) (relnames cp)},nptr)))
-    con
-    adr
+    (readSelector scopenames ptr)
+    (readSelector scopenames ptr)
+    (\adr' nptr -> void $ MV.mutate (unpkCP ptr) (\cp -> (cp{scopenames = Map.insert adr' nptr (scopenames cp)},nptr)))
+    createTopCellPtr
+    scp
 
 writeLattPtr :: (MonadMutate m v, Value a) => v a -> a -> m Bool
 writeLattPtr ptr val = MV.mutate ptr (\old -> meetDiff val old)
@@ -108,16 +122,17 @@ instance (Dep m v
         , Typeable m'
         , Typeable v) => MonadProp m (CellPtr m' v) where
 
-  read :: CellPtr m' v a -> m a
+  read :: (Value a) => CellPtr m' v a -> m a
   read ptr = getScopeRef ptr >>= readCP >>= MV.read . value
 
 
   write :: (Value a) => CellPtr m' v a -> a -> m ()
   write ptr val = do
-    cp <- readCP ptr
+    ptr' <- getScopeRef ptr
+    cp <- readCP ptr'
     hasChanged <- writeLattPtr (value cp) val
     if hasChanged
-    then notify ptr
+    then notify ptr'
     else return ()
 
   new :: (Identifier n a, Value a, Std n) => n -> m (CellPtr m' v a)
@@ -131,16 +146,8 @@ instance (Dep m v
       Nothing -> return () --TODO: put parent and propagators?
       -}
 
-data ScopedPtr m' v a = ScopedPtr (v Scope)
-  deriving (Typeable)
-deriving instance (forall a. Show (v a)) => Show (ScopedPtr m' v a)
-deriving instance (forall a. Eq (v a)) => Eq (ScopedPtr m' v a)
-deriving instance (forall a. Ord (v a)) => Ord (ScopedPtr m' v a)
 
-instance (Typeable a, forall a. Show (v a), forall a. Eq (v a), forall a. Ord (v a), forall a. Typeable (v a), Typeable m', Typeable v) => Std (ScopedPtr (m' :: * -> *) (v :: * -> *) a)
-instance Identifier (ScopedPtr m' v a) (CellPtr m' v a)
-
-getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a. (Monad m, MonadRead m v, Eq (v Scope), Std (v Scope)) => CellPtr m' v a -> m (CellPtr m' v a)
+getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a. (Monad m, MonadRead m v, MonadAtomic v m' m, Eq (v Scope), Std (v Scope), Typeable v, Value a) => CellPtr m' v a -> m (CellPtr m' v a)
 getScopeRef ptr = do
   tc <- readCP ptr
   s <- scope
@@ -148,7 +155,7 @@ getScopeRef ptr = do
   then return ptr
   else do
     ptr' <- unsafeParScoped $ getScopeRef ptr
-    accessRelName @m' @m ptr' (createTopCellPtr @m' @m') (ScopedPtr @m' s)
+    accessScopeName ptr' s
 
 unsafeParScoped :: m a -> m a
 unsafeParScoped = undefined
@@ -165,10 +172,9 @@ instance Identifier (PropOf m' m v) (CellPtr m' v (Map (Some Std) (m ())) )
 notify :: forall (m' :: * -> *) m v a.
   ( MonadAtomic v m' m
   , MonadFork m
-  , MonadProp m (CellPtr m' v)
   , Typeable m', Typeable m, Typeable v) => CellPtr m' v a -> m ()
 notify ptr = do
-  propset <- read =<< accessRelName ptr (createValCellPtr @m' Map.empty) (PropOf @m' @m @v)
+  propset <- readName =<< accessRelName ptr (createValCellPtr @m' Map.empty) (PropOf @m' @m @v)
   forkF (Map.elems propset)
 
 
