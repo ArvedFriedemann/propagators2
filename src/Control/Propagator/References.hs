@@ -7,6 +7,8 @@ import "base" Control.Monad
 import "base" Data.Maybe
 import "base" Data.Typeable
 
+import "mtl" Control.Monad.Reader
+
 import "this" Control.MonadVar.MonadVar (MonadNew, MonadMutate, MonadRead)
 import qualified "this" Control.MonadVar.MonadVar as MV
 
@@ -20,7 +22,6 @@ import qualified "containers" Data.Map as Map
 import "containers" Data.Set (Set)
 import qualified "containers" Data.Set as Set
 
-import "mtl" Control.Monad.State.Class
 
 
 data SEBId where
@@ -30,11 +31,13 @@ instance Eq SEBId where
 instance Ord SEBId where
     SEBId i `compare` SEBId j = compareTyped i j
 
+type SEBIdMap = Map SEBId (Some Something)
 --TODO: scopes should be some list structure. In a cell, you can go up only one scope. When reading from a distant scope, you have to go down the stack until the orig and then successively punp the value up.
 data TreeCell m' v a = TreeCell {
-  parent :: Maybe (CellPtr m' v a) --TODO: cannot be created, needs to be existing reference
+  origScope :: v Scope
+, parent :: Maybe (CellPtr m' v a) --TODO: cannot be created, needs to be existing reference
 , value :: v a
-, relnames :: Map SEBId (Some Something)
+, relnames :: SEBIdMap
 }
 
 data CellPtr m' v a = CP (v (TreeCell m' v a))
@@ -56,13 +59,13 @@ createValCell v = do
 createTopCell :: (MonadNew m v, Value a) => m (TreeCell m' v a)
 createTopCell = createValCell top
 
-createTopCellPtr :: (MonadNew m v, Value a) => m (CellPtr m' v a)
+createTopCellPtr :: forall m' m v a. (MonadNew m v, Value a) => m (CellPtr m' v a)
 createTopCellPtr = CP <$> (createTopCell >>= MV.new)
 
 createValCellPtr :: (MonadNew m v) => a -> m (CellPtr m' v a)
 createValCellPtr val = CP <$> (createValCell val >>= MV.new)
 
-accessLazyNameMap :: (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => m (Map SEBId (Some Something)) -> m' (Map SEBId (Some Something)) -> (i -> b -> m' ()) -> m' b -> i -> m b
+accessLazyNameMap :: (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => m SEBIdMap -> m' SEBIdMap -> (i -> b -> m' ()) -> m' b -> i -> m b
 accessLazyNameMap getMap getMap' putMap con adr = do
   mabVal <- Map.lookup (SEBId adr) <$> getMap
   case mabVal of
@@ -76,7 +79,7 @@ accessLazyNameMap getMap getMap' putMap con adr = do
           putMap adr nptr
           return nptr
 
-accessRelName :: (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => CellPtr m' v a -> m' b -> i -> m b
+accessRelName :: forall m' m v a i b. (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => CellPtr m' v a -> m' b -> i -> m b
 accessRelName ptr con adr =
   accessLazyNameMap
     (readSelector relnames ptr)
@@ -88,23 +91,26 @@ accessRelName ptr con adr =
 writeLattPtr :: (MonadMutate m v, Value a) => v a -> a -> m Bool
 writeLattPtr ptr val = MV.mutate ptr (\old -> meetDiff val old)
 
-data PropState v = PropState {
-  addresses :: forall a b. (Ord a) =>  v (Map a (v b))
+data PropArgs v = PropArgs {
+  scopePath :: [v Scope]
+, createdPointers :: v SEBIdMap
 }
 
 
 instance (Dep m v
         , MonadFork m
-        , MonadState (PropState v) m
+        , MonadReader (PropArgs v) m
         , MonadVar m v
         , MonadVar m' v
         , MonadAtomic v m' m
+        , forall a. Std (v a)
         , Typeable m
         , Typeable m'
         , Typeable v) => MonadProp m (CellPtr m' v) where
 
   read :: CellPtr m' v a -> m a
-  read ptr = readCP ptr >>= MV.read . value
+  read ptr = getScopeRef ptr >>= readCP >>= MV.read . value
+
 
   write :: (Value a) => CellPtr m' v a -> a -> m ()
   write ptr val = do
@@ -124,6 +130,31 @@ instance (Dep m v
       Just old -> return ()--delete pointer
       Nothing -> return () --TODO: put parent and propagators?
       -}
+
+data ScopedPtr m' v a = ScopedPtr (v Scope)
+  deriving (Typeable)
+deriving instance (forall a. Show (v a)) => Show (ScopedPtr m' v a)
+deriving instance (forall a. Eq (v a)) => Eq (ScopedPtr m' v a)
+deriving instance (forall a. Ord (v a)) => Ord (ScopedPtr m' v a)
+
+instance (Typeable a, forall a. Show (v a), forall a. Eq (v a), forall a. Ord (v a), forall a. Typeable (v a), Typeable m', Typeable v) => Std (ScopedPtr (m' :: * -> *) (v :: * -> *) a)
+instance Identifier (ScopedPtr m' v a) (CellPtr m' v a)
+
+getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a. (Monad m, MonadRead m v, Eq (v Scope), Std (v Scope)) => CellPtr m' v a -> m (CellPtr m' v a)
+getScopeRef ptr = do
+  tc <- readCP ptr
+  s <- scope
+  if origScope tc == s
+  then return ptr
+  else do
+    ptr' <- unsafeParScoped $ getScopeRef ptr
+    accessRelName @m' @m ptr' (createTopCellPtr @m' @m') (ScopedPtr @m' s)
+
+unsafeParScoped :: m a -> m a
+unsafeParScoped = undefined
+
+scope :: m (v Scope)
+scope = undefined
 
 data PropOf m' m v = PropOf
   deriving (Show, Eq, Ord, Typeable)

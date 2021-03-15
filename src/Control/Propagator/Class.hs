@@ -31,6 +31,8 @@ class (Monad m', MonadVar m' v, MonadVar m v) => MonadAtomic v m' m | m -> m' v 
 class Identifier i a | i -> a
 
 data Scope = Scope
+  deriving (Show, Eq, Ord, Typeable)
+instance Std Scope
 
 class Monad m => MonadProp m v | m -> v where
   read :: v a -> m a

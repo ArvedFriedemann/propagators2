@@ -4,6 +4,7 @@ module Control.Propagator.SimpleProp where
 import "base" Prelude hiding ( read )
 import "base" Control.Applicative
 import "base" Data.Maybe
+import "base" Control.Monad
 
 import "this" Control.MonadVar.MonadVar (MonadNew, MonadMutate, MonadRead)
 import qualified "this" Control.MonadVar.MonadVar as MV
@@ -42,11 +43,11 @@ instance (Dep m v
   readS = readSelector value
 
   writeS :: (Value a) => CellPtr m v a -> a -> m ()
-  writeS ptr val = do
+  writeS ptr val = undefined {-} do
     (props, hasChanged) <- MV.mutate (unpkCP ptr)
       (\pc -> let (a,b) = meetDiff val (value pc)
               in (pc{value=a},propagators pc, b))
-    when hasChanged $ forkF props
+    when hasChanged $ forkF props -}
 
   watchS :: CellPtr m v a -> m () -> m ()
   watchS ptr act = do
