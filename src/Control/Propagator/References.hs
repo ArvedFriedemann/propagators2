@@ -25,7 +25,8 @@ import qualified "containers" Data.Set as Set
 
 
 data SEBId where
-    SEBId :: (Identifier i a, Std i) => i -> SEBId
+  --TODO WARNING: Warning, typesafety is now only from the outside!
+    SEBId :: {-(Identifier i a,-}( Std i) => i -> SEBId
 instance Eq SEBId where
     SEBId i == SEBId j = i =~= j
 instance Ord SEBId where
@@ -84,6 +85,15 @@ accessLazyNameMap getMap getMap' putMap con adr = do
           putMap adr nptr
           return nptr
 
+accessLazyNameMap' :: forall m' m v i b. (Std i, Typeable b, MonadAtomic v m' m) => v SEBIdMap -> m' b -> i -> m b
+accessLazyNameMap' ptr con adr =
+  fromJust . fromSome <$> accessLazyNameMap
+    (MV.read ptr)
+    (MV.read ptr)
+    (\adr' nptr -> void $ MV.mutate ptr (\mp -> (Map.insert adr' (Some nptr) mp,nptr)))
+    (Some <$> con)
+    (SEBId adr)
+
 accessRelName :: forall m' m v a i b. (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => CellPtr m' v a -> m' b -> i -> m b
 accessRelName ptr con adr =
   fromJust . fromSome <$> accessLazyNameMap
@@ -136,15 +146,9 @@ instance (Dep m v
     else return ()
 
   new :: (Identifier n a, Value a, Std n) => n -> m (CellPtr m' v a)
-  new name = undefined{- do
-    addr <- gets addresses
-    pt <- topTreeCellPtr
-    --tries to add the new pointer into the map. If the value at the name already exists, the old one is kept and returned as Just ...
-    maybeOld <- MV.mutate addr (flip . Map.insertLookupWithKey (const . const) name pt)
-    case maybeOld of
-      Just old -> return ()--delete pointer
-      Nothing -> return () --TODO: put parent and propagators?
-      -}
+  new name = do --TODO: also check lower scopes? WARNING
+    mp <- reader createdPointers
+    accessLazyNameMap' mp createTopCellPtr name
 
 
 getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a. (Monad m, MonadRead m v, MonadAtomic v m' m, Eq (v Scope), Std (v Scope), Typeable v, Value a) => CellPtr m' v a -> m (CellPtr m' v a)
