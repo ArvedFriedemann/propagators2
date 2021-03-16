@@ -46,4 +46,4 @@ class Monad m => MonadProp m v scope | m -> v, m -> scope where
   scoped :: scope -> m () -> m ()
   parScoped :: m () -> m ()
 
-  watchFixpoint :: m () -> m ()
+  watchFixpoint :: (Identifier n (m ()), Std n) => n -> m () -> m ()

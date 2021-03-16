@@ -98,6 +98,15 @@ accessLazyNameMap' ptr con adr =
     (Some <$> con)
     (SEBId adr)
 
+accessLazyTypeMap' :: forall m' m v a b. (Ord a, MonadAtomic v m' m) => v (Map a b) -> m' b -> a -> m b
+accessLazyTypeMap' ptr con adr =
+  accessLazyNameMap
+    (MV.read ptr)
+    (MV.read ptr)
+    (\adr' nptr -> void $ MV.mutate ptr (\mp -> (Map.insert adr' nptr mp,nptr)))
+    con
+    adr
+
 accessRelName :: forall m' m v a i b. (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => CellPtr m' v a -> m' b -> i -> m b
 accessRelName ptr con adr =
   fromJust . fromSome <$> accessLazyNameMap
@@ -120,9 +129,10 @@ writeLattPtr :: (MonadMutate m v, Value a) => v a -> a -> m Bool
 writeLattPtr ptr val = MV.mutate ptr (\old -> meetDiff val old)
 
 --TODO: Just make new namespaces for each scope. It's the simplest solution for now.
-data PropArgs m' v = PropArgs {
+data PropArgs m m' v = PropArgs {
   scopePath :: [Scope v]
 , createdScopes :: v SEBIdMap
+, fixpointActions :: v (Map (Some Std) (m ()))
 }
 
 data ScopeT v = ScopeT {
@@ -139,7 +149,7 @@ unpkSP (SP x) = x
 
 instance (Dep m v
         , MonadFork m
-        , MonadReader (PropArgs m' v) m
+        , MonadReader (PropArgs m m' v) m
         , MonadVar m v
         , MonadVar m' v
         , MonadAtomic v m' m
@@ -186,7 +196,10 @@ instance (Dep m v
   parScoped :: m () -> m ()
   parScoped = local (\p -> p{scopePath = tail (scopePath p)})
 
-  --watchFixpoint :: m () -> m ()
+  watchFixpoint :: (Identifier n (m ()), Std n) => n -> m () -> m ()
+  watchFixpoint name act = do
+    fixP <- reader fixpointActions
+    void $ accessLazyTypeMap' fixP (return act) (Some name)
 
 
 
