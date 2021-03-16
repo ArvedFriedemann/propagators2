@@ -129,10 +129,13 @@ data ScopeT v = ScopeT {
   createdPointers :: v SEBIdMap
 }
 
-type Scope (v :: * -> *) = v (ScopeT v)
---deriving instance (forall a. Show (v a)) => Show (Scope v)
---deriving instance (forall a. Eq (v a)) => Eq (Scope v)
---deriving instance (forall a. Ord (v a)) => Ord (Scope v)
+newtype Scope (v :: * -> *) = SP (v (ScopeT v))
+deriving instance (forall a. Show (v a)) => Show (Scope v)
+deriving instance (forall a. Eq (v a)) => Eq (Scope v)
+deriving instance (forall a. Ord (v a)) => Ord (Scope v)
+
+unpkSP :: Scope v -> v (ScopeT v)
+unpkSP (SP x) = x
 
 instance (Dep m v
         , MonadFork m
@@ -165,13 +168,16 @@ instance (Dep m v
 
   new :: (Identifier n a, Value a, Std n) => n -> m (CellPtr m' v a)
   new name = do
-    s <- scope >>= MV.read
+    s <- scope >>= MV.read . unpkSP
     accessLazyNameMap' (createdPointers s) (createTopCellPtr @m') name
-{-}
-  newScope :: (Identifier n Scope, Std n) => n -> m (Scope v)
+
+  newScope :: (Identifier n (Scope v), Std n) => n -> m (Scope v)
   newScope name = do
-    mp <- reader createdPointers
-    accessLazyNameMap' mp (MV.new Scope) name
+    mp <- reader createdScopes
+    accessLazyNameMap' mp (do
+      pts <- MV.new Map.empty
+      sp <- MV.new $ ScopeT{createdPointers = pts}
+      return $ SP sp) name
 
   --TODO: WARNING! Currently, name map is always the same
   scoped :: (Scope v) -> m () -> m ()
@@ -179,7 +185,7 @@ instance (Dep m v
 
   parScoped :: m () -> m ()
   parScoped = local (\p -> p{scopePath = tail (scopePath p)})
--}
+
   --watchFixpoint :: m () -> m ()
 
 
