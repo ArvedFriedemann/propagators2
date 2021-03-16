@@ -34,15 +34,18 @@ instance Ord SEBId where
 
 type SEBIdMap = Map SEBId (Some Something)
 --TODO: scopes should be some list structure. In a cell, you can go up only one scope. When reading from a distant scope, you have to go down the stack until the orig and then successively punp the value up.
-data TreeCell m' v a = TreeCell {
-  origScope :: v Scope
+data TreeCell m' (v :: * -> *) (a :: *) = TreeCell {
+  origScope :: Scope v
 , parent :: Maybe (CellPtr m' v a) --TODO: cannot be created, needs to be existing reference
 , value :: v a
 , relnames :: SEBIdMap
-, scopenames :: Map (v Scope) (CellPtr m' v a)
+, scopenames :: Map (Scope v) (CellPtr m' v a)
 }
 
-data CellPtr m' v a = CP (v (TreeCell m' v a))
+data CellPtr m' (v :: * -> *) (a :: *) = CP (v (TreeCell m' v a))
+deriving instance (forall b. Show (v b)) => Show (CellPtr m' v a)
+deriving instance (forall b. Eq (v b)) => Eq (CellPtr m' v a)
+deriving instance (forall b. Ord (v b)) => Ord (CellPtr m' v a)
 
 unpkCP :: CellPtr m' v a -> v (TreeCell m' v a)
 unpkCP (CP ptr) = ptr
@@ -71,6 +74,7 @@ createTopCellPtr = CP <$> (createTopCell >>= MV.new)
 createValCellPtr :: (MonadNew m v) => a -> m (CellPtr m' v a)
 createValCellPtr val = CP <$> (createValCell val >>= MV.new)
 
+--TODO: Hwn using a shared namespace for the scopes, there should be a mechanic where one can see the old value here. If a variable is created on a lower scope, it should be put in this place and be pumped up.
 accessLazyNameMap :: (Ord i, MonadAtomic v m' m) => m (Map i b) -> m' (Map i b) -> (i -> b -> m' ()) -> m' b -> i -> m b
 accessLazyNameMap getMap getMap' putMap con adr = do
   mabVal <- Map.lookup adr <$> getMap
@@ -103,7 +107,7 @@ accessRelName ptr con adr =
     (Some <$> con)
     (SEBId adr)
 
-accessScopeName :: forall m' m v a. (Value a, Typeable v, Ord (v Scope), MonadAtomic v m' m) => CellPtr m' v a -> v Scope -> m (CellPtr m' v a)
+accessScopeName :: forall m' m (v :: * -> *) a. (Value a, Typeable v, Ord (Scope v), MonadAtomic v m' m) => CellPtr m' v a -> Scope v -> m (CellPtr m' v a)
 accessScopeName ptr scp =
   accessLazyNameMap
     (readSelector scopenames ptr)
@@ -115,26 +119,34 @@ accessScopeName ptr scp =
 writeLattPtr :: (MonadMutate m v, Value a) => v a -> a -> m Bool
 writeLattPtr ptr val = MV.mutate ptr (\old -> meetDiff val old)
 
-data PropArgs v = PropArgs {
-  scopePath :: [v Scope]
-, createdPointers :: v SEBIdMap
+--TODO: Just make new namespaces for each scope. It's the simplest solution for now.
+data PropArgs m' v = PropArgs {
+  scopePath :: [Scope v]
+, createdScopes :: v SEBIdMap
 }
 
+data ScopeT v = ScopeT {
+  createdPointers :: v SEBIdMap
+}
+
+type Scope (v :: * -> *) = v (ScopeT v)
+--deriving instance (forall a. Show (v a)) => Show (Scope v)
+--deriving instance (forall a. Eq (v a)) => Eq (Scope v)
+--deriving instance (forall a. Ord (v a)) => Ord (Scope v)
 
 instance (Dep m v
         , MonadFork m
-        , MonadReader (PropArgs v) m
+        , MonadReader (PropArgs m' v) m
         , MonadVar m v
         , MonadVar m' v
         , MonadAtomic v m' m
         , forall a. Std (v a)
         , Typeable m
         , Typeable m'
-        , Typeable v) => MonadProp m (CellPtr m' v) where
+        , Typeable v) => MonadProp (m :: * -> *) (CellPtr (m' :: * -> *) v) (Scope v) where
 
   read :: (Value a) => CellPtr m' v a -> m a
   read ptr = getScopeRef ptr >>= readCP >>= MV.read . value
-
 
   write :: (Value a) => CellPtr m' v a -> a -> m ()
   write ptr val = do
@@ -152,15 +164,28 @@ instance (Dep m v
     when hasChanged act
 
   new :: (Identifier n a, Value a, Std n) => n -> m (CellPtr m' v a)
-  new name = do --TODO: also check lower scopes? WARNING
+  new name = do
+    s <- scope >>= MV.read
+    accessLazyNameMap' (createdPointers s) (createTopCellPtr @m') name
+{-}
+  newScope :: (Identifier n Scope, Std n) => n -> m (Scope v)
+  newScope name = do
     mp <- reader createdPointers
-    accessLazyNameMap' mp createTopCellPtr name
+    accessLazyNameMap' mp (MV.new Scope) name
+
+  --TODO: WARNING! Currently, name map is always the same
+  scoped :: (Scope v) -> m () -> m ()
+  scoped sp = local (\p -> p{scopePath = sp : (scopePath p)})
+
+  parScoped :: m () -> m ()
+  parScoped = local (\p -> p{scopePath = tail (scopePath p)})
+-}
+  --watchFixpoint :: m () -> m ()
 
 
 
-
-
-getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a. (Monad m, MonadRead m v, MonadAtomic v m' m, Eq (v Scope), Std (v Scope), Typeable v, Value a) => CellPtr m' v a -> m (CellPtr m' v a)
+--TODO: WARNING: this only works, when the reference comes from below! when references come from aboce, they'd need to be pumped up!
+getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a. (Monad m, MonadRead m v, MonadAtomic v m' m, forall b. Eq (v b), forall b. Ord (v b), Typeable v, Value a) => CellPtr m' v a -> m (CellPtr m' v a)
 getScopeRef ptr = do
   tc <- readCP ptr
   s <- scope
@@ -173,7 +198,7 @@ getScopeRef ptr = do
 unsafeParScoped :: m a -> m a
 unsafeParScoped = undefined
 
-scope :: m (v Scope)
+scope :: m (Scope v)
 scope = undefined
 
 data PropOf m' m v = PropOf

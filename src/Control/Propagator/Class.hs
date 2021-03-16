@@ -30,19 +30,20 @@ class (Monad m', MonadVar m' v, MonadVar m v) => MonadAtomic v m' m | m -> m' v 
 
 class Identifier i a | i -> a
 
+{-
 data Scope = Scope
   deriving (Show, Eq, Ord, Typeable)
 instance Std Scope
-
-class Monad m => MonadProp m v | m -> v where
+-}
+class Monad m => MonadProp m v scope | m -> v, m -> scope where
   read :: (Value a) => v a -> m a
   write :: (Value a) => v a -> a -> m ()
   watch :: (Value a, Std n) => v a -> n -> m () -> m ()
 
   new :: (Identifier n a, Value a, Std n) => n -> m (v a)
 
-  newScope :: (Identifier n Scope, Std n) => n -> m (v Scope)
-  scoped :: v Scope -> m () -> m ()
+  newScope :: (Identifier n scope, Std n) => n -> m scope
+  scoped :: scope -> m () -> m ()
   parScoped :: m () -> m ()
 
   watchFixpoint :: m () -> m ()
