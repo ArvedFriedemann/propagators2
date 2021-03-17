@@ -35,7 +35,7 @@ instance Identifier (FactSetPointer a) (FactSet a)
 
 
 data MonadPointer m = MonadPointer (Some Std)
-  deriving (Show, Eq, Ord, Typeable)
+  deriving (Show, Eq, Ord)
 instance Identifier (MonadPointer m) (m ())
 
 test :: forall m v scope. (MonadProp m v scope, Typeable m) => m String

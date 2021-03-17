@@ -29,7 +29,11 @@ import qualified "containers" Data.Map as Map
 import "containers" Data.Set (Set)
 import qualified "containers" Data.Set as Set
 
-newtype IOSTMProp a = ISP (ReaderT (PropArgs IOSTMProp STM TVar) IO a)
+--IOSTMProp STM Ref
+newtype IOSTMProp a = ISP (ReaderT (PropArgs IOSTMProp STM Ref) IO a)
+  --deriving (Typeable)
+
+
 data Ref a = Ref Unique (TVar a)
   deriving (Eq, Typeable)
 instance Show (Ref a) where
@@ -43,7 +47,7 @@ rvar (Ref _ v) = v
 toRef :: TVar a -> IO (Ref a)
 toRef v = newUnique >>= \u -> return $ Ref u v
 
-instance Dep IOSTMProp TVar
+instance Dep IOSTMProp Ref
 
 instance Functor IOSTMProp where
   fmap fkt (ISP m) = ISP (fmap fkt m)
@@ -54,7 +58,7 @@ instance Monad IOSTMProp where
   (ISP m) >>= fkt = ISP $ m >>= (\v -> case fkt v of
                                           ISP m' -> m')
 
-instance MonadReader (PropArgs IOSTMProp STM TVar) IOSTMProp where
+instance MonadReader (PropArgs IOSTMProp STM Ref) IOSTMProp where
   ask = ISP ask
   local fkt (ISP m) = ISP (local fkt m)
 
@@ -63,16 +67,28 @@ instance MonadFork IOSTMProp where
     s <- ask
     void $ lift $ forkIO (runReaderT act s)
 
+instance MonadNew IO Ref where
+  new a = newTVarIO a >>= toRef
+instance MonadRead IO Ref where
+  read v = readTVarIO (rvar v)
+instance MonadWrite IO Ref where
+  write v a = STM.atomically $ writeTVar (rvar v) a
+instance MonadMutate_ IO Ref where
+  mutate_ v a = STM.atomically $ modifyTVar (rvar v) a
+instance MonadMutate IO Ref where
+  mutate v fkt = STM.atomically $ stateTVar (rvar v) (swap . fkt)
+
+
 instance MonadNew IOSTMProp Ref where
-  new a = ISP $ lift $ newTVarIO a >>= toRef
+  new a = ISP $ lift $ MV.new a
 instance MonadRead IOSTMProp Ref where
-  read v = ISP $ lift $ readTVarIO (rvar v)
+  read v = ISP $ lift $ MV.read v
 instance MonadWrite IOSTMProp Ref where
-  write v a = ISP $ lift $ STM.atomically $ writeTVar (rvar v) a
+  write v a = ISP $ lift $ MV.write v a
 instance MonadMutate_ IOSTMProp Ref where
-  mutate_ v a = ISP $ lift $ STM.atomically $ modifyTVar (rvar v) a
+  mutate_ v a = ISP $ lift $ MV.mutate_ v a
 instance MonadMutate IOSTMProp Ref where
-  mutate v fkt = ISP $ lift $ STM.atomically $ stateTVar (rvar v) (swap . fkt)
+  mutate v fkt = ISP $ lift $ MV.mutate v fkt
 
 instance MonadNew STM Ref where
   new a = newTVar a >>= \v -> return $ unsafePerformIO (toRef v)
@@ -90,9 +106,10 @@ instance MonadAtomic Ref STM IOSTMProp where
   atomically act = ISP $ lift $ STM.atomically act
 
 --ReaderT (PropArgs IO STM TVar)
-runMonadPropIO :: (MonadProp IOSTMProp (CellPtr STM Ref) (Scope TVar)) => IOSTMProp a -> IO a
+--(MonadProp IOSTMProp (CellPtr STM Ref) (Scope Ref)) =>
+runMonadPropIO :: forall a. IOSTMProp a -> IO a
 runMonadPropIO (ISP act) = do
-  initPtrs <- MV.new @_ @TVar Map.empty
+  initPtrs <- MV.new @_ @Ref Map.empty
   root <- MV.new $ ScopeT{createdPointers = initPtrs}
   creatScopes <- MV.new Map.empty
   fixActs <- MV.new Map.empty
