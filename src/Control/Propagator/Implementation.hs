@@ -90,13 +90,13 @@ instance MonadAtomic Ref STM IOSTMProp where
   atomically act = ISP $ lift $ STM.atomically act
 
 --ReaderT (PropArgs IO STM TVar)
-runMonadPropIO :: (MonadProp IOSTMProp (CellPtr STM Ref) (Scope TVar)) => IO a -> IO a
-runMonadPropIO act = do
+runMonadPropIO :: (MonadProp IOSTMProp (CellPtr STM Ref) (Scope TVar)) => IOSTMProp a -> IO a
+runMonadPropIO (ISP act) = do
   initPtrs <- MV.new @_ @TVar Map.empty
   root <- MV.new $ ScopeT{createdPointers = initPtrs}
   creatScopes <- MV.new Map.empty
   fixActs <- MV.new Map.empty
-  runReaderT (lift act) (PropArgs{scopePath=[SP root], createdScopes=creatScopes, fixpointActions=fixActs })
+  runReaderT act (PropArgs{scopePath=[SP root], createdScopes=creatScopes, fixpointActions=fixActs })
 
 
 
