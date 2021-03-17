@@ -24,13 +24,26 @@ import qualified "containers" Data.Map as Map
 import "containers" Data.Set (Set)
 import qualified "containers" Data.Set as Set
 
-instance Dep IO TVar
+newtype IOSTMProp a = ISP (ReaderT (PropArgs IOSTMProp STM TVar) IO a)
 
-instance MonadFork IO where
-  fork = void . forkIO
+instance Dep IOSTMProp TVar
+
+instance Functor IOSTMProp where
+  fmap fkt (ISP m) = ISP (fmap fkt m)
+instance Applicative IOSTMProp where
+  pure x = ISP (pure x)
+  (ISP m1) <*> (ISP m2) = ISP (m1 <*> m2)
+instance Monad IOSTMProp where
+  (ISP m) >>= fkt = ISP $ m >>= (\v -> case fkt v of
+                                          ISP m' -> m')
+
+instance MonadFork IOSTMProp where
+  fork (ISP act) = ISP $ do
+    s <- ask
+    void $ lift $ forkIO (runReaderT act s)
 
 --ReaderT (PropArgs IO STM TVar)
-runMonadPropIO :: (MonadProp (ReaderT (PropArgs IO STM TVar) IO) (CellPtr STM TVar) (Scope TVar)) => IO a -> IO a
+runMonadPropIO :: (MonadProp IOSTMProp (CellPtr STM TVar) (Scope TVar)) => IO a -> IO a
 runMonadPropIO act = do
   initPtrs <- MV.new @_ @TVar Map.empty
   root <- MV.new $ ScopeT{createdPointers = initPtrs}
