@@ -17,6 +17,7 @@ instance (HasTop a, Meet a, Eq a, Typeable a) => Value a
 class Dep a b | a -> b
 
 class (MonadNew m v, MonadRead m v, MonadMutate m v) => MonadVar m v
+instance (MonadNew m v, MonadRead m v, MonadMutate m v) => MonadVar m v
 
 class MonadPropSimple m v | m -> v where
   readS :: v a -> m a
