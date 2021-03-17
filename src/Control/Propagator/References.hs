@@ -6,6 +6,7 @@ import "base" Control.Applicative hiding (some)
 import "base" Control.Monad
 import "base" Data.Maybe
 import "base" Data.Typeable
+import "base" Debug.Trace
 
 import "mtl" Control.Monad.Reader
 
@@ -108,7 +109,7 @@ accessLazyTypeMap' ptr con adr =
 
 accessRelName :: forall m' m v a i b. (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => CellPtr m' v a -> m' b -> i -> m b
 accessRelName ptr con adr =
-  fromJust . fromSome <$> accessLazyNameMap
+  fromJust . (\c -> trace (show $ isJust c) c) . fromSome . (\c -> trace ("Attempting Some recover") c) <$> accessLazyNameMap
     (readSelector relnames ptr)
     (readSelector relnames ptr)
     (\adr' nptr -> void $ MV.mutate (unpkCP ptr) (\cp -> (cp{relnames = Map.insert adr' (Some nptr) (relnames cp)},nptr)))
@@ -179,6 +180,7 @@ instance (Dep m v
 
   new :: (Identifier n a, Value a, Std n) => n -> m (CellPtr m' v a)
   new name = do
+    traceM $ "Creating "++show name
     s <- scope
     sp <- MV.read (unpkSP s)
     accessLazyNameMap' (createdPointers sp) (createTopCellPtr @m' s) name
@@ -243,11 +245,13 @@ notify :: forall (m' :: * -> *) m v a.
   , MonadScope m v
   , Typeable m', Typeable m, Typeable v) => CellPtr m' v a -> m ()
 notify ptr = do
+  traceM "Notifying!"
   propset <- getPropset ptr >>= readValue
   forkF (Map.elems propset)
 
 getPropset :: forall (m' :: * -> *) m v a. (Typeable m', Typeable m, Typeable v, MonadAtomic v m' m, MonadScope m v) => CellPtr m' v a -> m (PropSetPtr m' m v)
 getPropset ptr = do
+  traceM "Getting PropSet!"
   s <- scope
   accessRelName ptr (createValCellPtr @m' s Map.empty) (PropOf @m' @m @v)
 
