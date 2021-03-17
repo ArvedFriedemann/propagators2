@@ -206,7 +206,7 @@ instance (Dep m v
 
 
 --TODO: WARNING: this only works, when the reference comes from below! when references come from aboce, they'd need to be pumped up!
-getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a. (Monad m, MonadRead m v, MonadScope m v, MonadAtomic v m' m, forall b. Eq (v b), forall b. Ord (v b), Typeable v, Value a) => CellPtr m' v a -> m (CellPtr m' v a)
+getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a. (Monad m, MonadRead m v, MonadScope m v, MonadAtomic v m' m, MonadUnsafeParScoped m, forall b. Eq (v b), forall b. Ord (v b), Typeable v, Value a) => CellPtr m' v a -> m (CellPtr m' v a)
 getScopeRef ptr = do
   tc <- readCP ptr
   s <- scope
@@ -216,8 +216,13 @@ getScopeRef ptr = do
     ptr' <- unsafeParScoped $ getScopeRef ptr
     accessScopeName s ptr' s
 
-unsafeParScoped :: m a -> m a
-unsafeParScoped = undefined
+class MonadUnsafeParScoped m where
+  --Unsafe because this parScoped can return values and therefore potentially more pointers from forks to the orig, which should be avoided at this stage
+  unsafeParScoped :: m a -> m a
+
+instance (MonadReader (PropArgs m m' v) m) => MonadUnsafeParScoped m where
+  unsafeParScoped :: m a -> m a
+  unsafeParScoped = local (\p -> p{scopePath = tail (scopePath p)})
 
 class MonadScope m v where
   scope ::m (Scope v)
