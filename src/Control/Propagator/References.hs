@@ -222,7 +222,6 @@ scope = undefined
 
 data PropOf m' m v = PropOf
   deriving (Show, Eq, Ord, Typeable)
-instance (Typeable m', Typeable m, Typeable v) => Std (PropOf (m' :: * -> *) (m :: * -> *) (v :: * -> *))
 
 type PropSetPtr m' m v = CellPtr m' v (Map (Some Std) (m ()))
 instance Identifier (PropOf m' m v) (PropSetPtr m' m v)

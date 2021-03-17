@@ -9,7 +9,10 @@ import "this" Control.MonadVar.MonadVar (MonadNew, MonadMutate, MonadRead)
 import "this" Data.Lattice
 
 class (Eq a, Ord a, Show a, Typeable a) => Std a
+instance (Eq a, Ord a, Show a, Typeable a) => Std a
+
 class (HasTop a, Meet a, Eq a, Typeable a) => Value a
+instance (HasTop a, Meet a, Eq a, Typeable a) => Value a
 
 class Dep a b | a -> b
 
@@ -29,7 +32,6 @@ class (Monad m', MonadVar m' v, MonadVar m v) => MonadAtomic v m' m | m -> m' v 
   atomically :: m' a -> m a
 
 class Identifier i a | i -> a
-
 {-
 data Scope = Scope
   deriving (Show, Eq, Ord, Typeable)
