@@ -4,9 +4,11 @@ module Control.Propagator.Implementation where
 import "base" Prelude hiding ( read )
 import "base" Data.Tuple
 import "base" Data.Typeable
+import "base" Data.Unique
 import "base" Debug.Trace
 import "base" Control.Monad
 import "base" Control.Concurrent
+import "base" System.IO.Unsafe
 
 import "this" Control.Propagator.References
 import "this" Control.Propagator.Class
@@ -28,6 +30,18 @@ import "containers" Data.Set (Set)
 import qualified "containers" Data.Set as Set
 
 newtype IOSTMProp a = ISP (ReaderT (PropArgs IOSTMProp STM TVar) IO a)
+data Ref a = Ref Unique (TVar a)
+  deriving (Eq, Typeable)
+instance Show (Ref a) where
+  show (Ref u _) = show $ hashUnique u
+instance Ord (Ref a) where
+  compare (Ref u1 _) (Ref u2 _) = compare u1 u2
+
+rvar :: Ref a -> TVar a
+rvar (Ref _ v) = v
+
+toRef :: TVar a -> IO (Ref a)
+toRef v = newUnique >>= \u -> return $ Ref u v
 
 instance Dep IOSTMProp TVar
 
@@ -49,21 +63,34 @@ instance MonadFork IOSTMProp where
     s <- ask
     void $ lift $ forkIO (runReaderT act s)
 
-instance MonadNew IOSTMProp TVar where
-  new a = ISP $ lift $ newTVarIO a
-instance MonadRead IOSTMProp TVar where
-  read a = ISP $ lift $ readTVarIO a
-instance MonadWrite IOSTMProp TVar where
-  write v a = ISP $ lift $ STM.atomically $ writeTVar v a
-instance MonadMutate_ IOSTMProp TVar where
-  mutate_ v a = ISP $ lift $ STM.atomically $ modifyTVar v a
-instance MonadMutate IOSTMProp TVar where
-  mutate v fkt = ISP $ lift $ STM.atomically $ stateTVar v (swap . fkt)
-instance MonadAtomic TVar STM IOSTMProp where
+instance MonadNew IOSTMProp Ref where
+  new a = ISP $ lift $ newTVarIO a >>= toRef
+instance MonadRead IOSTMProp Ref where
+  read v = ISP $ lift $ readTVarIO (rvar v)
+instance MonadWrite IOSTMProp Ref where
+  write v a = ISP $ lift $ STM.atomically $ writeTVar (rvar v) a
+instance MonadMutate_ IOSTMProp Ref where
+  mutate_ v a = ISP $ lift $ STM.atomically $ modifyTVar (rvar v) a
+instance MonadMutate IOSTMProp Ref where
+  mutate v fkt = ISP $ lift $ STM.atomically $ stateTVar (rvar v) (swap . fkt)
+
+instance MonadNew STM Ref where
+  new a = newTVar a >>= \v -> return $ unsafePerformIO (toRef v)
+instance MonadRead STM Ref where
+  read v = readTVar (rvar v)
+instance MonadWrite STM Ref where
+  write v a = writeTVar (rvar v) a
+instance MonadMutate_ STM Ref where
+  mutate_ v a = modifyTVar (rvar v) a
+instance MonadMutate STM Ref where
+  mutate v fkt = stateTVar (rvar v) (swap . fkt)
+
+
+instance MonadAtomic Ref STM IOSTMProp where
   atomically act = ISP $ lift $ STM.atomically act
 
 --ReaderT (PropArgs IO STM TVar)
-runMonadPropIO :: (MonadProp IOSTMProp (CellPtr STM TVar) (Scope TVar)) => IO a -> IO a
+runMonadPropIO :: (MonadProp IOSTMProp (CellPtr STM Ref) (Scope TVar)) => IO a -> IO a
 runMonadPropIO act = do
   initPtrs <- MV.new @_ @TVar Map.empty
   root <- MV.new $ ScopeT{createdPointers = initPtrs}
