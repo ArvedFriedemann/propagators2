@@ -54,7 +54,7 @@ unpkCP (CP ptr) = ptr
 readCP :: (MonadRead m v) => CellPtr m' v a -> m (TreeCell m' v a)
 readCP ptr = MV.read $ unpkCP ptr
 
-readSelector :: (MonadRead m v) => (TreeCell m' v a -> b) -> CellPtr m' v a -> m b
+readSelector :: forall m' m v a b. (MonadRead m v) => (TreeCell m' v a -> b) -> CellPtr m' v a -> m b
 readSelector sel ptr = sel <$> readCP ptr
 
 readValue :: (MonadRead m v) => CellPtr m' v a -> m a
@@ -77,19 +77,22 @@ createValCellPtr :: (MonadNew m v) => Scope v -> a -> m (CellPtr m' v a)
 createValCellPtr s val = CP <$> (createValCell s val >>= MV.new)
 
 --TODO: When using a shared namespace for the scopes, there should be a mechanic where one can see the old value here. If a variable is created on a lower scope, it should be put in this place and be pumped up.
-accessLazyNameMap :: (Ord i, MonadAtomic v m' m) => m (Map i b) -> m' (Map i b) -> (i -> b -> m' ()) -> m' b -> i -> m b
-accessLazyNameMap getMap getMap' putMap con adr = do
+accessLazyNameMap :: (Ord i, MonadAtomic v m' m) => m (Map i b) -> m' (Map i b) -> (i -> b -> m' ()) -> m' b -> (b -> m ()) -> i -> m b
+accessLazyNameMap getMap getMap' putMap con destr adr = do
   mabVal <- Map.lookup adr <$> getMap
   case mabVal of
     Just val -> return val
-    Nothing -> atomically $ do
-      mabVal2 <- Map.lookup adr <$> getMap'
-      case mabVal2 of
-        Just val -> return val
-        Nothing -> do
-          nptr <- con
-          putMap adr nptr
-          return nptr
+    Nothing -> do
+      (res, hasChanged) <- atomically $ do
+        mabVal2 <- Map.lookup adr <$> getMap'
+        case mabVal2 of
+          Just val -> return (val, False)
+          Nothing -> do
+            nptr <- con
+            putMap adr nptr
+            return (nptr, True)
+      when hasChanged (destr res)
+      return res
 
 accessLazyNameMap' :: forall m' m v i b. (Std i, Typeable b, MonadAtomic v m' m) => v SEBIdMap -> m' b -> i -> m b
 accessLazyNameMap' ptr con adr =
@@ -98,6 +101,7 @@ accessLazyNameMap' ptr con adr =
     (MV.read ptr)
     (\adr' nptr -> void $ MV.mutate ptr (\mp -> (Map.insert adr' nptr mp,nptr)))
     (Some <$> con)
+    (const $ return ())
     (SEBId adr)
 
 accessLazyTypeMap' :: forall m' m v a b. (Ord a, MonadAtomic v m' m) => v (Map a b) -> m' b -> a -> m b
@@ -107,6 +111,7 @@ accessLazyTypeMap' ptr con adr =
     (MV.read ptr)
     (\adr' nptr -> void $ MV.mutate ptr (\mp -> (Map.insert adr' nptr mp,nptr)))
     con
+    (const $ return ())
     adr
 
 accessRelName :: forall m' m v a i b. (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => CellPtr m' v a -> m' b -> i -> m b
@@ -117,9 +122,18 @@ accessRelName ptr con adr = do
     (MV.read mp)
     (\adr' nptr -> void $ MV.mutate mp (\mp' -> (Map.insert adr' nptr mp',nptr)))
     (Some <$> con)
+    (const $ return ())
     (SEBId adr)
 
-accessScopeName :: forall m' m (v :: * -> *) a. (Value a, Typeable v, Ord (Scope v), MonadAtomic v m' m) => Scope v -> CellPtr m' v a -> Scope v -> m (CellPtr m' v a)
+data ScopeEq = ScopeEq
+  deriving (Show, Eq, Ord)
+
+accessScopeName :: forall m' m (v :: * -> *) a.
+  ( Value a, Typeable v, Ord (Scope v)
+  , MonadAtomic v m' m
+  , MonadReader (PropArgs m m' v) m
+  , MonadFork m
+  , Typeable m, Typeable m', forall b. Show (v b), forall b. Ord (v b) ) => Scope v -> CellPtr m' v a -> Scope v -> m (CellPtr m' v a)
 accessScopeName currscp ptr scp = do
   mp <- readSelector scopenames ptr
   accessLazyNameMap
@@ -127,6 +141,7 @@ accessScopeName currscp ptr scp = do
     (MV.read mp)
     (\adr' nptr -> void $ MV.mutate mp (\mp' -> (Map.insert adr' nptr mp',nptr)))
     (createTopCellPtr currscp)
+    (\nptr -> watchEngine ptr ScopeEq (readEngine ptr >>= \b -> writeEngine nptr b))
     scp
 
 writeLattPtr :: (MonadMutate m v, Value a) => v a -> a -> m Bool
@@ -166,22 +181,13 @@ instance (Dep m v
         , Typeable v) => MonadProp (m :: * -> *) (CellPtr (m' :: * -> *) v) (Scope v) where
 
   read :: (Value a) => CellPtr m' v a -> m a
-  read ptr = getScopeRef ptr >>= readCP >>= MV.read . value
+  read ptr = readEngine ptr
 
   write :: (Value a) => CellPtr m' v a -> a -> m ()
-  write ptr val = do
-    ptr' <- getScopeRef ptr
-    cp <- readCP ptr'
-    hasChanged <- writeLattPtr (value cp) val
-    if hasChanged
-    then notify ptr'
-    else return ()
+  write ptr val = writeEngine ptr val
 
   watch :: (Value a, Std n) => CellPtr m' v a -> n -> m () -> m ()
-  watch ptr name act = do
-    propset <- getPropset ptr >>= readSelector value
-    hasChanged <- MV.mutate propset (\ps -> let (mabChan,mp) = Map.insertLookupWithKey (\k n o -> n) (Some name) act ps in (mp, not $ isJust mabChan))
-    when hasChanged act
+  watch ptr name act = watchEngine ptr name act
 
   new :: (Identifier n a, Value a, Std n) => n -> m (CellPtr m' v a)
   new name = do
@@ -217,8 +223,39 @@ instance (Dep m v
 
 
 
+readEngine :: forall (m' :: * -> *) m v a.
+  ( MonadAtomic v m' m
+  , MonadReader (PropArgs m m' v) m
+  , MonadFork m
+  , Typeable m, Typeable m', Typeable v, forall b. Show (v b), forall b. Ord (v b), Value a) => CellPtr m' v a -> m a
+readEngine ptr = getScopeRef ptr >>= readCP >>= MV.read . value
+
+writeEngine :: forall (m' :: * -> *) m v a. (Monad m, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, Typeable v, forall b. Show (v b), forall b. Ord (v b), MonadFork m, Typeable m', Typeable m, Value a) => CellPtr m' v a -> a -> m ()
+writeEngine ptr val = do
+  ptr' <- getScopeRef ptr
+  cp <- readCP ptr'
+  old <- MV.read (value cp)
+  hasChanged <- writeLattPtr (value cp) val
+  if hasChanged
+  then notify ptr'
+  else return ()
+
+watchEngine :: forall (m' :: * -> *) m v a n. (Typeable m', Typeable m, Typeable v, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, forall b. Show (v b), Value a, Std n) => CellPtr m' v a -> n -> m () -> m ()
+watchEngine ptr name act = do
+  propset <- getPropset @m' ptr >>= readSelector @m' value
+  hasChanged <- MV.mutate propset (\ps -> let (mabChan,mp) = Map.insertLookupWithKey (\k n o -> n) (Some name) act ps in (mp, not $ isJust mabChan))
+  when hasChanged act
+
 --TODO: WARNING: this only works, when the reference comes from below! when references come from aboce, they'd need to be pumped up!
-getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a. (Monad m, MonadRead m v, MonadScope m v, MonadAtomic v m' m, MonadUnsafeParScoped m, forall b. Eq (v b), forall b. Ord (v b), forall b. Show (v b), Typeable v, Value a) => CellPtr m' v a -> m (CellPtr m' v a)
+getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a.
+  ( Monad m
+  , MonadRead m v
+  , MonadScope m v
+  , MonadAtomic v m' m
+  , MonadReader (PropArgs m m' v) m
+  , MonadFork m
+  , MonadUnsafeParScoped m
+  , Typeable m, Typeable m', forall b. Eq (v b), forall b. Ord (v b), forall b. Show (v b), Typeable v, Value a) => CellPtr m' v a -> m (CellPtr m' v a)
 getScopeRef ptr = do
   tc <- readCP ptr
   s <- scope
