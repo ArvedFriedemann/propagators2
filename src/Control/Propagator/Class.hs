@@ -44,6 +44,7 @@ class Monad m => MonadProp m v scope | m -> v, m -> scope where
   watch :: (Value a, Std n) => v a -> n -> m () -> m ()
 
   new :: (Identifier n a, Value a, Std n) => n -> m (v a)
+  newRelative :: (Identifier n a, Value a, Std n) => v b -> n -> m (v a)
 
   newScope :: (Identifier n scope, Std n) => n -> m scope
   scoped :: scope -> m () -> m ()

@@ -39,8 +39,8 @@ data TreeCell m' (v :: * -> *) (a :: *) = TreeCell {
   origScope :: Scope v
 , parent :: Maybe (CellPtr m' v a) --TODO: cannot be created, needs to be existing reference
 , value :: v a
-, relnames :: SEBIdMap
-, scopenames :: Map (Scope v) (CellPtr m' v a)
+, relnames :: v SEBIdMap
+, scopenames :: v (Map (Scope v) (CellPtr m' v a))
 }
 
 data CellPtr m' (v :: * -> *) (a :: *) = CP (v (TreeCell m' v a))
@@ -63,7 +63,9 @@ readValue ptr = readCP ptr >>= MV.read . value
 createValCell :: (MonadNew m v) => Scope v -> a -> m (TreeCell m' v a)
 createValCell s v = do
   val <- MV.new v
-  return $ TreeCell{parent = Nothing, origScope = s, value = val, relnames = Map.empty, scopenames = Map.empty}
+  reln <- MV.new Map.empty
+  snms <- MV.new Map.empty
+  return $ TreeCell{parent = Nothing, origScope = s, value = val, relnames = reln, scopenames = snms}
 
 createTopCell :: (MonadNew m v, Value a) => Scope v -> m (TreeCell m' v a)
 createTopCell s = createValCell s top
@@ -108,20 +110,22 @@ accessLazyTypeMap' ptr con adr =
     adr
 
 accessRelName :: forall m' m v a i b. (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => CellPtr m' v a -> m' b -> i -> m b
-accessRelName ptr con adr =
+accessRelName ptr con adr = do
+  mp <- readSelector relnames ptr
   fromJust . fromSome <$> accessLazyNameMap
-    (readSelector relnames ptr)
-    (readSelector relnames ptr)
-    (\adr' nptr -> void $ MV.mutate (unpkCP ptr) (\cp -> (cp{relnames = Map.insert adr' nptr (relnames cp)},nptr)))
+    (MV.read mp)
+    (MV.read mp)
+    (\adr' nptr -> void $ MV.mutate mp (\mp' -> (Map.insert adr' nptr mp',nptr)))
     (Some <$> con)
     (SEBId adr)
 
 accessScopeName :: forall m' m (v :: * -> *) a. (Value a, Typeable v, Ord (Scope v), MonadAtomic v m' m) => Scope v -> CellPtr m' v a -> Scope v -> m (CellPtr m' v a)
-accessScopeName currscp ptr scp =
+accessScopeName currscp ptr scp = do
+  mp <- readSelector scopenames ptr
   accessLazyNameMap
-    (readSelector scopenames ptr)
-    (readSelector scopenames ptr)
-    (\adr' nptr -> void $ MV.mutate (unpkCP ptr) (\cp -> (cp{scopenames = Map.insert adr' nptr (scopenames cp)},nptr)))
+    (MV.read mp)
+    (MV.read mp)
+    (\adr' nptr -> void $ MV.mutate mp (\mp' -> (Map.insert adr' nptr mp',nptr)))
     (createTopCellPtr currscp)
     scp
 
@@ -184,6 +188,12 @@ instance (Dep m v
     s <- scope
     sp <- MV.read (unpkSP s)
     accessLazyNameMap' (createdPointers sp) (createTopCellPtr @m' s) name
+
+  newRelative :: (Identifier n a, Value a, Std n) => CellPtr m' v b -> n -> m (CellPtr m' v a)
+  newRelative ptr name = do
+    s <- scope
+    rn <- readSelector relnames ptr
+    accessLazyNameMap' rn (createTopCellPtr @m' s) name
 
   newScope :: (Identifier n (Scope v), Std n) => n -> m (Scope v)
   newScope name = do
