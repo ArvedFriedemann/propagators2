@@ -11,8 +11,8 @@ import "this" Data.Lattice
 class (Eq a, Ord a, Show a, Typeable a) => Std a
 instance (Eq a, Ord a, Show a, Typeable a) => Std a
 
-class (HasTop a, Meet a, Eq a, Typeable a) => Value a
-instance (HasTop a, Meet a, Eq a, Typeable a) => Value a
+class (HasTop a, Meet a, Eq a, Typeable a, Show a) => Value a
+instance (HasTop a, Meet a, Eq a, Typeable a, Show a) => Value a
 
 class Dep a b | a -> b
 

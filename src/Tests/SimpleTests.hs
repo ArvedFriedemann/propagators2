@@ -4,6 +4,7 @@ module Tests.SimpleTests where
 import "base" Prelude hiding ( read )
 import "base" Data.Typeable
 import "base" Debug.Trace
+import "base" Control.Monad
 
 import "this" Control.Propagator.Class
 import "this" Data.Lattice
@@ -38,14 +39,16 @@ data MonadPointer m = MonadPointer (Some Std)
   deriving (Show, Eq, Ord)
 instance Identifier (MonadPointer m) (m ())
 
-test :: forall m v scope. (MonadProp m v scope, Typeable m) => m String
+test :: forall m v scope. (MonadProp m v scope, Typeable m, MonadFork m) => m String
 test = do
   a <- new (FSP @String $ Some ("a" :: String))
   b <- new (FSP @String $ Some ("b" :: String))
-  write a (FS $ Set.singleton ("Test" :: String))
   traceM "putting eq watch to a" >> watch a (MonadPointer @m (Some ("dirEq" :: String))) (read a >>= write b)
   traceM "putting trace watch to a" >> watch a (MonadPointer @m (Some ("trace" :: String)))
     (read a >>= \a'-> traceM $ "A is " ++ show a')
   traceM "putting eq watch to b" >> watch b (MonadPointer @m (Some ("trace" :: String)))
     (read b >>= \b'-> traceM $ "B is " ++ show b')
-  return "succeeded"
+
+  forM ([1..10] :: [Int]) $ \i -> fork $ write a (FS $ Set.singleton ("Test" ++ show i))
+  
+  return "finished"
