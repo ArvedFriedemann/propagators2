@@ -202,7 +202,7 @@ instance (Dep m v
     rn <- readSelector relnames ptr
     accessLazyNameMap' rn (createTopCellPtr @m' s) name
 
-  newScope :: (Identifier n (Scope v), Std n) => n -> m (Scope v)
+  newScope :: (Std n) => n -> m (Scope v)
   newScope name = do
     mp <- reader createdScopes
     accessLazyNameMap' mp (do

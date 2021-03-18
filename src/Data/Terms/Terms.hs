@@ -9,6 +9,8 @@ import "this" Data.Some
 import "this" Data.Util
 import "this" Control.Combinator
 
+import "this" Control.Combinator.Logics
+
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
 
@@ -87,7 +89,7 @@ data TermListener = TermListener
 watchTerm :: (MonadProp m v scope, StdPtr v) => TermSetPtr v -> m ()
 watchTerm (TSP ptr) = watch' ptr TermListener (termListener (TSP ptr))
 
-termListener :: (MonadProp m v scope, StdPtr v) => (TermSetPtr v) -> TermSet (TermSetPtr v) -> m ()
+termListener :: (MonadProp m v scope, StdPtr v) => TermSetPtr v -> TermSet (TermSetPtr v) -> m ()
 termListener this@(TSP this') (TS _ variables applications _) = do
   eqAll (Set.map unpkTSP $ setAppend this variables)
   eqAll (Set.map unpkTSP $ Set.map fst applications)
@@ -99,7 +101,21 @@ termListener this@(TSP this') (TS _ variables applications _) = do
     propBot this' b
     --bots need to be propagated both ways, otherwise prefixes of unsuccessful matches can still be read without failure
 
+data TermPromoter = TermPromoter
+  deriving (Show, Eq, Ord)
 
+promoteTerm :: (MonadProp m v scope, StdPtr v) => TermSetPtr v -> m ()
+promoteTerm (TSP p) = watch' p TermPromoter (termPromoter (TSP p))
+
+termPromoter :: (MonadProp m v scope, StdPtr v) => TermSetPtr v -> TermSet (TermSetPtr v) -> m ()
+termPromoter this@(TSP this') (TS _ _ applications _) = do
+  promote this'
+  forM_ applications $ \(a,b) -> do
+    promoteTerm a
+    promoteTerm b
+
+instance (MonadProp m v scope, StdPtr v) => Promoter (TermSetPtr v) m where
+  promoteAction = promoteTerm
 
 
 ---
