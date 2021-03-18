@@ -65,7 +65,19 @@ instance MonadReader (PropArgs IOSTMProp STM Ref) IOSTMProp where
 instance MonadFork IOSTMProp where
   fork (ISP act) = ISP $ do
     s <- ask
-    void $ lift $ forkIO (runReaderT act s)
+    sema <- reader fixpointSemaphore
+    void $ lift $ increaseSema sema >> forkIO (runReaderT act s >> decreaseSema sema)
+
+instance MonadFork IO where
+  fork = void . forkIO
+
+class MonadWait m where
+  wait :: Int -> m ()
+instance MonadWait IOSTMProp where
+  wait s = ISP $ lift $ threadDelay s
+instance MonadWait IO where
+  wait = threadDelay
+
 
 instance MonadNew IO Ref where
   new a = newTVarIO a >>= toRef
@@ -108,14 +120,46 @@ instance MonadAtomic Ref STM IOSTMProp where
 --ReaderT (PropArgs IO STM TVar)
 --(MonadProp IOSTMProp (CellPtr STM Ref) (Scope Ref)) =>
 runMonadPropIO :: forall a. IOSTMProp a -> IO a
-runMonadPropIO (ISP act) = do
+runMonadPropIO act = do
   initPtrs <- MV.new @_ @Ref Map.empty
   root <- MV.new $ ScopeT{createdPointers = initPtrs}
   creatScopes <- MV.new Map.empty
   fixActs <- MV.new Map.empty
-  runReaderT act (PropArgs{scopePath=[SP root], createdScopes=creatScopes, fixpointActions=fixActs })
+  fixSema <- MV.new 1
+  busyFixpointWaiter fixSema fixActs
+  res <- runMonadPropIOState (PropArgs{scopePath=[SP root], createdScopes=creatScopes, fixpointActions=fixActs, fixpointSemaphore=fixSema}) act
+  decreaseSema fixSema
+  return res
 
+runMonadPropIOState :: forall a. PropArgs IOSTMProp STM Ref -> IOSTMProp a -> IO a
+runMonadPropIOState state (ISP act) = runReaderT (act) state
 
+busyFixpointWaiter :: Ref Int -> Ref (Map a (PropArgs IOSTMProp STM Ref,IOSTMProp ())) -> IO ()
+busyFixpointWaiter sema fixActs = fork act
+  where act = do
+                val <- MV.read sema
+                if val <= 0
+                then do
+                  traceM "Reached Fixpoint!"
+                  acts <- MV.read fixActs
+                  if Map.null acts
+                  then traceM "No more Fixpoint Actions!"
+                  else do
+                    forM_ (Map.elems acts) (\(state, m) -> do
+                      increaseSema sema
+                      fork $ runMonadPropIOState state m >> decreaseSema sema)
+                    act
+
+                else do
+                  --traceM "Waiting..."
+                  wait 100
+                  act
+
+increaseSema :: (MonadMutate_ m v) => v Int -> m ()
+increaseSema sema = MV.mutate_ sema (\x -> x - (1::Int))
+
+decreaseSema :: (MonadMutate_ m v) => v Int -> m ()
+decreaseSema sema = MV.mutate_ sema (\x -> x - (1::Int))
 
 
 

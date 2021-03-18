@@ -151,7 +151,8 @@ writeLattPtr ptr val = MV.mutate ptr (\old -> meetDiff val old)
 data PropArgs m m' v = PropArgs {
   scopePath :: [Scope v]
 , createdScopes :: v SEBIdMap
-, fixpointActions :: v (Map (Some Std) (m ()))
+, fixpointActions :: v (Map (Some Std) (PropArgs m m' v, m ()))
+, fixpointSemaphore :: v Int
 }
 
 data ScopeT v = ScopeT {
@@ -218,8 +219,9 @@ instance (Dep m v
 
   watchFixpoint :: (Identifier n (m ()), Std n) => n -> m () -> m ()
   watchFixpoint name act = do
+    state <- ask
     fixP <- reader fixpointActions
-    void $ accessLazyTypeMap' fixP (return act) (Some name)
+    void $ accessLazyTypeMap' fixP (return (state, act)) (Some name)
 
 
 
