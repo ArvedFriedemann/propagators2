@@ -6,7 +6,7 @@ import "base" Control.Monad
 import "base" Data.Maybe
 
 import "this" Control.Propagator.Class
-import "this" Control.Combinator
+import "this" Control.Combinator.Combinators
 import "this" Data.Lattice
 import "this" Data.Some
 
