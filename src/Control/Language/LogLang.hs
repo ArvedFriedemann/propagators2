@@ -3,6 +3,7 @@ module Control.Language.LogLang where
 
 import "base" Prelude hiding ( read )
 import "base" Control.Monad
+import "base" Data.Maybe
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
@@ -12,7 +13,7 @@ import "containers" Data.Map qualified as Map
 
 import "this" Data.Terms.Terms
 import "this" Control.Propagator.Class
-import "this" Control.Combinator.Logics
+import "this" Control.Combinator
 import "this" Data.Lattice
 
 type Clause = []
@@ -51,8 +52,18 @@ simpleKBNetwork :: (MonadProp m v scope, Std n, StdPtr v) => n -> KB (TermSetPtr
 simpleKBNetwork ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ do
   currg <- read goal
   unless (isBot currg) $ do
-    disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) [0..] $
-      [\i -> _ | cls <- kb]
+    disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) ([0..] :: [Int]) $
+      [\i -> do
+        (fromJust . splitClause -> (pres, (TSP post))) <- refreshClause ("refresh"::String, i, ctx) cls
+        eq post goal
+        --recursive call. Wait for the posterior equality before continuing
+        watchFixpoint (SimpleKBNetwork ("checkGoal"::String,ctx,i)) $ do
+          g' <- read goal
+          unless (isBot g') $ do
+            forM_ pres $ \(TSP pre) -> do
+              simpleKBNetwork (SimpleKBNetwork (ctx,i)) kb (TSP pre)
+              propBot pre goal
+      | cls <- kb]
 
 
 
