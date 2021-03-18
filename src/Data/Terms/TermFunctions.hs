@@ -1,10 +1,18 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 module Data.Terms.TermFunctions where
 
+import "base" Prelude hiding ( read )
 import "base" GHC.Exts
 import "base" Data.Functor
 import "base" Data.Typeable
 
 import "transformers" Control.Monad.Trans.Writer
+
+import "containers" Data.Set ( Set )
+import "containers" Data.Set qualified as Set
+
+import "containers" Data.Map ( Map )
+import "containers" Data.Map qualified as Map
 
 import "this" Data.Terms.Terms
 import "this" Data.Lattice
@@ -121,6 +129,32 @@ fromVarsAsCells' (TSP p) (SAPPL a b) = do
     write p (aplTerm (ca, cb)) $> (TSP p)
 
 
+
+fromCell :: (MonadProp m v scope, StdPtr v) => TermSetPtr v -> m (TermStruc (TermSetPtr v))
+fromCell (TSP c) = read c >>= fromTermSet (TSP c)
+
+fromCellSize :: (MonadProp m v scope, StdPtr v) => Int -> TermSetPtr v -> m (TermStruc (TermSetPtr v))
+fromCellSize s (TSP c) = read c >>= fromTermSet' s (TSP c)
+
+fromTermSet :: (MonadProp m v scope, StdPtr v) => TermSetPtr v -> TermSet (TermSetPtr v) -> m (TermStruc (TermSetPtr v))
+fromTermSet = fromTermSet' (-1)
+
+fromTermSet' :: (MonadProp m v scope, StdPtr v) =>
+  Int -> TermSetPtr v -> TermSet (TermSetPtr v) -> m (TermStruc (TermSetPtr v))
+fromTermSet' 0 _ _ = pure (SCON $ CUST $ "(...)")--pure STOP
+fromTermSet' _ _ ts | isBot ts = pure SBOT
+fromTermSet' _ c Top = pure (SCON $ CUST $ "(@ "++show c++" @)")--pure STOP
+fromTermSet' _ _ (TS (Set.toList -> [c]) _ _ _) = pure . SCON $ c
+fromTermSet' n _ ts
+    | not $ null (applications ts) = do
+        (a,b) <- pure . head . Set.toList . applications $ ts
+        a' <- fromCellSize (n-1) a
+        b' <- fromCellSize (n-1) b
+        pure $ SAPPL a' b'--applts a' b' --if a variable is assigned top, it would just vanish
+    | not $ null (variables ts) = do
+        --here we can safely assume that there cannot be a term hanging on this variable. If there was, it would have propagated here. Therefore this always is a dangling variable, so we just return the smallest variable of the equality cluster (so that all cluster show the same variable)
+        pure . SVAR . head . Set.toList . variables $ ts
+    | otherwise = pure Top
 
 
 
