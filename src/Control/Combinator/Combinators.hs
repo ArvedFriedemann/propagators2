@@ -28,7 +28,10 @@ propBot :: (MonadProp m v scope, Value a, Value b, HasBot a, HasBot b) =>
   v a -> v b -> m ()
 propBot p1 p2 = watch' p1 PropBot (\v -> when (isBot v) $ write p2 bot)
 
+data Promote = Promote
+  deriving (Show, Eq, Ord)
 
-
+promote :: (MonadProp m v scope, Value a) => v a -> m ()
+promote v = watch' v Promote (\c -> parScoped (write v c))
 
 --
