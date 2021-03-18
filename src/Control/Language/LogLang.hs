@@ -12,6 +12,8 @@ import "containers" Data.Map qualified as Map
 
 import "this" Data.Terms.Terms
 import "this" Control.Propagator.Class
+import "this" Control.Combinator.Logics
+import "this" Data.Lattice
 
 type Clause = []
 
@@ -42,6 +44,15 @@ refreshClause ctx (Set.toList -> binds, trms) = do
         refreshVarsTbl (RefreshTable ctx i) (Map.fromList bindVars) t
 
 
+data SimpleKBNetwork i = SimpleKBNetwork i
+  deriving (Show, Eq, Ord)
+
+simpleKBNetwork :: (MonadProp m v scope, Std n, StdPtr v) => n -> KB (TermSetPtr v) -> TermSetPtr v -> m ()
+simpleKBNetwork ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ do
+  currg <- read goal
+  unless (isBot currg) $ do
+    disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) [0..] $
+      [\i -> _ | cls <- kb]
 
 
 

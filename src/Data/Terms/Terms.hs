@@ -121,8 +121,8 @@ termPromoter this@(TSP this') (TS _ _ applications _) = do
     promoteTerm a
     promoteTerm b
 
-instance (MonadProp m v scope, StdPtr v) => Promoter (TermSetPtr v) m where
-  promoteAction = promoteTerm
+instance (MonadProp m v scope, StdPtr v) => Promoter (v (TermSet (TermSetPtr v))) m where
+  promoteAction p = promoteTerm (TSP p)
 
 -------------------------------------------
 --Variable Refreshing

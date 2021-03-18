@@ -217,7 +217,7 @@ instance (Dep m v
   parScoped :: m () -> m ()
   parScoped = local (\p -> p{scopePath = tail (scopePath p)})
 
-  watchFixpoint :: (Identifier n (m ()), Std n) => n -> m () -> m ()
+  watchFixpoint :: (Std n) => n -> m () -> m ()
   watchFixpoint name act = do
     state <- ask
     fixP <- reader fixpointActions
