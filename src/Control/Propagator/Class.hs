@@ -11,8 +11,11 @@ import "this" Data.Lattice
 class (Eq a, Ord a, Show a, Typeable a) => Std a
 instance (Eq a, Ord a, Show a, Typeable a) => Std a
 
-class (HasTop a, Meet a, Eq a, Typeable a, Show a) => Value a
-instance (HasTop a, Meet a, Eq a, Typeable a, Show a) => Value a
+class (forall a. Eq (v a), forall a. Ord (v a), forall a. Show (v a), Typeable v) => StdPtr v
+instance (forall a. Eq (v a), forall a. Ord (v a), forall a. Show (v a), Typeable v) => StdPtr v
+
+class (HasTop a, Meet a, Eq a, Show a, Typeable a) => Value a
+instance (HasTop a, Meet a, Eq a, Show a, Typeable a) => Value a
 
 class Dep a b | a -> b
 
@@ -42,6 +45,8 @@ class Monad m => MonadProp m v scope | m -> v, m -> scope where
   read :: (Value a) => v a -> m a
   write :: (Value a) => v a -> a -> m ()
   watch :: (Value a, Std n) => v a -> n -> m () -> m ()
+  watch' :: (Value a, Std n) => v a -> n -> (a -> m ()) -> m ()
+  watch' ptr name fkt = watch ptr name (read ptr >>= fkt)
 
   new :: (Identifier n a, Value a, Std n) => n -> m (v a)
   newRelative :: (Identifier n a, Value a, Std n) => v b -> n -> m (v a)
