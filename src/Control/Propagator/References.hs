@@ -94,7 +94,7 @@ accessLazyNameMap' ptr con adr =
   fromJust . fromSome <$> accessLazyNameMap
     (MV.read ptr)
     (MV.read ptr)
-    (\adr' nptr -> void $ MV.mutate ptr (\mp -> (Map.insert adr' (Some nptr) mp,nptr)))
+    (\adr' nptr -> void $ MV.mutate ptr (\mp -> (Map.insert adr' nptr mp,nptr)))
     (Some <$> con)
     (SEBId adr)
 
@@ -109,10 +109,10 @@ accessLazyTypeMap' ptr con adr =
 
 accessRelName :: forall m' m v a i b. (Std i, Identifier i b, Typeable b, MonadAtomic v m' m) => CellPtr m' v a -> m' b -> i -> m b
 accessRelName ptr con adr =
-  fromJust . (\c -> trace (show $ isJust c) c) . fromSome . (\c -> trace ("Attempting Some recover") c) <$> accessLazyNameMap
+  fromJust . fromSome <$> accessLazyNameMap
     (readSelector relnames ptr)
     (readSelector relnames ptr)
-    (\adr' nptr -> void $ MV.mutate (unpkCP ptr) (\cp -> (cp{relnames = Map.insert adr' (Some nptr) (relnames cp)},nptr)))
+    (\adr' nptr -> void $ MV.mutate (unpkCP ptr) (\cp -> (cp{relnames = Map.insert adr' nptr (relnames cp)},nptr)))
     (Some <$> con)
     (SEBId adr)
 
@@ -156,6 +156,7 @@ instance (Dep m v
         --, forall a. (Typeable a) => Std (v a)
         , forall a. Eq (v a)
         , forall a. Ord (v a)
+        , forall a. Show (v a)
         , Typeable m
         , Typeable m'
         , Typeable v) => MonadProp (m :: * -> *) (CellPtr (m' :: * -> *) v) (Scope v) where
@@ -180,7 +181,6 @@ instance (Dep m v
 
   new :: (Identifier n a, Value a, Std n) => n -> m (CellPtr m' v a)
   new name = do
-    traceM $ "Creating "++show name
     s <- scope
     sp <- MV.read (unpkSP s)
     accessLazyNameMap' (createdPointers sp) (createTopCellPtr @m' s) name
@@ -208,7 +208,7 @@ instance (Dep m v
 
 
 --TODO: WARNING: this only works, when the reference comes from below! when references come from aboce, they'd need to be pumped up!
-getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a. (Monad m, MonadRead m v, MonadScope m v, MonadAtomic v m' m, MonadUnsafeParScoped m, forall b. Eq (v b), forall b. Ord (v b), Typeable v, Value a) => CellPtr m' v a -> m (CellPtr m' v a)
+getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a. (Monad m, MonadRead m v, MonadScope m v, MonadAtomic v m' m, MonadUnsafeParScoped m, forall b. Eq (v b), forall b. Ord (v b), forall b. Show (v b), Typeable v, Value a) => CellPtr m' v a -> m (CellPtr m' v a)
 getScopeRef ptr = do
   tc <- readCP ptr
   s <- scope
@@ -243,15 +243,14 @@ notify :: forall (m' :: * -> *) m v a.
   ( MonadAtomic v m' m
   , MonadFork m
   , MonadScope m v
+  , forall b. Show (v b)
   , Typeable m', Typeable m, Typeable v) => CellPtr m' v a -> m ()
 notify ptr = do
-  traceM "Notifying!"
   propset <- getPropset ptr >>= readValue
   forkF (Map.elems propset)
 
-getPropset :: forall (m' :: * -> *) m v a. (Typeable m', Typeable m, Typeable v, MonadAtomic v m' m, MonadScope m v) => CellPtr m' v a -> m (PropSetPtr m' m v)
+getPropset :: forall (m' :: * -> *) m v a. (Typeable m', Typeable m, Typeable v, MonadAtomic v m' m, MonadScope m v, forall b. Show (v b)) => CellPtr m' v a -> m (PropSetPtr m' m v)
 getPropset ptr = do
-  traceM "Getting PropSet!"
   s <- scope
   accessRelName ptr (createValCellPtr @m' s Map.empty) (PropOf @m' @m @v)
 

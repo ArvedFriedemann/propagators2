@@ -43,7 +43,9 @@ test = do
   a <- new (FSP @String $ Some ("a" :: String))
   b <- new (FSP @String $ Some ("b" :: String))
   write a (FS $ Set.singleton ("Test" :: String))
-  watch a (MonadPointer @m (Some ("dirEq" :: String))) (read a >>= write b)
-  watch a (MonadPointer @m (Some ("trace" :: String)))
+  traceM "putting eq watch to a" >> watch a (MonadPointer @m (Some ("dirEq" :: String))) (read a >>= write b)
+  traceM "putting trace watch to a" >> watch a (MonadPointer @m (Some ("trace" :: String)))
     (read a >>= \a'-> traceM $ "A is " ++ show a')
+  traceM "putting eq watch to b" >> watch b (MonadPointer @m (Some ("trace" :: String)))
+    (read b >>= \b'-> traceM $ "B is " ++ show b')
   return "succeeded"
