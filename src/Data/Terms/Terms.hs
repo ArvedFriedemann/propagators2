@@ -81,7 +81,9 @@ varTerm v = top {variables = Set.singleton v}
 aplTerm :: (a, a) -> TermSet a
 aplTerm app = top {applications = Set.singleton app}
 
-
+-------------------------------------------
+--TermListener and Unification
+-------------------------------------------
 
 data TermListener = TermListener
   deriving (Show, Eq, Ord)
@@ -101,6 +103,11 @@ termListener this@(TSP this') (TS _ variables applications _) = do
     propBot this' b
     --bots need to be propagated both ways, otherwise prefixes of unsuccessful matches can still be read without failure
 
+
+-------------------------------------------
+--Promotion
+-------------------------------------------
+
 data TermPromoter = TermPromoter
   deriving (Show, Eq, Ord)
 
@@ -117,5 +124,34 @@ termPromoter this@(TSP this') (TS _ _ applications _) = do
 instance (MonadProp m v scope, StdPtr v) => Promoter (TermSetPtr v) m where
   promoteAction = promoteTerm
 
+-------------------------------------------
+--Variable Refreshing
+-------------------------------------------
 
+data RefreshVar i a = RefreshVar i
+  deriving (Show, Eq, Ord)
+instance Identifier (RefreshVar i a) a
+
+data RefreshVarsTbl i = RefreshVarsTbl i
+  deriving (Show, Eq, Ord)
+
+--TODO: return relative refresh pointer
+refreshVarsTbl :: forall m v scope n. (MonadProp m v scope, Std n, StdPtr v) => n -> Map TermConst (TermSetPtr v) -> TermSetPtr v -> m (TermSetPtr v)
+refreshVarsTbl ctx mp (TSP ptr) = do
+  ref <- newRelative ptr (RefreshVar @_ @(TermSet (TermSetPtr v)) ctx)
+  watch' ptr (RefreshVarsTbl ctx) (refresher ctx mp (TSP ptr) (TSP ref))
+  return (TSP ref)
+
+
+refresher :: (MonadProp m v scope, Std n, StdPtr v) => n -> Map TermConst (TermSetPtr v) -> TermSetPtr v -> TermSetPtr v -> TermSet (TermSetPtr v) -> m ()
+refresher ctx mp this@(TSP this') newRef@(TSP ref) (TS constants _ applications _) = do
+  forM_ constants $ \c -> do
+    case Map.lookup c mp of
+      Just (TSP p) -> do
+        eq ref p
+      Nothing -> write ref (constTerm c)
+  forM_ applications $ \(a,b) -> do
+    left  <- refreshVarsTbl ctx mp a
+    right <- refreshVarsTbl ctx mp b
+    write ref (aplTerm (left, right))
 ---
