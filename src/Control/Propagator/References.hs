@@ -97,22 +97,28 @@ createValCellParPtr s par val = CP <$> (createValCellPar s par val >>= MV.new)
 accessLazyParent ::
   ( MonadRead m v
   , MonadAtomic v m' m
-  , Value a, StdPtr v) => (CellPtr m' v a) -> m (CellPtr m' v a)
+  , MonadReader (PropArgs m m' v) m
+  , MonadFork m
+  , Value a, StdPtr v, Typeable m', Typeable m) => (CellPtr m' v a) -> m (CellPtr m' v a)
 accessLazyParent (CP p) = do
   mabPar <- readSelector parent (CP p)
   (split -> (topScp,tailScp)) <- readSelector origScope (CP p)
   case mabPar of
     Just p' -> return p'
-    Nothing -> atomically $ do
+    Nothing -> do
+      (hasChanged,par) <- atomically $ do
         mabPar' <- readSelector parent (CP p)
         case mabPar' of
-          Just p' -> return p'
+          Just p' -> return (False, p')
           Nothing -> do
             par <- createTopCellPtr tailScp
             MV.mutate_ p (\pc -> pc{parent=Just par})
             scpNms <- readSelector scopenames par
             MV.mutate_ scpNms (\mp -> Map.insert topScp (CP p) mp)
-            return par
+            return (True, par)
+      when hasChanged $
+        watchEngineCurrPtr par ScopeEq (readEngineCurrPtr par >>= \b -> writeEngineCurrPtr (CP p) b)
+      return par
 
 --TODO: When using a shared namespace for the scopes, there should be a mechanic where one can see the old value here. If a variable is created on a lower scope, it should be put in this place and be pumped up.
 accessLazyNameMap :: (Ord i, MonadAtomic v m' m) => m (Map i b) -> m' (Map i b) -> (i -> b -> m' ()) -> m' b -> (b -> m ()) -> i -> m b
@@ -283,20 +289,28 @@ readEngineCurrPtr ptr = readCP ptr >>= MV.read . value
 
 writeEngine :: forall (m' :: * -> *) m v a. (Monad m, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, Typeable v, forall b. Show (v b), forall b. Ord (v b), MonadFork m, Typeable m', Typeable m, Value a, HasCallStack) => CellPtr m' v a -> a -> m ()
 writeEngine ptr val = do
-  --traceM $ "writing "++show val++" into " ++ show ptr
   ptr' <- getScopeRef ptr
-  cp <- readCP ptr'
+  writeEngineCurrPtr ptr' val
+
+writeEngineCurrPtr :: forall (m' :: * -> *) m v a. (Monad m, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, Typeable v, forall b. Show (v b), forall b. Ord (v b), MonadFork m, Typeable m', Typeable m, Value a, HasCallStack) => CellPtr m' v a -> a -> m ()
+writeEngineCurrPtr ptr val = do
+  --traceM $ "writing "++show val++" into " ++ show ptr
+  cp <- readCP ptr
   old <- MV.read (value cp)
   hasChanged <- writeLattPtr (value cp) val
   if hasChanged
-  then notify ptr'
+  then notify ptr
   else return ()
 
 watchEngine :: forall (m' :: * -> *) m v a n. (Typeable m', Typeable m, Typeable v, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, MonadFork m, Value a, Std n, StdPtr v) => CellPtr m' v a -> n -> m () -> m ()
 watchEngine ptr name act = do
-  --traceM $ "watching "++show ptr++" with " ++ show name
   ptr' <- getScopeRef ptr
-  propset <- getPropset @m' ptr' >>= readSelector @m' value
+  watchEngineCurrPtr ptr' name act
+
+watchEngineCurrPtr :: forall (m' :: * -> *) m v a n. (Typeable m', Typeable m, Typeable v, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, MonadFork m, Value a, Std n, StdPtr v) => CellPtr m' v a -> n -> m () -> m ()
+watchEngineCurrPtr ptr name act = do
+  --traceM $ "watching "++show ptr++" with " ++ show name
+  propset <- getPropset @m' ptr >>= readSelector @m' value
   hasChanged <- MV.mutate propset (\ps -> let (mabChan,mp) = Map.insertLookupWithKey (\k n o -> n) (Some name) act ps in (mp, not $ isJust mabChan))
   when hasChanged act
 
