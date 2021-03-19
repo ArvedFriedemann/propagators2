@@ -141,7 +141,6 @@ busyFixpointWaiter :: (Show a) => Ref Int -> Ref (Map a (PropArgs IOSTMProp STM 
 busyFixpointWaiter sema fixActs fin = fork act
   where act = do
                 val <- MV.read sema
-                putStrLn $ "SemaState:" ++ (show val)
                 if val <= 0
                 then do
                   traceM "Reached Fixpoint!"
@@ -151,7 +150,6 @@ busyFixpointWaiter sema fixActs fin = fork act
                     traceM "No more Fixpoint Actions!"
                     fin
                   else do
-                    putStrLn $ show $ Map.keys acts
                     MV.write fixActs Map.empty
                     forM_ (Map.elems acts) (\(state, m) -> do
                       increaseSema sema

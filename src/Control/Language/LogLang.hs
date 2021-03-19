@@ -58,7 +58,7 @@ simpleKBNetwork' 0 _ _ _ = return ()
 simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ do
   currg <- read goal
   cgt <- fromCellSize 100 (TSP goal)
-  traceM $ "currgoal is "++show cgt
+  traceM $ "currgoal "++show goal++" is "++show cgt
   unless (isBot currg) $ do
     disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) ([0..] :: [Int]) $
       [\i -> do
@@ -68,7 +68,8 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
         watchFixpoint (SimpleKBNetwork ("checkGoal"::String,ctx,i)) $ do
           g' <- read goal
           cgt' <- fromCellSize 100 (TSP goal)
-          traceM $ "subgoal is "++show cgt'
+          cspg <- currScopePtr goal
+          traceM $ "subgoal "++show cspg++" is "++show cgt'
           unless (isBot g') $ do
             forM_ pres $ \(TSP pre) -> do
               simpleKBNetwork' (fuel - 1) (SimpleKBNetwork (ctx,i)) kb (TSP pre)

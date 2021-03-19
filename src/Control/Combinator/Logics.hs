@@ -17,13 +17,13 @@ instance Identifier (ScopeIdx a) a
 class Promoter a m where
   promoteAction :: a -> m ()
 
-disjunctFork :: (MonadProp m v scope, Value a, HasBot a, Std n) => n -> v a -> [m ()] -> m ()
+disjunctFork :: (MonadProp m v scope, Value a, HasBot a, Std n, StdPtr v) => n -> v a -> [m ()] -> m ()
 disjunctFork ctx succPtr ms = disjunctForkPromoterDestr ctx succPtr (write succPtr bot) [(m, promote succPtr) | m <- ms]
 
-disjunctForkPromote :: (MonadProp m v scope, Promoter (v a) m, Value a, HasBot a, Std n) => n -> v a -> [m ()] -> m ()
+disjunctForkPromote :: (MonadProp m v scope, Promoter (v a) m, Value a, HasBot a, Std n, StdPtr v) => n -> v a -> [m ()] -> m ()
 disjunctForkPromote ctx succPtr ms = disjunctForkPromoterDestr ctx succPtr (write succPtr bot) [(m, promoteAction succPtr) | m <- ms]
 
-disjunctForkPromoterDestr :: (MonadProp m v scope, Value a, HasBot a, Std n) => n -> v a -> m () -> [(m (), m ())] -> m ()
+disjunctForkPromoterDestr :: (MonadProp m v scope, Value a, HasBot a, Std n, StdPtr v) => n -> v a -> m () -> [(m (), m ())] -> m ()
 disjunctForkPromoterDestr ctx succPtr finDestr ms = do
   scopeVars <- forM (zip ms [0..]) (\((_,destr),i) ->
     let idx = ScopeIdx (Some ctx) i in do

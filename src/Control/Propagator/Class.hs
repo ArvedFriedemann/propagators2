@@ -50,6 +50,7 @@ class Monad m => MonadProp m v scope | m -> v, m -> scope where
 
   new :: (Identifier n a, Value a, Std n) => n -> m (v a)
   newRelative :: (Identifier n a, Value a, Std n) => v b -> n -> m (v a)
+  currScopePtr :: (Value a) => v a -> m (v a)
 
   newScope :: (Std n) => n -> m scope
   scoped :: scope -> m () -> m ()
