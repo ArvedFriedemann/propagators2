@@ -314,12 +314,17 @@ getScopeRef ptr = do
   then return ptr
   else do
     let (down,reverse -> up,c) = longestCommonTail s (origScope tc)
-    navigateScopePtr down up ptr
+    res <- navigateScopePtr down up ptr
+    traceM $ "ScopePathRetrieval from "++show ptr++" to "++show res++
+              "\norig:   "++show (origScope tc)++
+              "\nptrScp: "++show s++
+              "\ndeduced path: "++show (down,up,c)
+    return res
   where
     navigateScopePtr :: [Scope v] -> [Scope v] -> (CellPtr m' v a) -> m (CellPtr m' v a)
-    navigateScopePtr (_:s') up ptr' = accessLazyParent ptr' >>= navigateScopePtr s' up
-    navigateScopePtr [] (s:s') ptr' = accessScopeName s' ptr' s >>= navigateScopePtr [] s'
-    navigateScopePtr [] [] ptr' = return ptr
+    navigateScopePtr (_:s') up ptr' = accessLazyParent ptr' >>= (\p -> trace ("parent of "++show ptr++" is "++show p) $ navigateScopePtr s' up p)
+    navigateScopePtr [] (s:s') ptr' = accessScopeName s' ptr' s >>=(\p ->  trace ("child of "++show ptr++" is "++show p) $ navigateScopePtr [] s' p)
+    navigateScopePtr [] [] ptr' = return ptr'
 
 
 

@@ -56,8 +56,9 @@ simpleKBNetwork' :: (MonadProp m v scope, Std n, StdPtr v) => Int -> n -> KB (Te
 simpleKBNetwork' 0 _ _ _ = return ()
 simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ do
   currg <- read goal
-  --cgt <- fromCellSize 100 (TSP goal)
-  --traceM $ "currgoal "++show goal++" is "++show cgt++" with content "++show currg
+  cgt <- fromCellSize 100 (TSP goal)
+  cgp <- currScopePtr goal
+  traceM $ "currgoal "++show cgp++" is "++show cgt
   unless (isBot currg) $ do
     disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) ([0..] :: [Int]) $ safeHead $ --WARNING!
       [\i -> do
