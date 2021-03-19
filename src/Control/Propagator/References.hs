@@ -141,7 +141,7 @@ accessScopeName currscp ptr scp = do
     (MV.read mp)
     (\adr' nptr -> void $ MV.mutate mp (\mp' -> (Map.insert adr' nptr mp',nptr)))
     (createTopCellPtr currscp)
-    (\nptr -> watchEngine ptr ScopeEq (readEngine ptr >>= \b -> (traceM $ "promoting value " ++show b++" in "++show ptr++" into "++show nptr) >> writeEngine nptr b))
+    (\nptr -> watchEngine ptr ScopeEq (readEngineCurrPtr ptr >>= \b -> (traceM $ "promoting value " ++show b++" in "++show ptr++" into "++show nptr) >> writeEngine nptr b))
     scp
 
 writeLattPtr :: (MonadMutate m v, Value a) => v a -> a -> m Bool
@@ -233,7 +233,14 @@ readEngine :: forall (m' :: * -> *) m v a.
   , MonadReader (PropArgs m m' v) m
   , MonadFork m
   , Typeable m, Typeable m', Typeable v, forall b. Show (v b), forall b. Ord (v b), Value a) => CellPtr m' v a -> m a
-readEngine ptr = getScopeRef ptr >>= readCP >>= MV.read . value
+readEngine ptr = getScopeRef ptr >>= readEngineCurrPtr
+
+readEngineCurrPtr :: forall (m' :: * -> *) m v a.
+  ( MonadAtomic v m' m
+  , MonadReader (PropArgs m m' v) m
+  , MonadFork m
+  , Typeable m, Typeable m', Typeable v, forall b. Show (v b), forall b. Ord (v b), Value a) => CellPtr m' v a -> m a
+readEngineCurrPtr ptr = readCP ptr >>= MV.read . value
 
 writeEngine :: forall (m' :: * -> *) m v a. (Monad m, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, Typeable v, forall b. Show (v b), forall b. Ord (v b), MonadFork m, Typeable m', Typeable m, Value a) => CellPtr m' v a -> a -> m ()
 writeEngine ptr val = do
