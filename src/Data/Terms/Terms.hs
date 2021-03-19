@@ -147,8 +147,7 @@ refresher :: (MonadProp m v scope, Std n, StdPtr v) => n -> Map TermConst (TermS
 refresher ctx mp this@(TSP this') newRef@(TSP ref) (TS constants _ applications _) = do
   forM_ constants $ \c -> do
     case Map.lookup c mp of
-      Just (TSP p) -> do
-        eq ref p
+      Just (TSP p) -> write ref (varTerm (TSP p))
       Nothing -> write ref (constTerm c)
   forM_ applications $ \(a,b) -> do
     left  <- refreshVarsTbl ctx mp a

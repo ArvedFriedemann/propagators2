@@ -4,6 +4,7 @@ module Control.Combinator.Logics where
 import "base" Prelude hiding ( read )
 import "base" Control.Monad
 import "base" Data.Maybe
+import "base" Debug.Trace
 
 import "this" Control.Propagator.Class
 import "this" Control.Combinator.Combinators
@@ -47,15 +48,16 @@ disjunctForkPromoterDestr ctx succPtr finDestr ms = do
 data DetermineWinner i = DetermineWinner i
   deriving (Show, Eq, Ord)
 
-determineWinner :: (MonadProp m v scope, Value a, HasBot a) => m () -> [(scope, v a, m ())] -> m ()
+determineWinner :: (MonadProp m v scope, Value a, HasBot a, StdPtr v) => m () -> [(scope, v a, m ())] -> m ()
 determineWinner finDestr lst = do
   succeeded <- (catMaybes <$>) $ forM lst $ \(s,p,m) -> do
     r <- read p
     if isBot r
     then return Nothing
     else return $ Just (s,p,m)
+  traceM $ "Succeeded pointers: "++(show $ map (\(_,p,_) -> p) succeeded)
   case succeeded of
-    [(s,_,m)] -> scoped s m
+    [(s,_,m)] -> traceM "\n>>> Promoting winner!\n" >> scoped s m
     [] -> finDestr
     _ -> return ()
 

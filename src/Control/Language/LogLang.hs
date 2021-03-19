@@ -46,7 +46,6 @@ refreshClause ctx (Set.toList -> binds, trms) = do
   forM (zip trms ([0..] :: [Int])) $ \(t,i) ->
         refreshVarsTbl (RefreshTable ctx i) (Map.fromList bindVars) t
 
-
 data SimpleKBNetwork i = SimpleKBNetwork i
   deriving (Show, Eq, Ord)
 
@@ -57,19 +56,22 @@ simpleKBNetwork' :: (MonadProp m v scope, Std n, StdPtr v) => Int -> n -> KB (Te
 simpleKBNetwork' 0 _ _ _ = return ()
 simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ do
   currg <- read goal
-  cgt <- fromCellSize 100 (TSP goal)
-  traceM $ "currgoal "++show goal++" is "++show cgt++" with content "++show currg
+  --cgt <- fromCellSize 100 (TSP goal)
+  --traceM $ "currgoal "++show goal++" is "++show cgt++" with content "++show currg
   unless (isBot currg) $ do
     disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) ([0..] :: [Int]) $
       [\i -> do
         (fromJust . splitClause -> (pres, (TSP post))) <- refreshClause ("refresh"::String, i, ctx) cls
+        (fromJust . splitClause -> (pres', (TSP post'))) <- refreshClause ("refresh2"::String, i, ctx) cls
         eq post goal
         --recursive call. Wait for the posterior equality before continuing
         watchFixpoint (SimpleKBNetwork ("checkGoal"::String,ctx,i)) $ do
           g' <- read goal
           cgt' <- fromCellSize 100 (TSP goal)
           cspg <- currScopePtr goal
-          traceM $ "subgoal "++show cspg++" is "++show cgt'
+          pcgt' <- fromCellSize 100 (TSP post)
+          cpost <- fromCellSize 100 (TSP post')
+          traceM $ "subgoal "++show cspg++" is "++show cgt' ++ "\nwith post: "++show pcgt'++"\nand clean post: "++show cpost
           unless (isBot g') $ do
             forM_ pres $ \(TSP pre) -> do
               simpleKBNetwork' (fuel - 1) (SimpleKBNetwork (ctx,i)) kb (TSP pre)
