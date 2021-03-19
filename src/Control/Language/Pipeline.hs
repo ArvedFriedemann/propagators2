@@ -28,11 +28,5 @@ parseAndPerformProofSearch ctx inst = do
       simpleKBNetwork (ctx,"search" :: String) kb goal
       return goal
 
-parseFileAndPerformProofSearch :: String -> IO ()
-parseFileAndPerformProofSearch filename = do
-  s <- readFile filename
-  --runMonadPropIO $ parseAndPerformProofSearch () s
-  return ()
-
 cleanBrackets :: (Eq a) => TermStruc a -> TermStruc a
 cleanBrackets = removeLrecBrackets (SCON $ CUST "(") (SCON $ CUST ")")
