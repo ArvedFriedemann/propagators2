@@ -65,6 +65,4 @@ determineWinner finDestr lst = do
 
 
 
-
-
 --

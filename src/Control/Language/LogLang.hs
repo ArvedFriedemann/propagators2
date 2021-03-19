@@ -59,7 +59,7 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
   --cgt <- fromCellSize 100 (TSP goal)
   --traceM $ "currgoal "++show goal++" is "++show cgt++" with content "++show currg
   unless (isBot currg) $ do
-    disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) ([0..] :: [Int]) $
+    disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) ([0..] :: [Int]) $ safeHead $ --WARNING!
       [\i -> do
         (fromJust . splitClause -> (pres, (TSP post))) <- refreshClause ("refresh"::String, i, ctx) cls
         (fromJust . splitClause -> (pres', (TSP post'))) <- refreshClause ("refresh2"::String, i, ctx) cls
@@ -79,7 +79,9 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
       | cls <- kb]
 
 
-
+safeHead :: [a] -> [a]
+safeHead [] = []
+safeHead (x:_) = [x]
 
 
 

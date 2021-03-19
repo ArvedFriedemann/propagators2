@@ -36,7 +36,7 @@ instance Ord SEBId where
 type SEBIdMap = Map SEBId (Some Something)
 --TODO: scopes should be some list structure. In a cell, you can go up only one scope. When reading from a distant scope, you have to go down the stack until the orig and then successively punp the value up.
 data TreeCell m' (v :: * -> *) (a :: *) = TreeCell {
-  origScope :: Scope v
+  origScope :: [Scope v]
 , parent :: Maybe (CellPtr m' v a) --TODO: cannot be created, needs to be existing reference
 , value :: v a
 , relnames :: v SEBIdMap
@@ -60,21 +60,37 @@ readSelector sel ptr = sel <$> readCP ptr
 readValue :: (MonadRead m v) => CellPtr m' v a -> m a
 readValue ptr = readCP ptr >>= MV.read . value
 
-createValCell :: (MonadNew m v) => Scope v -> a -> m (TreeCell m' v a)
+createValCell :: (MonadNew m v) => [Scope v] -> a -> m (TreeCell m' v a)
 createValCell s v = do
   val <- MV.new v
   reln <- MV.new Map.empty
   snms <- MV.new Map.empty
   return $ TreeCell{parent = Nothing, origScope = s, value = val, relnames = reln, scopenames = snms}
 
-createTopCell :: (MonadNew m v, Value a) => Scope v -> m (TreeCell m' v a)
+createValCellPar :: (MonadNew m v) => [Scope v] -> CellPtr m' v a -> a -> m (TreeCell m' v a)
+createValCellPar s par v = do
+  val <- MV.new v
+  reln <- MV.new Map.empty
+  snms <- MV.new Map.empty
+  return $ TreeCell{parent = Just par, origScope = s, value = val, relnames = reln, scopenames = snms}
+
+createTopCell :: (MonadNew m v, Value a) => [Scope v] -> m (TreeCell m' v a)
 createTopCell s = createValCell s top
 
-createTopCellPtr :: forall m' m v a. (MonadNew m v, Value a) => Scope v -> m (CellPtr m' v a)
+createTopCellPar :: (MonadNew m v, Value a) => [Scope v] -> CellPtr m' v a -> m (TreeCell m' v a)
+createTopCellPar s par = createValCellPar s par top
+
+createTopCellPtr :: forall m' m v a. (MonadNew m v, Value a) => [Scope v] -> m (CellPtr m' v a)
 createTopCellPtr s = CP <$> (createTopCell s >>= MV.new)
 
-createValCellPtr :: (MonadNew m v) => Scope v -> a -> m (CellPtr m' v a)
+createTopCellParPtr :: forall m' m v a. (MonadNew m v, Value a) => [Scope v] -> CellPtr m' v a -> m (CellPtr m' v a)
+createTopCellParPtr s par = CP <$> (createTopCellPar s par >>= MV.new)
+
+createValCellPtr :: (MonadNew m v) => [Scope v] -> a -> m (CellPtr m' v a)
 createValCellPtr s val = CP <$> (createValCell s val >>= MV.new)
+
+createValCellParPtr :: (MonadNew m v) => [Scope v] -> CellPtr m' v a -> a -> m (CellPtr m' v a)
+createValCellParPtr s par val = CP <$> (createValCellPar s par val >>= MV.new)
 
 --TODO: When using a shared namespace for the scopes, there should be a mechanic where one can see the old value here. If a variable is created on a lower scope, it should be put in this place and be pumped up.
 accessLazyNameMap :: (Ord i, MonadAtomic v m' m) => m (Map i b) -> m' (Map i b) -> (i -> b -> m' ()) -> m' b -> (b -> m ()) -> i -> m b
@@ -133,14 +149,14 @@ accessScopeName :: forall m' m (v :: * -> *) a.
   , MonadAtomic v m' m
   , MonadReader (PropArgs m m' v) m
   , MonadFork m
-  , Typeable m, Typeable m', forall b. Show (v b), forall b. Ord (v b) ) => Scope v -> CellPtr m' v a -> Scope v -> m (CellPtr m' v a)
+  , Typeable m, Typeable m', forall b. Show (v b), forall b. Ord (v b) ) => [Scope v] -> CellPtr m' v a -> Scope v -> m (CellPtr m' v a)
 accessScopeName currscp ptr scp = do
   mp <- readSelector scopenames ptr
   accessLazyNameMap
     (MV.read mp)
     (MV.read mp)
     (\adr' nptr -> void $ MV.mutate mp (\mp' -> (Map.insert adr' nptr mp',nptr)))
-    (createTopCellPtr currscp)
+    (createTopCellParPtr (scp : currscp) ptr)
     (\nptr -> watchEngine ptr ScopeEq (readEngineCurrPtr ptr >>= \b -> writeEngine nptr b))
     scp
 
@@ -192,13 +208,13 @@ instance (Dep m v
 
   new :: (Identifier n a, Value a, Std n) => n -> m (CellPtr m' v a)
   new name = do
-    s <- scope
-    sp <- MV.read (unpkSP s)
+    s <- reader scopePath
+    sp <- MV.read (unpkSP (head s))
     accessLazyNameMap' (createdPointers sp) (createTopCellPtr @m' s) name
 
   newRelative :: (Identifier n a, Value a, Std n) => CellPtr m' v b -> n -> m (CellPtr m' v a)
   newRelative ptr name = do
-    s <- scope
+    s <- reader scopePath
     rn <- readSelector relnames ptr
     accessLazyNameMap' rn (createTopCellPtr @m' s) name
 
@@ -218,7 +234,7 @@ instance (Dep m v
   scoped sp = local (\p -> p{scopePath = sp : (scopePath p)})
 
   parScoped :: m () -> m ()
-  parScoped = local (\p -> p{scopePath = tail (scopePath p)})
+  parScoped = unsafeParScoped
 
   watchFixpoint :: (Std n) => n -> m () -> m ()
   watchFixpoint name act = do
@@ -272,10 +288,11 @@ getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a.
   , Typeable m, Typeable m', forall b. Eq (v b), forall b. Ord (v b), forall b. Show (v b), Typeable v, Value a) => CellPtr m' v a -> m (CellPtr m' v a)
 getScopeRef ptr = do
   tc <- readCP ptr
-  s <- scope
-  if origScope tc == s
+  s <- reader scopePath
+  if (head $ origScope tc) == (head s)
   then return ptr
   else do
+    --TODO: check for least common scope
     ptr' <- unsafeParScoped $ getScopeRef ptr
     accessScopeName s ptr' s
 
