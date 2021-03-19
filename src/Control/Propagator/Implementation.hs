@@ -117,33 +117,39 @@ instance MonadMutate STM Ref where
 instance MonadAtomic Ref STM IOSTMProp where
   atomically act = ISP $ lift $ STM.atomically act
 
---ReaderT (PropArgs IO STM TVar)
---(MonadProp IOSTMProp (CellPtr STM Ref) (Scope Ref)) =>
+
 runMonadPropIO :: forall a. IOSTMProp a -> IO a
-runMonadPropIO act = do
+runMonadPropIO act = runMonadPropIOFin act (const $ return ())
+
+runMonadPropIOFin:: forall a b. IOSTMProp a -> (a -> IOSTMProp b) -> IO a
+runMonadPropIOFin act fin = do
   initPtrs <- MV.new @_ @Ref Map.empty
   root <- MV.new $ ScopeT{createdPointers = initPtrs}
   creatScopes <- MV.new Map.empty
   fixActs <- MV.new Map.empty
   fixSema <- MV.new 1
-  busyFixpointWaiter fixSema fixActs
-  res <- runMonadPropIOState (PropArgs{scopePath=[SP root], createdScopes=creatScopes, fixpointActions=fixActs, fixpointSemaphore=fixSema}) act
-  decreaseSema fixSema
-  return res
+  let state = PropArgs{scopePath=[SP root], createdScopes=creatScopes, fixpointActions=fixActs, fixpointSemaphore=fixSema} in do
+    res <- runMonadPropIOState state act
+    busyFixpointWaiter fixSema fixActs (void $ runMonadPropIOState state (fin res))
+    decreaseSema fixSema
+    return res
 
 runMonadPropIOState :: forall a. PropArgs IOSTMProp STM Ref -> IOSTMProp a -> IO a
 runMonadPropIOState state (ISP act) = runReaderT (act) state
 
-busyFixpointWaiter :: Ref Int -> Ref (Map a (PropArgs IOSTMProp STM Ref,IOSTMProp ())) -> IO ()
-busyFixpointWaiter sema fixActs = fork act
+busyFixpointWaiter :: Ref Int -> Ref (Map a (PropArgs IOSTMProp STM Ref,IOSTMProp ())) -> IO () -> IO ()
+busyFixpointWaiter sema fixActs fin = fork act
   where act = do
                 val <- MV.read sema
+                putStrLn $ "SemaState:" ++ (show val)
                 if val <= 0
                 then do
                   traceM "Reached Fixpoint!"
                   acts <- MV.read fixActs
                   if Map.null acts
-                  then traceM "No more Fixpoint Actions!"
+                  then do
+                    traceM "No more Fixpoint Actions!"
+                    fin
                   else do
                     forM_ (Map.elems acts) (\(state, m) -> do
                       increaseSema sema
@@ -151,15 +157,19 @@ busyFixpointWaiter sema fixActs = fork act
                     act
 
                 else do
-                  --traceM "Waiting..."
+                  traceM "Waiting..."
                   wait 100
                   act
 
 increaseSema :: (MonadMutate_ m v) => v Int -> m ()
-increaseSema sema = MV.mutate_ sema (\x -> x - (1::Int))
+increaseSema sema = do
+  --traceM "Increasing Sema"
+  MV.mutate_ sema (\x -> x + (1::Int))
 
 decreaseSema :: (MonadMutate_ m v) => v Int -> m ()
-decreaseSema sema = MV.mutate_ sema (\x -> x - (1::Int))
+decreaseSema sema = do
+  --traceM "Decreasing Sema"
+  MV.mutate_ sema (\x -> x - (1::Int))
 
 
 
