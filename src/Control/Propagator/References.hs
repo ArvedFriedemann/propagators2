@@ -281,7 +281,7 @@ readEngineCurrPtr ptr = readCP ptr >>= MV.read . value
 
 writeEngine :: forall (m' :: * -> *) m v a. (Monad m, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, Typeable v, forall b. Show (v b), forall b. Ord (v b), MonadFork m, Typeable m', Typeable m, Value a) => CellPtr m' v a -> a -> m ()
 writeEngine ptr val = do
-  --traceM $ "writing "++show val++" into " ++ show ptr
+  traceM $ "writing "++show val++" into " ++ show ptr
   ptr' <- getScopeRef ptr
   cp <- readCP ptr'
   old <- MV.read (value cp)
@@ -292,7 +292,7 @@ writeEngine ptr val = do
 
 watchEngine :: forall (m' :: * -> *) m v a n. (Typeable m', Typeable m, Typeable v, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, forall b. Show (v b), Value a, Std n) => CellPtr m' v a -> n -> m () -> m ()
 watchEngine ptr name act = do
-  --traceM $ "watching "++show ptr++" with " ++ show name
+  traceM $ "watching "++show ptr++" with " ++ show name
   propset <- getPropset @m' ptr >>= readSelector @m' value
   hasChanged <- MV.mutate propset (\ps -> let (mabChan,mp) = Map.insertLookupWithKey (\k n o -> n) (Some name) act ps in (mp, not $ isJust mabChan))
   when hasChanged act

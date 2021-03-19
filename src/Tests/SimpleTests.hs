@@ -67,7 +67,15 @@ test2 = do
   eq t1 t2
   return [TSP t1]
 
-
+test3 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
+test3 = do
+  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c",var $ GenTId @v (1::Int),var $ GenTId @v (1::Int)] --var $ GenTId @v (1::Int)
+  s <- newScope ("scp"::String)
+  scoped s $ do
+    (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) [var $ GenTId @v (2::Int),"c",var $ GenTId @v (2::Int)]
+    eq t1 t2
+    promoteTerm (TSP t1)
+  return [TSP t1]
 
 
 

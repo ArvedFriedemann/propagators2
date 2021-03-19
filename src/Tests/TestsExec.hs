@@ -39,4 +39,6 @@ stdTest act = void $ runMonadPropIOFin act $ \ptrs -> do
 test2' :: IO ()
 test2' = stdTest test2
 
+test3' :: IO ()
+test3' = stdTest test3
 --
