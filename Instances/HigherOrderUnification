@@ -1,0 +1,11 @@
+expression nassoc 7 ( _ ) ;
+expression rassoc 11 _ = _ ;
+expression rassoc 13 _ -> _ ;
+expression lassoc 9 _ _ ;
+
+x = x ;
+a = b -> b = a ; --WARNING: high nondeterminism
+a = b -> b = c -> a = c ;
+a = a' -> b = b' -> a b = a' b' ;
+
+x = a -> a --WARNING: high nondeterminism

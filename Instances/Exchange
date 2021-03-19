@@ -1,0 +1,24 @@
+expression nassoc 7 ( _ ) ;
+expression nassoc 13 exchange_with_in_to_ ;
+expression rassoc 13 _ = _ ;
+expression rassoc 13 _ /= _ ;
+expression rassoc 15 _ -> _ ;
+expression rassoc 14 _ : _ ;
+expression lassoc 9 _ _ ;
+expression nassoc 8 [] ;
+expression nassoc 8 cA ;
+expression nassoc 8 cB ;
+expression nassoc 8 ca ;
+expression nassoc 8 cb ;
+expression nassoc 8 cc ;
+
+exchange x with y in x to y ;
+
+--parser still WIP. Brackets here needed.
+(exchange x with y in e1 to e1') ->
+  (exchange x with y in e2 to e2') ->
+  (exchange x with y in (e1 e2) to (e1' e2')) ;
+
+(e /= x) -> (e /= (e1 e2)) -> exchange x with y in e to e ;
+
+exchange ca with cb in (ca ca cc) to P

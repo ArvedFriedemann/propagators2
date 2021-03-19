@@ -1,0 +1,20 @@
+expression nassoc 7 ( _ ) ;
+expression rassoc 11 _ = _ ;
+expression rassoc 15 _ -> _ ;
+expression lassoc 9 _ _ ;
+
+x = x ;
+-- a = b -> b = a ; --currently removed to have less ambiguity
+a = b -> b = c -> a = c ;
+a = a' -> b = b' -> a b = a' b' ;
+
+expression rassoc 10 _ : _ ;
+expression nassoc 8 [] ;
+expression nassoc 8 concat ;
+
+concat [] y = y ;
+concat (x : xs) y = x : concat xs y ;
+
+expression nassoc 8 A ;
+
+concat (A : []) (x : []) = (A : A : []) ;
