@@ -17,6 +17,7 @@ import "this" Control.Propagator.Class
 import "this" Data.Lattice
 import "this" Data.Some
 import "this" Data.Typed
+import "this" Data.Util
 
 import "containers" Data.Map (Map)
 import qualified "containers" Data.Map as Map
@@ -91,6 +92,26 @@ createValCellPtr s val = CP <$> (createValCell s val >>= MV.new)
 
 createValCellParPtr :: (MonadNew m v) => [Scope v] -> CellPtr m' v a -> a -> m (CellPtr m' v a)
 createValCellParPtr s par val = CP <$> (createValCellPar s par val >>= MV.new)
+
+accessLazyParent ::
+  ( MonadRead m v
+  , MonadAtomic v m' m
+  , Value a, StdPtr v) => (CellPtr m' v a) -> m (CellPtr m' v a)
+accessLazyParent (CP p) = do
+  mabPar <- readSelector parent (CP p)
+  (split -> (topScp,tailScp)) <- readSelector origScope (CP p)
+  case mabPar of
+    Just p' -> return p'
+    Nothing -> atomically $ do
+        mabPar' <- readSelector parent (CP p)
+        case mabPar' of
+          Just p' -> return p'
+          Nothing -> do
+            par <- createTopCellPtr tailScp
+            MV.mutate_ p (\pc -> pc{parent=Just par})
+            scpNms <- readSelector scopenames par
+            MV.mutate_ scpNms (\mp -> Map.insert topScp (CP p) mp)
+            return par
 
 --TODO: When using a shared namespace for the scopes, there should be a mechanic where one can see the old value here. If a variable is created on a lower scope, it should be put in this place and be pumped up.
 accessLazyNameMap :: (Ord i, MonadAtomic v m' m) => m (Map i b) -> m' (Map i b) -> (i -> b -> m' ()) -> m' b -> (b -> m ()) -> i -> m b
@@ -292,9 +313,15 @@ getScopeRef ptr = do
   if (head $ origScope tc) == (head s)
   then return ptr
   else do
-    --TODO: check for least common scope
-    ptr' <- unsafeParScoped $ getScopeRef ptr
-    accessScopeName s ptr' s
+    let (down,reverse -> up,c) = longestCommonTail s (origScope tc)
+    navigateScopePtr down up ptr
+  where
+    navigateScopePtr :: [Scope v] -> [Scope v] -> (CellPtr m' v a) -> m (CellPtr m' v a)
+    navigateScopePtr (_:s') up ptr' = accessLazyParent ptr' >>= navigateScopePtr s' up
+    navigateScopePtr [] (s:s') ptr' = accessScopeName s' ptr' s >>= navigateScopePtr [] s'
+    navigateScopePtr [] [] ptr' = return ptr
+
+
 
 class MonadUnsafeParScoped m where
   --Unsafe because this parScoped can return values and therefore potentially more pointers from forks to the orig, which should be avoided at this stage
@@ -321,15 +348,21 @@ notify :: forall (m' :: * -> *) m v a.
   ( MonadAtomic v m' m
   , MonadFork m
   , MonadScope m v
+  , MonadReader (PropArgs m m' v) m
   , forall b. Show (v b)
   , Typeable m', Typeable m, Typeable v) => CellPtr m' v a -> m ()
 notify ptr = do
   propset <- getPropset ptr >>= readValue
   forkF (Map.elems propset)
 
-getPropset :: forall (m' :: * -> *) m v a. (Typeable m', Typeable m, Typeable v, MonadAtomic v m' m, MonadScope m v, forall b. Show (v b)) => CellPtr m' v a -> m (PropSetPtr m' m v)
+getPropset :: forall (m' :: * -> *) m v a.
+  ( Typeable m', Typeable m, Typeable v
+  , MonadAtomic v m' m
+  , MonadScope m v
+  , MonadReader (PropArgs m m' v) m
+  , forall b. Show (v b)) => CellPtr m' v a -> m (PropSetPtr m' m v)
 getPropset ptr = do
-  s <- scope
+  s <- reader scopePath
   accessRelName ptr (createValCellPtr @m' s Map.empty) (PropOf @m' @m @v)
 
 --
