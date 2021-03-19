@@ -3,6 +3,7 @@ module Tests.SimpleTests where
 
 import "base" Prelude hiding ( read )
 import "base" Data.Typeable
+import "base" Data.Maybe
 import "base" Debug.Trace
 import "base" Control.Monad
 
@@ -10,6 +11,8 @@ import "this" Control.Propagator.Class
 import "this" Control.Combinator
 import "this" Data.Lattice
 import "this" Data.Some
+import "this" Data.Util
+import "this" Control.Language.LogLang
 import "this" Data.Terms.Terms
 import "this" Data.Terms.TermFunctions
 
@@ -97,7 +100,21 @@ test4 = do
     promoteTerm (TSP t1)
   return [TSP t1]
 
-
+test5 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
+test5 = do
+  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c",var $ GenTId @v (1::Int),var $ GenTId @v (1::Int)] --var $ GenTId @v (1::Int)
+  s <- newScope ("scp"::String)
+  traceM $ "oriScp pointer t1: "++show t1
+  scoped s $ do
+    (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) [var $ GenTId @v (2::Int),"c",var $ GenTId @v (2::Int)]
+    ((fromJust . splitClause -> (pres, (TSP post)))) <- refreshClause ("refresh"::String) (Set.empty,[TSP t2])
+    eq t1 post
+    t1'<- currScopePtr t1
+    t2'<- currScopePtr t2
+    traceM $ "scoped pointer t1: "++show t1'++
+            "\nscoped pointer t2: "++show t2'
+    promoteTerm (TSP t1)
+  return [TSP t1]
 
 
 

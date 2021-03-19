@@ -139,6 +139,7 @@ data RefreshVarsTbl i = RefreshVarsTbl i
 refreshVarsTbl :: forall m v scope n. (MonadProp m v scope, Std n, StdPtr v) => n -> Map TermConst (TermSetPtr v) -> TermSetPtr v -> m (TermSetPtr v)
 refreshVarsTbl ctx mp (TSP ptr) = do
   ref <- newRelative ptr (RefreshVar @_ @(TermSet (TermSetPtr v)) ctx)
+  watchTerm (TSP ref)
   watch' ptr (RefreshVarsTbl ctx) (refresher ctx mp (TSP ptr) (TSP ref))
   return (TSP ref)
 

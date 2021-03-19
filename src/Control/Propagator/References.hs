@@ -116,6 +116,7 @@ accessLazyParent (CP p) = do
             scpNms <- readSelector scopenames par
             MV.mutate_ scpNms (\mp -> Map.insert topScp (CP p) mp)
             return (True, par)
+
       when hasChanged $
         watchEngineCurrPtr par ScopeEq (readEngineCurrPtr par >>= \b -> writeEngineCurrPtr (CP p) b)
       return par
@@ -185,7 +186,7 @@ accessScopeName currscp ptr scp = do
     (MV.read mp)
     (\adr' nptr -> void $ MV.mutate mp (\mp' -> (Map.insert adr' nptr mp',nptr)))
     (createTopCellParPtr (scp : currscp) ptr)
-    (\nptr -> watchEngine ptr ScopeEq (readEngineCurrPtr ptr >>= \b -> writeEngine nptr b))
+    (\nptr -> watchEngineCurrPtr ptr ScopeEq (readEngineCurrPtr ptr >>= \b -> writeEngineCurrPtr nptr b))
     scp
 
 writeLattPtr :: (MonadMutate m v, Value a) => v a -> a -> m Bool
@@ -310,7 +311,8 @@ watchEngine ptr name act = do
 watchEngineCurrPtr :: forall (m' :: * -> *) m v a n. (Typeable m', Typeable m, Typeable v, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, MonadFork m, Value a, Std n, StdPtr v) => CellPtr m' v a -> n -> m () -> m ()
 watchEngineCurrPtr ptr name act = do
   --traceM $ "watching "++show ptr++" with " ++ show name
-  propset <- getPropset @m' ptr >>= readSelector @m' value
+  s <- readSelector origScope ptr
+  propset <- getPropset @m' s ptr >>= readSelector @m' value
   hasChanged <- MV.mutate propset (\ps -> let (mabChan,mp) = Map.insertLookupWithKey (\k n o -> n) (Some name) act ps in (mp, not $ isJust mabChan))
   when hasChanged act
 
@@ -379,21 +381,19 @@ notify :: forall (m' :: * -> *) m v a.
   ( MonadAtomic v m' m
   , MonadFork m
   , MonadScope m v
-  , MonadReader (PropArgs m m' v) m
   , forall b. Show (v b)
   , Typeable m', Typeable m, Typeable v) => CellPtr m' v a -> m ()
 notify ptr = do
-  propset <- getPropset ptr >>= readValue
+  s <- readSelector origScope ptr
+  propset <- getPropset s ptr >>= readValue
   forkF (Map.elems propset)
 
 getPropset :: forall (m' :: * -> *) m v a.
   ( Typeable m', Typeable m, Typeable v
   , MonadAtomic v m' m
   , MonadScope m v
-  , MonadReader (PropArgs m m' v) m
-  , forall b. Show (v b)) => CellPtr m' v a -> m (PropSetPtr m' m v)
-getPropset ptr = do
-  s <- reader scopePath
+  , forall b. Show (v b)) => [Scope v] -> CellPtr m' v a -> m (PropSetPtr m' m v)
+getPropset s ptr = do
   accessRelName ptr (createValCellPtr @m' s Map.empty) (PropOf @m' @m @v)
 
 --
