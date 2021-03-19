@@ -4,12 +4,15 @@ module Tests.TestsExec where
 import "base" Prelude hiding ( read )
 import "base" Data.Typeable
 import "base" Debug.Trace
+import "base" Control.Monad
 
 import "this" Control.Propagator.Class
 import "this" Control.Propagator.Implementation
 import "this" Control.Propagator.References
 import "this" Data.Lattice
 import "this" Data.Some
+import "this" Data.Terms.Terms
+import "this" Data.Terms.TermFunctions
 
 import "this" Tests.SimpleTests
 
@@ -21,23 +24,19 @@ import qualified "containers" Data.Set as Set
 import "stm" Control.Concurrent.STM hiding (atomically)
 import qualified "stm" Control.Concurrent.STM as STM
 
+import "transformers" Control.Monad.Trans.Class
 
 --(MonadProp IOSTMProp (CellPtr STM Ref) (Scope Ref)) =>
 test' :: IO String
 test' = runMonadPropIO @String (test @IOSTMProp @(CellPtr STM Ref) @(Scope Ref))
---test' :: IO String
---test' = runMonadPropIO test2
 
-{-}
-test2 :: IOSTMProp String
-test2 = do
-  a <- (new (FSP @String $ Some ("a" :: String))) :: IOSTMProp (CellPtr STM Ref (FactSet String))
-  b <- new (FSP @String $ Some ("b" :: String))
-  write a (FS $ Set.singleton ("Test" :: String))
-  watch a (MonadPointer @IOSTMProp (Some ("dirEq" :: String))) (read a >>= write b)
-  watch a (MonadPointer @IOSTMProp (Some ("trace" :: String)))
-    (read a >>= \a'-> traceM $ "A is " ++ show a')
-  return "succeeded"
--}
+stdTest :: IOSTMProp [TermSetPtr (CellPtr STM Ref)] -> IO ()
+stdTest act = void $ runMonadPropIOFin act $ \ptrs -> do
+  forM_ ptrs $ \p -> do
+    trm <- fromCellSize 100 p
+    ISP $ lift $ putStrLn $ show trm
+
+test2' :: IO ()
+test2' = stdTest test2
 
 --

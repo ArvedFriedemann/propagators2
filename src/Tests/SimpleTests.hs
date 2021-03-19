@@ -7,8 +7,11 @@ import "base" Debug.Trace
 import "base" Control.Monad
 
 import "this" Control.Propagator.Class
+import "this" Control.Combinator
 import "this" Data.Lattice
 import "this" Data.Some
+import "this" Data.Terms.Terms
+import "this" Data.Terms.TermFunctions
 
 import "containers" Data.Map (Map)
 import qualified "containers" Data.Map as Map
@@ -50,5 +53,28 @@ test = do
     (read b >>= \b'-> traceM $ "B is " ++ show b')
 
   forM ([1..10] :: [Int]) $ \i -> fork $ write a (FS $ Set.singleton ("Test" ++ show i))
-  
+
   return "finished"
+
+data GenTId v i = GenTId i
+  deriving (Show, Eq, Ord)
+instance Identifier (GenTId v i) (TermSet (TermSetPtr v))
+
+test2 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
+test2 = do
+  (TSP t1) <- fromVarsAsCells (GenTId @v ("t1"::String)) [var $ GenTId @v (1::Int),var $ GenTId @v (1::Int)]
+  (TSP t2) <- fromVarsAsCells (GenTId @v ("t1"::String)) ["c",var $ GenTId @v (2::Int)]
+  eq t1 t2
+  return [TSP t1]
+
+
+
+
+
+
+
+
+
+
+
+--
