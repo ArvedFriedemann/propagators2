@@ -41,4 +41,7 @@ test2' = stdTest test2
 
 test3' :: IO ()
 test3' = stdTest test3
+
+test4' :: IO ()
+test4' = stdTest test4
 --

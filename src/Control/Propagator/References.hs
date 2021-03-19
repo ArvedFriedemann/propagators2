@@ -7,6 +7,7 @@ import "base" Control.Monad
 import "base" Data.Maybe
 import "base" Data.Typeable
 import "base" Debug.Trace
+import "base" GHC.Stack
 
 import "mtl" Control.Monad.Reader
 
@@ -229,9 +230,10 @@ instance (Dep m v
 
   new :: (Identifier n a, Value a, Std n) => n -> m (CellPtr m' v a)
   new name = do
-    s <- reader scopePath
-    sp <- MV.read (unpkSP (head s))
-    accessLazyNameMap' (createdPointers sp) (createTopCellPtr @m' s) name
+    sp <- reader scopePath
+    when (null sp) $ error "Cannot create new variables below root!"
+    s <- MV.read (unpkSP (head sp))
+    accessLazyNameMap' (createdPointers s) (createTopCellPtr @m' sp) name
 
   newRelative :: (Identifier n a, Value a, Std n) => CellPtr m' v b -> n -> m (CellPtr m' v a)
   newRelative ptr name = do
@@ -240,7 +242,7 @@ instance (Dep m v
     accessLazyNameMap' rn (createTopCellPtr @m' s) name
 
   currScopePtr :: (Value a) => CellPtr m' v a -> m (CellPtr m' v a)
-  currScopePtr ptr = getScopeRef ptr
+  currScopePtr = getScopeRef
 
   newScope :: (Std n) => n -> m (Scope v)
   newScope name = do
@@ -279,7 +281,7 @@ readEngineCurrPtr :: forall (m' :: * -> *) m v a.
   , Typeable m, Typeable m', Typeable v, forall b. Show (v b), forall b. Ord (v b), Value a) => CellPtr m' v a -> m a
 readEngineCurrPtr ptr = readCP ptr >>= MV.read . value
 
-writeEngine :: forall (m' :: * -> *) m v a. (Monad m, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, Typeable v, forall b. Show (v b), forall b. Ord (v b), MonadFork m, Typeable m', Typeable m, Value a) => CellPtr m' v a -> a -> m ()
+writeEngine :: forall (m' :: * -> *) m v a. (Monad m, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, Typeable v, forall b. Show (v b), forall b. Ord (v b), MonadFork m, Typeable m', Typeable m, Value a, HasCallStack) => CellPtr m' v a -> a -> m ()
 writeEngine ptr val = do
   --traceM $ "writing "++show val++" into " ++ show ptr
   ptr' <- getScopeRef ptr
@@ -290,10 +292,11 @@ writeEngine ptr val = do
   then notify ptr'
   else return ()
 
-watchEngine :: forall (m' :: * -> *) m v a n. (Typeable m', Typeable m, Typeable v, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, forall b. Show (v b), Value a, Std n) => CellPtr m' v a -> n -> m () -> m ()
+watchEngine :: forall (m' :: * -> *) m v a n. (Typeable m', Typeable m, Typeable v, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, MonadFork m, Value a, Std n, StdPtr v) => CellPtr m' v a -> n -> m () -> m ()
 watchEngine ptr name act = do
   --traceM $ "watching "++show ptr++" with " ++ show name
-  propset <- getPropset @m' ptr >>= readSelector @m' value
+  ptr' <- getScopeRef ptr
+  propset <- getPropset @m' ptr' >>= readSelector @m' value
   hasChanged <- MV.mutate propset (\ps -> let (mabChan,mp) = Map.insertLookupWithKey (\k n o -> n) (Some name) act ps in (mp, not $ isJust mabChan))
   when hasChanged act
 
@@ -306,24 +309,29 @@ getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a.
   , MonadReader (PropArgs m m' v) m
   , MonadFork m
   , MonadUnsafeParScoped m
+  , HasCallStack
   , Typeable m, Typeable m', forall b. Eq (v b), forall b. Ord (v b), forall b. Show (v b), Typeable v, Value a) => CellPtr m' v a -> m (CellPtr m' v a)
 getScopeRef ptr = do
   tc <- readCP ptr
   s <- reader scopePath
+  when (null s) $ error $ "Current scope below root when getting ref "++show ptr
+  when (null (origScope tc)) $ error $ "Pointer scope below root when getting ref "++show ptr
   if (head $ origScope tc) == (head s)
   then return ptr
   else do
     let (down,reverse -> up,c) = longestCommonTail s (origScope tc)
     res <- navigateScopePtr down up ptr
+    {-}
     traceM $ "ScopePathRetrieval from "++show ptr++" to "++show res++
               "\norig:   "++show (origScope tc)++
               "\nptrScp: "++show s++
               "\ndeduced path: "++show (down,up,c)
+              -}
     return res
   where
     navigateScopePtr :: [Scope v] -> [Scope v] -> (CellPtr m' v a) -> m (CellPtr m' v a)
-    navigateScopePtr (_:s') up ptr' = accessLazyParent ptr' >>= (\p -> trace ("parent of "++show ptr++" is "++show p) $ navigateScopePtr s' up p)
-    navigateScopePtr [] (s:s') ptr' = accessScopeName s' ptr' s >>=(\p ->  trace ("child of "++show ptr++" is "++show p) $ navigateScopePtr [] s' p)
+    navigateScopePtr (_:s') up ptr' = accessLazyParent ptr' >>= (\p -> {-trace ("parent of "++show ptr++" is "++show p) $-} navigateScopePtr s' up p)
+    navigateScopePtr [] (s:s') ptr' = accessScopeName s' ptr' s >>=(\p ->  {-trace ("child of "++show ptr++" is "++show p) $-} navigateScopePtr [] s' p)
     navigateScopePtr [] [] ptr' = return ptr'
 
 
@@ -333,7 +341,7 @@ class MonadUnsafeParScoped m where
   unsafeParScoped :: m a -> m a
 
 instance (MonadReader (PropArgs m m' v) m) => MonadUnsafeParScoped m where
-  unsafeParScoped :: m a -> m a
+  unsafeParScoped :: (HasCallStack) => m a -> m a
   unsafeParScoped = local (\p -> p{scopePath = tail (scopePath p)})
 
 class MonadScope m v where
@@ -341,7 +349,11 @@ class MonadScope m v where
 
 instance (MonadReader (PropArgs m m' v) m) => MonadScope m v where
   scope :: m (Scope v)
-  scope = head <$> reader scopePath
+  scope = do
+    sp <- reader scopePath
+    case sp of
+      [] -> error "Retrieving scope from below root!"
+      _ -> return $ head sp
 
 data PropOf m' m v = PropOf
   deriving (Show, Eq, Ord, Typeable)
