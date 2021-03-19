@@ -4,6 +4,7 @@ module Control.Language.LogLang where
 import "base" Prelude hiding ( read )
 import "base" Control.Monad
 import "base" Data.Maybe
+import "base" Debug.Trace
 
 import "containers" Data.Set ( Set )
 import "containers" Data.Set qualified as Set
@@ -12,6 +13,7 @@ import "containers" Data.Map ( Map )
 import "containers" Data.Map qualified as Map
 
 import "this" Data.Terms.Terms
+import "this" Data.Terms.TermFunctions
 import "this" Control.Propagator.Class
 import "this" Control.Combinator
 import "this" Data.Lattice
@@ -49,8 +51,14 @@ data SimpleKBNetwork i = SimpleKBNetwork i
   deriving (Show, Eq, Ord)
 
 simpleKBNetwork :: (MonadProp m v scope, Std n, StdPtr v) => n -> KB (TermSetPtr v) -> TermSetPtr v -> m ()
-simpleKBNetwork ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ do
+simpleKBNetwork = simpleKBNetwork' (1) --WARNING
+
+simpleKBNetwork' :: (MonadProp m v scope, Std n, StdPtr v) => Int -> n -> KB (TermSetPtr v) -> TermSetPtr v -> m ()
+simpleKBNetwork' 0 _ _ _ = return ()
+simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ do
   currg <- read goal
+  cgt <- fromCellSize 100 (TSP goal)
+  traceM $ "currgoal is "++show cgt
   unless (isBot currg) $ do
     disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) ([0..] :: [Int]) $
       [\i -> do
@@ -59,9 +67,11 @@ simpleKBNetwork ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ do
         --recursive call. Wait for the posterior equality before continuing
         watchFixpoint (SimpleKBNetwork ("checkGoal"::String,ctx,i)) $ do
           g' <- read goal
+          cgt' <- fromCellSize 100 (TSP goal)
+          traceM $ "subgoal is "++show cgt'
           unless (isBot g') $ do
             forM_ pres $ \(TSP pre) -> do
-              simpleKBNetwork (SimpleKBNetwork (ctx,i)) kb (TSP pre)
+              simpleKBNetwork' (fuel - 1) (SimpleKBNetwork (ctx,i)) kb (TSP pre)
               propBot pre goal
       | cls <- kb]
 

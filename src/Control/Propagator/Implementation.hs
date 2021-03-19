@@ -137,7 +137,7 @@ runMonadPropIOFin act fin = do
 runMonadPropIOState :: forall a. PropArgs IOSTMProp STM Ref -> IOSTMProp a -> IO a
 runMonadPropIOState state (ISP act) = runReaderT (act) state
 
-busyFixpointWaiter :: Ref Int -> Ref (Map a (PropArgs IOSTMProp STM Ref,IOSTMProp ())) -> IO () -> IO ()
+busyFixpointWaiter :: (Show a) => Ref Int -> Ref (Map a (PropArgs IOSTMProp STM Ref,IOSTMProp ())) -> IO () -> IO ()
 busyFixpointWaiter sema fixActs fin = fork act
   where act = do
                 val <- MV.read sema
@@ -151,6 +151,8 @@ busyFixpointWaiter sema fixActs fin = fork act
                     traceM "No more Fixpoint Actions!"
                     fin
                   else do
+                    putStrLn $ show $ Map.keys acts
+                    MV.write fixActs Map.empty
                     forM_ (Map.elems acts) (\(state, m) -> do
                       increaseSema sema
                       fork $ runMonadPropIOState state m >> decreaseSema sema)

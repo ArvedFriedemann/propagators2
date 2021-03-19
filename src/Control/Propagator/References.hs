@@ -141,7 +141,7 @@ accessScopeName currscp ptr scp = do
     (MV.read mp)
     (\adr' nptr -> void $ MV.mutate mp (\mp' -> (Map.insert adr' nptr mp',nptr)))
     (createTopCellPtr currscp)
-    (\nptr -> watchEngine ptr ScopeEq (readEngine ptr >>= \b -> writeEngine nptr b))
+    (\nptr -> watchEngine ptr ScopeEq (traceM "promoting value" >> readEngine ptr >>= \b -> writeEngine nptr b))
     scp
 
 writeLattPtr :: (MonadMutate m v, Value a) => v a -> a -> m Bool
@@ -244,6 +244,7 @@ writeEngine ptr val = do
 
 watchEngine :: forall (m' :: * -> *) m v a n. (Typeable m', Typeable m, Typeable v, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, forall b. Show (v b), Value a, Std n) => CellPtr m' v a -> n -> m () -> m ()
 watchEngine ptr name act = do
+  traceM $ "watching with " ++ show name
   propset <- getPropset @m' ptr >>= readSelector @m' value
   hasChanged <- MV.mutate propset (\ps -> let (mabChan,mp) = Map.insertLookupWithKey (\k n o -> n) (Some name) act ps in (mp, not $ isJust mabChan))
   when hasChanged act
