@@ -153,7 +153,8 @@ fromTermSet' n _ ts
         pure $ SAPPL a' b'--applts a' b' --if a variable is assigned top, it would just vanish
     | not $ null (variables ts) = do
         --here we can safely assume that there cannot be a term hanging on this variable. If there was, it would have propagated here. Therefore this always is a dangling variable, so we just return the smallest variable of the equality cluster (so that all cluster show the same variable)
-        pure . SVAR . head . Set.toList . variables $ ts
+        ref <- currScopePtr (unpkTSP . head . Set.toList . variables $ ts)
+        pure $ SVAR (TSP ref)
     | otherwise = pure Top
 
 
