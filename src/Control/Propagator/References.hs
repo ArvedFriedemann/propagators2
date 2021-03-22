@@ -361,7 +361,7 @@ instance (MonadReader (PropArgs m m' v) m) => MonadUnsafeParScoped m where
   unsafeParScoped = local (\p -> p{scopePath = tail (scopePath p)})
 
 class MonadScope m v where
-  scope ::m (Scope v)
+  scope :: m (Scope v)
 
 instance (MonadReader (PropArgs m m' v) m) => MonadScope m v where
   scope :: m (Scope v)

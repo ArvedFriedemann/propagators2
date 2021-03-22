@@ -130,16 +130,18 @@ runMonadPropIOFin act fin = do
   fixSema <- MV.new 1
   let state = PropArgs{scopePath=[SP root], createdScopes=creatScopes, fixpointActions=fixActs, fixpointSemaphore=fixSema} in do
     res <- runMonadPropIOState state act
-    busyFixpointWaiter fixSema fixActs (void $ runMonadPropIOState state (fin res))
+    busyFixpointWaiter 50 fixSema fixActs (void $ runMonadPropIOState state (fin res))
     decreaseSema fixSema
     return res
 
 runMonadPropIOState :: forall a. PropArgs IOSTMProp STM Ref -> IOSTMProp a -> IO a
 runMonadPropIOState state (ISP act) = runReaderT (act) state
 
-busyFixpointWaiter :: (Show a) => Ref Int -> Ref (Map a (PropArgs IOSTMProp STM Ref,IOSTMProp ())) -> IO () -> IO ()
-busyFixpointWaiter sema fixActs fin = fork act
-  where act = do
+busyFixpointWaiter :: (Show a) => Int -> Ref Int -> Ref (Map a (PropArgs IOSTMProp STM Ref,IOSTMProp ())) -> IO () -> IO ()
+busyFixpointWaiter j sema fixActs fin = fork (act j)
+  where
+    act 0 = putStrLn "Waiter Timeout..."
+    act i = do
                 val <- MV.read sema
                 if val <= 0
                 then do
@@ -154,12 +156,12 @@ busyFixpointWaiter sema fixActs fin = fork act
                     forM_ (Map.elems acts) (\(state, m) -> do
                       increaseSema sema
                       fork $ runMonadPropIOState state m >> decreaseSema sema)
-                    act
+                    act (i-1)
 
                 else do
                   traceM "Waiting..."
                   wait 100
-                  act
+                  act (i-1)
 
 increaseSema :: (MonadMutate_ m v) => v Int -> m ()
 increaseSema sema = do

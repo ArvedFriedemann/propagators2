@@ -116,7 +116,43 @@ test5 = do
     promoteTerm (TSP t1)
   return [TSP t1]
 
+test6 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
+test6 = do
+  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", var $ GenTId @v (1::Int)] --var $ GenTId @v (1::Int)
+  disjunctForkPromote ("djf" :: String) t1 [(do
+      (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", "a"]
+      eq t1 t2
+    ),(do
+      (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["d", "b"]
+      eq t1 t2
+    )
+    ]
+  return [TSP t1]
 
+test7 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
+test7 = do
+  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", var $ GenTId @v (1::Int)] --var $ GenTId @v (1::Int)
+  t2 <- new (GenTId @v ("bot"::String))
+
+  s1 <- newScope ("djf1" :: String)
+  s2 <- newScope ("djf2" :: String)
+  {-}
+  scoped s1 $do
+      (TSP t3) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", "a"]
+      eq t1 t3
+      --promoteTerm (TSP t1)
+      -}
+  scoped s2 $ do
+      --(TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["d", "b"]
+      write t2 bot --TODO: The bot is the problem
+      watchFixpoint ("tmp"::String) $ do
+        t2' <- read t2
+        t1' <- read t1
+        traceM $ "t1 is "++show t1'++"\nt2 is " ++show t2'
+      eq t1 t2 --TODO: only breaks in connection with this eq
+      promoteTerm (TSP t1)
+  --write t1 bot
+  return [TSP t1, TSP t2]
 
 
 
