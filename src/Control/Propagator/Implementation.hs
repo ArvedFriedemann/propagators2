@@ -9,6 +9,7 @@ import "base" Debug.Trace
 import "base" Control.Monad
 import "base" Control.Concurrent
 import "base" System.IO.Unsafe
+import "base" Control.Applicative
 
 import "this" Control.Propagator.References
 import "this" Control.Propagator.Class
@@ -66,7 +67,7 @@ instance MonadFork IOSTMProp where
   fork (ISP act) = ISP $ do
     s <- ask
     sema <- reader fixpointSemaphore
-    void $ lift $ increaseSema sema >> forkIO (runReaderT act s >> decreaseSema sema)
+    void $ lift $ increaseSema sema >> forkIO ((runReaderT act s >> decreaseSema sema) <|> (putStrLn "\nAn error occurred!\n" >> decreaseSema sema))
 
 instance MonadFork IO where
   fork = void . forkIO

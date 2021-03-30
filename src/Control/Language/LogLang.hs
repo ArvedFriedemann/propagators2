@@ -50,7 +50,7 @@ data SimpleKBNetwork i = SimpleKBNetwork i
   deriving (Show, Eq, Ord)
 
 simpleKBNetwork :: (MonadProp m v scope, Std n, StdPtr v) => n -> KB (TermSetPtr v) -> TermSetPtr v -> m ()
-simpleKBNetwork = simpleKBNetwork' (1) --WARNING
+simpleKBNetwork = simpleKBNetwork' (2) --WARNING
 
 simpleKBNetwork' :: (MonadProp m v scope, Std n, StdPtr v) => Int -> n -> KB (TermSetPtr v) -> TermSetPtr v -> m ()
 simpleKBNetwork' 0 _ _ _ = return ()
@@ -60,7 +60,7 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
   cgp <- currScopePtr goal
   traceM $ "currgoal "++show cgp++" is "++show cgt
   unless (isBot currg) $ do
-    disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) ([0..] :: [Int]) $ safeHead $ --WARNING!
+    disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) ([0..] :: [Int]) $ --safeHead $ --WARNING!
       [\i -> do
         (fromJust . splitClause -> (pres, (TSP post))) <- refreshClause ("refresh"::String, i, ctx) cls
         (fromJust . splitClause -> (pres', (TSP post'))) <- refreshClause ("refresh2"::String, i, ctx) cls
