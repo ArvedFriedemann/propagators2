@@ -259,7 +259,6 @@ instance (Dep m v
       sp <- MV.new $ ScopeT{createdPointers = pts}
       return $ SP sp) name
 
-  --TODO: WARNING! Currently, name map is always the same
   scoped :: (Scope v) -> m () -> m ()
   scoped sp = local (\p -> p{scopePath = sp : (scopePath p)})
 
@@ -316,7 +315,6 @@ watchEngineCurrPtr ptr name act = do
   hasChanged <- MV.mutate propset (\ps -> let (mabChan,mp) = Map.insertLookupWithKey (\k n o -> n) (Some name) act ps in (mp, not $ isJust mabChan))
   when hasChanged act
 
---TODO: WARNING: this only works, when the reference comes from below! when references come from aboce, they'd need to be pumped up!
 getScopeRef :: forall (m' :: * -> *) (m :: * -> *) v a.
   ( Monad m
   , MonadRead m v

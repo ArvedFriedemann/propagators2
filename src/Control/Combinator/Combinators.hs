@@ -5,6 +5,7 @@ import "this" Data.Lattice
 
 import "base" Data.Typeable
 import "base" Control.Monad
+import "base" Debug.Trace
 
 eq :: forall m v scope a. (MonadProp m v scope, Value a, StdPtr v) => v a -> v a -> m ()
 eq p1 p2 = dirEq p1 p2 >> dirEq p2 p1
@@ -32,7 +33,12 @@ data PromoteTo v = PromoteTo v
   deriving (Show, Eq, Ord)
 
 push :: (MonadProp m v scope, Value a, StdPtr v) => v a -> v a -> m ()
-push v1 v2 = watch' v1 (PromoteTo v2) (\c -> parScoped (write v2 c))
+push v1 v2 = do
+  v1' <- currScopePtr v1
+  watch' v1 (PromoteTo v2) (\c -> parScoped (do
+    v2' <- currScopePtr v2
+    traceM $ "pushing "++show v1'++" ("++show v1++")"++" to "++show v2'++" ("++show v2++")"
+    write v2 c))
 
 promote :: (MonadProp m v scope, Value a, StdPtr v) => v a -> m ()
 promote v = push v v
