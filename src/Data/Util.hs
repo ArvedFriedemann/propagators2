@@ -25,8 +25,8 @@ returns: (initPath a, initPath b, commonTail a b)
 -}
 longestCommonTail :: (Eq a, Ord a) => [a] -> [a] -> ([a],[a],[a])
 longestCommonTail a b = (pa,pb,tl)
-  where (pa,tl) = longestCommonTail' (Set.fromList a) b
-        (pb,_ ) = longestCommonTail' (Set.fromList b) a
+  where (pb,tl) = longestCommonTail' (Set.fromList a) b
+        (pa,_ ) = longestCommonTail' (Set.fromList b) a
 
 longestCommonTail' :: (Eq a, Ord a) => Set a -> [a] -> ([a],[a])
 longestCommonTail' a = span (not . flip Set.member a)

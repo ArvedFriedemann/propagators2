@@ -134,18 +134,18 @@ test7 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
 test7 = do
   (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", var $ GenTId @v (1::Int)] --var $ GenTId @v (1::Int)
 
-  --s1 <- newScope ("djf1" :: String)
+  s1 <- newScope ("djf1" :: String)
   s2 <- newScope ("djf2" :: String)
-  {-}
+  --TODO: Only breaks when second scope is active!
   scoped s1 $do
       (TSP t3) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", "a"]
       eq t1 t3
       --promoteTerm (TSP t1)
-      -}
+
   scoped s2 $ do
-      --(TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["d", "b"]
-      t2 <- new (GenTId @v ("bot"::String))
-      write t2 bot --TODO: The bot is the problem
+      (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", "b"]
+      --t2 <- new (GenTId @v ("bot"::String))
+      --write t2 bot --TODO: The bot is the problem
       watchFixpoint ("tmp"::String) $ do
         t2' <- read t2
         t1' <- read t1

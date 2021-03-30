@@ -334,6 +334,7 @@ getScopeRef ptr = do
   then return ptr
   else do
     let (down,reverse -> up,c) = longestCommonTail s (origScope tc)
+    when (null c) $ error "longest common tail is empty!"
     res <- navigateScopePtr down up ptr
     {-}
     traceM $ "ScopePathRetrieval from "++show ptr++" to "++show res++
