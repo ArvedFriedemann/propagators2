@@ -333,7 +333,7 @@ getScopeRef ptr = do
   if (head $ origScope tc) == (head s)
   then return ptr
   else do
-    let (down,reverse -> up,c) = longestCommonTail s (origScope tc)
+    let (reverse -> up,down,c) = longestCommonTail s (origScope tc)
     when (null c) $ error "longest common tail is empty!"
     res <- navigateScopePtr down up ptr
     {-}

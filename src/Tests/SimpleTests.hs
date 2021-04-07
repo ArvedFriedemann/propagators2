@@ -132,27 +132,30 @@ test6 = do
 
 test7 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
 test7 = do
+  --t1 = c k, k variable
+  --aim: in a scope s1 (while a seconed scope s2 is present), unify c k = c b, and promote the result.
   (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", var $ GenTId @v (1::Int)] --var $ GenTId @v (1::Int)
 
   s1 <- newScope ("djf1" :: String)
   s2 <- newScope ("djf2" :: String)
-  --TODO: Only breaks when second scope is active!
-  scoped s1 $do
+
+  scoped s1 $ do
       (TSP t3) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", "a"]
-      eq t1 t3
+      --eq t1 t3
       --promoteTerm (TSP t1)
+      return ()
 
   scoped s2 $ do
       (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", "b"]
       --t2 <- new (GenTId @v ("bot"::String))
-      --write t2 bot --TODO: The bot is the problem
+      --write t2 bot
       watchFixpoint ("tmp"::String) $ do
-        t2' <- read t2
-        t1' <- read t1
+        t2' <- fromCellSize 100 (TSP t2)
+        t1' <- fromCellSize 100 (TSP t1)
         traceM $ "t1 is "++show t1'++"\nt2 is " ++show t2'
-      eq t1 t2 --TODO: only breaks in connection with this eq
+      eq t1 t2
       promoteTerm (TSP t1)
-  --write t1 bot
+      --write t1 bot
   return [TSP t1]--, TSP t2]
 
 

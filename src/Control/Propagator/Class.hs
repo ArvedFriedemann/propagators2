@@ -41,7 +41,7 @@ data Scope = Scope
   deriving (Show, Eq, Ord, Typeable)
 instance Std Scope
 -}
-class Monad m => MonadProp m v scope | m -> v, m -> scope where
+class (Show scope, Monad m) => MonadProp m v scope | m -> v, m -> scope where
   read :: (Value a) => v a -> m a
   write :: (Value a) => v a -> a -> m ()
   watch :: (Value a, Std n) => v a -> n -> m () -> m ()
