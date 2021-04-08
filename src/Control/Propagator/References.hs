@@ -262,7 +262,7 @@ instance (Dep m v
   scoped :: (Scope v) -> m () -> m ()
   scoped sp = local (\p -> p{scopePath = sp : (scopePath p)})
 
-  parScoped :: m () -> m ()
+  parScoped :: HasCallStack => m () -> m ()
   parScoped = unsafeParScoped
 
   watchFixpoint :: (Std n) => n -> m () -> m ()
@@ -357,7 +357,12 @@ class MonadUnsafeParScoped m where
 
 instance (MonadReader (PropArgs m m' v) m) => MonadUnsafeParScoped m where
   unsafeParScoped :: (HasCallStack) => m a -> m a
-  unsafeParScoped = local (\p -> p{scopePath = tail (scopePath p)})
+  unsafeParScoped m = do
+    s <- reader scopePath
+    case s of
+      [] -> error "Calling parScoped on empty scope!"
+      [x] -> m --error "Calling parScoped on root!"
+      _  -> local (\p -> p{scopePath = tail (scopePath p)}) m
 
 class MonadScope m v where
   scope :: m (Scope v)

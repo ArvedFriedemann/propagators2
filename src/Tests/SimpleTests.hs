@@ -125,7 +125,7 @@ test6 = do
     ),(do
       (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["d", "b"]
       eq t1 t2
-      --write t2 bot --TODO: causes error!
+      write t2 bot --TODO: causes error!
     )
     ]
   return [TSP t1]
@@ -141,7 +141,7 @@ test7 = do
 
   scoped s1 $ do
       (TSP t3) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", "a"]
-      --eq t1 t3
+      eq t1 t3
       --promoteTerm (TSP t1)
       return ()
 
@@ -155,7 +155,7 @@ test7 = do
         traceM $ "t1 is "++show t1'++"\nt2 is " ++show t2'
       eq t1 t2
       promoteTerm (TSP t1)
-      --write t1 bot
+      --write t2 bot
   return [TSP t1]--, TSP t2]
 
 
