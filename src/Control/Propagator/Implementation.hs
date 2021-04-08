@@ -131,7 +131,7 @@ runMonadPropIOFin act fin = do
   fixSema <- MV.new 1
   let state = PropArgs{scopePath=[SP root], createdScopes=creatScopes, fixpointActions=fixActs, fixpointSemaphore=fixSema} in do
     res <- runMonadPropIOState state act
-    busyFixpointWaiter 50 fixSema fixActs (void $ runMonadPropIOState state (fin res))
+    busyFixpointWaiter (500) fixSema fixActs (void $ runMonadPropIOState state (fin res))
     decreaseSema fixSema
     return res
 
@@ -160,7 +160,7 @@ busyFixpointWaiter j sema fixActs fin = fork (act j)
                     act (i-1)
 
                 else do
-                  traceM "Waiting..."
+                  when (i `mod` 100 == 0) $ traceM "Waiting..."
                   wait 100
                   act (i-1)
 

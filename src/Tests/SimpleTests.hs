@@ -134,25 +134,27 @@ test7 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
 test7 = do
   --t1 = c k, k variable
   --aim: in a scope s1 (while a seconed scope s2 is present), unify c k = c b, and promote the result.
-  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", var $ GenTId @v (1::Int)] --var $ GenTId @v (1::Int)
+  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", var $ GenTId @v (1::Int), var $ GenTId @v (2::Int)] --var $ GenTId @v (1::Int)
 
   s1 <- newScope ("djf1" :: String)
   s2 <- newScope ("djf2" :: String)
 
   scoped s1 $ do
-      (TSP t3) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", "a"]
+      (TSP t3) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) [var $ GenTId @v (5::Int), "a", var $ GenTId @v (3::Int)]
       eq t1 t3
-      --promoteTerm (TSP t1)
+      promoteTerm (TSP t1)
       return ()
 
   scoped s2 $ do
-      (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", "b"]
+      (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", var $ GenTId @v (4::Int), "b"]
       --t2 <- new (GenTId @v ("bot"::String))
       --write t2 bot
+      {-}
       watchFixpoint ("tmp"::String) $ do
         t2' <- fromCellSize 100 (TSP t2)
         t1' <- fromCellSize 100 (TSP t1)
         traceM $ "t1 is "++show t1'++"\nt2 is " ++show t2'
+        -}
       eq t1 t2
       promoteTerm (TSP t1)
       --write t2 bot

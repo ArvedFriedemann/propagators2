@@ -60,10 +60,13 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
   cgp <- currScopePtr goal
   traceM $ "currgoal "++show cgp++" is "++show cgt
   unless (isBot currg) $ do
-    disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) ([0..] :: [Int]) $ --safeHead $ --WARNING!
+    disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) ([0..] :: [Int]) $ --safeHead $ --WARNING! --TODO: drop 1 and take 1 works! Weirdly, the propagation of bot in logics or something does not seem to work...
       [\i -> do
         (fromJust . splitClause -> (pres, (TSP post))) <- refreshClause ("refresh"::String, i, ctx) cls
         (fromJust . splitClause -> (pres', (TSP post'))) <- refreshClause ("refresh2"::String, i, ctx) cls
+
+        --watchTermRec (TSP goal) --this was not the issue (phew)
+
         eq post goal
         --recursive call. Wait for the posterior equality before continuing
         watchFixpoint (SimpleKBNetwork ("checkGoal"::String,ctx,i)) $ do
@@ -72,7 +75,7 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
           cspg <- currScopePtr goal
           pcgt' <- fromCellSize 100 (TSP post)
           cpost <- fromCellSize 100 (TSP post')
-          traceM $ "subgoal "++show cspg++" is "++show cgt' ++ "\nwith post: "++show pcgt'++"\nand clean post: "++show cpost
+          traceM $ "\nsubgoal "++show cspg++"("++show goal++") is\n                "++show cgt' ++ "\nwith post:      "++show pcgt'++"\nand clean post: "++show cpost++"\n"
           unless (isBot g') $ do
             forM_ pres $ \(TSP pre) -> do
               simpleKBNetwork' (fuel - 1) (SimpleKBNetwork (ctx,i)) kb (TSP pre)

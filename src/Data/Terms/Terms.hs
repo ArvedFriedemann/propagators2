@@ -124,6 +124,24 @@ termPromoter this@(TSP this') (TS _ _ applications _) = do
 instance (MonadProp m v scope, StdPtr v) => Promoter (v (TermSet (TermSetPtr v))) m where
   promoteAction p = promoteTerm (TSP p)
 
+
+-------------------------------------------
+--Watch Term (should not need to be made explicit...)
+-------------------------------------------
+
+data TermWatcherRec = TermWatcherRec
+  deriving (Show, Eq, Ord)
+
+watchTermRec :: (MonadProp m v scope, StdPtr v) => TermSetPtr v -> m ()
+watchTermRec (TSP p) = watch' p TermWatcherRec (termWatcher (TSP p))
+
+termWatcher :: (MonadProp m v scope, StdPtr v) => TermSetPtr v -> TermSet (TermSetPtr v) -> m ()
+termWatcher this@(TSP this') (TS _ _ applications _) = do
+  watchTerm this
+  forM_ applications $ \(a,b) -> do
+    watchTermRec a
+    watchTermRec b
+
 -------------------------------------------
 --Variable Refreshing
 -------------------------------------------
