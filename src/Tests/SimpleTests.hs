@@ -118,14 +118,20 @@ test5 = do
 
 test6 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
 test6 = do
-  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", var $ GenTId @v (1::Int)] --var $ GenTId @v (1::Int)
+  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c"]--, var $ GenTId @v (1::Int)] --var $ GenTId @v (1::Int)
   disjunctForkPromote ("djf" :: String) t1 [(do
-      (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", "a"]
+      (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c"]--, "a"]
       eq t1 t2
     ),(do
-      (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["d", "b"]
+      (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["d"]--, "b"]
       eq t1 t2
-      write t2 bot --TODO: causes error!
+      --write t2 bot
+      watchFixpoint ("tmp"::String) $ do
+        t2' <- fromCellSize 100 (TSP t2)
+        t1' <- fromCellSize 100 (TSP t1)
+        t2p <- currScopePtr t2
+        t1p <- currScopePtr t1
+        traceM $ "t1("++show t1++", "++show t1p++") is "++show t1'++"\nt2("++show t2++", "++show t2p++") is " ++show t2'
     )
     ]
   return [TSP t1]
@@ -142,25 +148,53 @@ test7 = do
   scoped s1 $ do
       (TSP t3) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) [var $ GenTId @v (5::Int), "a", var $ GenTId @v (3::Int)]
       eq t1 t3
-      promoteTerm (TSP t1)
+      --promoteTerm (TSP t1)
       return ()
 
   scoped s2 $ do
-      (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", var $ GenTId @v (4::Int), "b"]
+      (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["d", var $ GenTId @v (4::Int), "b"]
       --t2 <- new (GenTId @v ("bot"::String))
       --write t2 bot
-      {-}
+
       watchFixpoint ("tmp"::String) $ do
         t2' <- fromCellSize 100 (TSP t2)
         t1' <- fromCellSize 100 (TSP t1)
         traceM $ "t1 is "++show t1'++"\nt2 is " ++show t2'
-        -}
+
       eq t1 t2
-      promoteTerm (TSP t1)
+      --promoteTerm (TSP t1)
       --write t2 bot
   return [TSP t1]--, TSP t2]
 
 
+test8 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
+test8 = do
+  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ("c")--["c", "d"]
+  (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t2"::String)) (var $ GenTId @v (1::Int))
 
+  s1 <- newScope ("djf1" :: String)
+  s2 <- newScope ("djf2" :: String)
+  --s3 <- newScope ("djf3" :: String)
+
+  scoped s1 $ do
+    eq t1 t2
+    --promoteTerm (TSP t2)
+    --promote t2
+    watch' t1 ("show_s1t1" :: String) (\v -> traceM $ "t1 in s1 is "++show v)
+
+
+  scoped s2 $ do
+    eq t1 t2
+    --promoteTerm (TSP t2)
+    promote t2
+    watch' t1 ("show_s2t1" :: String) (\v -> traceM $ "t1 in s2 is "++show v)
+    {-}
+  scoped s3 $ do
+    eq t1 t2
+    --promoteTerm (TSP t2)
+    --promote t2
+    watch' t1 ("show_s3t1" :: String) (\v -> traceM $ "t1 in s3 is "++show v)-}
+
+  return [TSP t2]
 
 --

@@ -117,8 +117,9 @@ accessLazyParent (CP p) = do
             MV.mutate_ scpNms (\mp -> Map.insert topScp (CP p) mp)
             return (True, par)
 
-      when hasChanged $
-        watchEngineCurrPtr par ScopeEq (readEngineCurrPtr par >>= \b -> writeEngineCurrPtr (CP p) b)
+      when hasChanged $ do
+        traceM $ "pushing parent "++show par++" to "++show p
+        watchEngineCurrPtr par (ScopeEq topScp) (readEngineCurrPtr par >>= \b -> writeEngineCurrPtr (CP p) b)
       return par
 
 --TODO: When using a shared namespace for the scopes, there should be a mechanic where one can see the old value here. If a variable is created on a lower scope, it should be put in this place and be pumped up.
@@ -170,8 +171,10 @@ accessRelName ptr con adr = do
     (const $ return ())
     (SEBId adr)
 
-data ScopeEq = ScopeEq
-  deriving (Show, Eq, Ord)
+data ScopeEq v = ScopeEq (Scope v)
+deriving instance (Show (Scope v)) => Show (ScopeEq v)
+deriving instance (Eq (Scope v)) => Eq (ScopeEq v)
+deriving instance (Ord (Scope v)) => Ord (ScopeEq v)
 
 accessScopeName :: forall m' m (v :: * -> *) a.
   ( Value a, Typeable v, Ord (Scope v)
@@ -186,7 +189,9 @@ accessScopeName currscp ptr scp = do
     (MV.read mp)
     (\adr' nptr -> void $ MV.mutate mp (\mp' -> (Map.insert adr' nptr mp',nptr)))
     (createTopCellParPtr (scp : currscp) ptr)
-    (\nptr -> watchEngineCurrPtr ptr ScopeEq (readEngineCurrPtr ptr >>= \b -> writeEngineCurrPtr nptr b))
+    (\nptr -> do
+      traceM $ "pushing newptr "++show ptr++" to "++show nptr
+      watchEngineCurrPtr ptr (ScopeEq scp) (readEngineCurrPtr ptr >>= \b -> writeEngineCurrPtr nptr b))
     scp
 
 writeLattPtr :: (MonadMutate m v, Value a) => v a -> a -> m Bool
@@ -254,13 +259,19 @@ instance (Dep m v
   newScope :: (Std n) => n -> m (Scope v)
   newScope name = do
     mp <- reader createdScopes
-    accessLazyNameMap' mp (do
+    res <- accessLazyNameMap' mp (do
       pts <- MV.new Map.empty
       sp <- MV.new $ ScopeT{createdPointers = pts}
+      traceM $ "created new scope map " ++ show sp
       return $ SP sp) name
+    --traceM $ "created scope "++show res
+    return res
 
   scoped :: (Scope v) -> m () -> m ()
-  scoped sp = local (\p -> p{scopePath = sp : (scopePath p)})
+  scoped sp@(SP sp') m = do
+    nscp <- MV.read sp'
+    traceM $ "moving to scope "++show sp++" with pointers "++show (createdPointers nscp)
+    local (\p -> p{scopePath = sp : (scopePath p)}) m
 
   parScoped :: HasCallStack => m () -> m ()
   parScoped = unsafeParScoped
