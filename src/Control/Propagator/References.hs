@@ -118,7 +118,7 @@ accessLazyParent (CP p) = do
             return (True, par)
 
       when hasChanged $ do
-        traceM $ "pushing parent "++show par++" to "++show p
+        --traceM $ "pushing parent "++show par++" to "++show p
         watchEngineCurrPtr par (ScopeEq topScp) (readEngineCurrPtr par >>= \b -> writeEngineCurrPtr (CP p) b)
       return par
 
@@ -190,7 +190,7 @@ accessScopeName currscp ptr scp = do
     (\adr' nptr -> void $ MV.mutate mp (\mp' -> (Map.insert adr' nptr mp',nptr)))
     (createTopCellParPtr (scp : currscp) ptr)
     (\nptr -> do
-      traceM $ "pushing newptr "++show ptr++" to "++show nptr
+      --traceM $ "pushing newptr "++show ptr++" to "++show nptr
       watchEngineCurrPtr ptr (ScopeEq scp) (readEngineCurrPtr ptr >>= \b -> writeEngineCurrPtr nptr b))
     scp
 
@@ -262,7 +262,7 @@ instance (Dep m v
     res <- accessLazyNameMap' mp (do
       pts <- MV.new Map.empty
       sp <- MV.new $ ScopeT{createdPointers = pts}
-      traceM $ "created new scope map " ++ show sp
+      --traceM $ "created new scope map " ++ show sp
       return $ SP sp) name
     --traceM $ "created scope "++show res
     return res
@@ -270,7 +270,7 @@ instance (Dep m v
   scoped :: (Scope v) -> m () -> m ()
   scoped sp@(SP sp') m = do
     nscp <- MV.read sp'
-    traceM $ "moving to scope "++show sp++" with pointers "++show (createdPointers nscp)
+    --traceM $ "moving to scope "++show sp++" with pointers "++show (createdPointers nscp)
     local (\p -> p{scopePath = sp : (scopePath p)}) m
 
   parScoped :: HasCallStack => m () -> m ()
