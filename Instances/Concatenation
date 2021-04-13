@@ -12,6 +12,6 @@ concat xs y zs -> concat (x : xs) y (x : zs) ;
 
 --GOAL:
 --concat [] (A : []) y ;
-concat (A : []) (A : []) y ;
+concat (A : []) (A : A : []) y ;
 --concat (A : A : A : []) (A : []) y;
 --concat (A : A : A : A : A : []) (A : []) y;

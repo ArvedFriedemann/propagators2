@@ -118,14 +118,18 @@ test5 = do
 
 test6 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
 test6 = do
-  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c"]--, var $ GenTId @v (1::Int)] --var $ GenTId @v (1::Int)
+  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) (var $ GenTId @v (1::Int))--["c", var $ GenTId @v (1::Int), var $ GenTId @v (2::Int)]
+  (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t2"::String)) (var $ GenTId @v (2::Int))
+  s <- newScope ("scp"::String)
   disjunctForkPromote ("djf" :: String) t1 [(do
-      (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c"]--, "a"]
-      eq t1 t2
+      --(TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", var $ GenTId @v (3::Int), var $ GenTId @v (3::Int)]
+      eq t1 t2 --TODO: this is the bad one
+      write t1 bot
+      return ()
     ),(do
-      (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["d"]--, "b"]
-      eq t1 t2
-      --write t2 bot
+      --(TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", "a", "b"]
+      --eq t1 t2
+      write t1 (constTerm "c")
       watchFixpoint ("tmp"::String) $ do
         t2' <- fromCellSize 100 (TSP t2)
         t1' <- fromCellSize 100 (TSP t1)
@@ -134,37 +138,40 @@ test6 = do
         traceM $ "t1("++show t1++", "++show t1p++") is "++show t1'++"\nt2("++show t2++", "++show t2p++") is " ++show t2'
     )
     ]
-  return [TSP t1]
+  return [TSP t1, TSP t2]
 
 test7 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
 test7 = do
-  --t1 = c k, k variable
-  --aim: in a scope s1 (while a seconed scope s2 is present), unify c k = c b, and promote the result.
-  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["c", var $ GenTId @v (1::Int), var $ GenTId @v (2::Int)] --var $ GenTId @v (1::Int)
+  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) (var $ GenTId @v (1::Int))--["c", var $ GenTId @v (1::Int), var $ GenTId @v (2::Int)]
+  (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t2"::String)) (var $ GenTId @v (2::Int))
 
   s1 <- newScope ("djf1" :: String)
   s2 <- newScope ("djf2" :: String)
 
+  traceM $ "Base pointers: "++show t1++", "++show t2
+
   scoped s1 $ do
-      (TSP t3) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) [var $ GenTId @v (5::Int), "a", var $ GenTId @v (3::Int)]
-      eq t1 t3
-      --promoteTerm (TSP t1)
-      return ()
+    eq t1 t2 --TODO: this is the bad one
+    write t1 bot
+    t1' <- currScopePtr t1
+    t2' <- currScopePtr t2
+    traceM $ "Scope s1 pointers: ("++show t1++", "++show t1'++"),("++show t2++", "++show t2'++")"
+    return ()
 
   scoped s2 $ do
-      (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) ["d", var $ GenTId @v (4::Int), "b"]
-      --t2 <- new (GenTId @v ("bot"::String))
-      --write t2 bot
+    write t1 (constTerm "c")
+    promoteTerm (TSP t1)
+    t1' <- currScopePtr t1
+    t2' <- currScopePtr t2
+    traceM $ "Scope s1 pointers: ("++show t1++", "++show t1'++"),("++show t2++", "++show t2'++")"
+    return ()
+    {-}
+    watchFixpoint ("tmp"::String) $ do
+      t2' <- fromCellSize 100 (TSP t2)
+      t1' <- fromCellSize 100 (TSP t1)
+      traceM $ "t1 is "++show t1'++"\nt2 is " ++show t2'-}
 
-      watchFixpoint ("tmp"::String) $ do
-        t2' <- fromCellSize 100 (TSP t2)
-        t1' <- fromCellSize 100 (TSP t1)
-        traceM $ "t1 is "++show t1'++"\nt2 is " ++show t2'
-
-      eq t1 t2
-      --promoteTerm (TSP t1)
-      --write t2 bot
-  return [TSP t1]--, TSP t2]
+  return [TSP t1, TSP t2]
 
 
 test8 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
