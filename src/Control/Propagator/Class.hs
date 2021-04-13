@@ -41,6 +41,23 @@ data Scope = Scope
   deriving (Show, Eq, Ord, Typeable)
 instance Std Scope
 -}
+{-
+read :: v a -> Mem -> (a, Mem)
+write :: v a -> a -> Mem -> ((),Mem)
+
+return :: a -> (Mem -> (a,Mem))
+pure :: a -> (Mem -> (a,Mem))
+(>>=) :: (Mem -> (a,Mem)) -> (a -> (Mem -> (b,Mem))) -> (Mem -> (b,Mem))
+(>>=) m1 fm2 = \mem -> let (ret,mem') = m1 mem in (fm2 ret) mem'
+(>>) :: (Mem -> (a,Mem)) -> (Mem -> (b,Mem)) -> (Mem -> (b,Mem))
+
+return blub >>= write p2
+read p1 >>= (\val -> write p2 val) >>
+do
+  v <- read p1
+  write p2 v
+-}
+
 class (Show scope, Monad m) => MonadProp m v scope | m -> v, m -> scope where
   read :: (Value a) => v a -> m a
   write :: (Value a) => v a -> a -> m ()
