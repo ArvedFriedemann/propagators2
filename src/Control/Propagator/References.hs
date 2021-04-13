@@ -305,7 +305,7 @@ writeEngine ptr val = do
 
 writeEngineCurrPtr :: forall (m' :: * -> *) m v a. (Monad m, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, Typeable v, forall b. Show (v b), forall b. Ord (v b), MonadFork m, Typeable m', Typeable m, Value a, HasCallStack) => CellPtr m' v a -> a -> m ()
 writeEngineCurrPtr ptr val = do
-  --traceM $ "writing "++show val++" into " ++ show ptr
+  unless (isTop val) $ traceM $ "writing "++show val++" into " ++ show ptr
   cp <- readCP ptr
   old <- MV.read (value cp)
   hasChanged <- writeLattPtr (value cp) val
@@ -396,10 +396,13 @@ notify :: forall (m' :: * -> *) m v a.
   ( MonadAtomic v m' m
   , MonadFork m
   , MonadScope m v
+  , MonadReader (PropArgs m m' v) m
   , forall b. Show (v b)
   , Typeable m', Typeable m, Typeable v) => CellPtr m' v a -> m ()
 notify ptr = do
+  traceM $ "notifying ptr "++show ptr
   s <- readSelector origScope ptr
+  when (null s) $ error "origScope of pointer null in notify"
   propset <- getPropset s ptr >>= readValue
   forkF (Map.elems propset)
 
