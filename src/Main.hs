@@ -2,6 +2,7 @@ module Main where
 
 import "this" Control.Language.PipelineExec
 import "this" Tests.TestsExec
+import "this" Tests.CircuitExec
 --import "this" Tests.SimpleTests
 
 main :: IO ()
