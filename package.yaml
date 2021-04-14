@@ -2,7 +2,7 @@ name: my-propagators
 version: 0.1.0
 
 ghc-options:
-  - -Wall -Werror
+  #  - -Wall -Werror
   - -fshow-warning-groups
   - -Wno-unused-do-bind
   - -Wno-type-defaults
@@ -52,6 +52,7 @@ dependencies:
   - semigroupoids
   - criterion
   - stm
+  - data-interval
 
 # enable modern Haskell
 default-extensions:
