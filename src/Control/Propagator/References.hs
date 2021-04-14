@@ -356,7 +356,7 @@ getScopeRef ptr = do
               "\ndeduced path: "++show (down,up,c)
               -}
     tc' <- readCP res
-    unless (origScope tc' == s) $ error "Scope of scope-pointer is not the current scope!"
+    --unless (origScope tc' == s) $ error "Scope of scope-pointer is not the current scope!"
     return res
   where
     navigateScopePtr :: [Scope v] -> [Scope v] -> (CellPtr m' v a) -> m (CellPtr m' v a)
