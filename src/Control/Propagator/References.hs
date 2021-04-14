@@ -181,9 +181,10 @@ accessScopeName :: forall m' m (v :: * -> *) a.
   , MonadAtomic v m' m
   , MonadReader (PropArgs m m' v) m
   , MonadFork m
-  , Typeable m, Typeable m', forall b. Show (v b), forall b. Ord (v b) ) => [Scope v] -> CellPtr m' v a -> Scope v -> m (CellPtr m' v a)
-accessScopeName currscp ptr scp = do
+  , Typeable m, Typeable m', forall b. Show (v b), forall b. Ord (v b) ) => CellPtr m' v a -> Scope v -> m (CellPtr m' v a)
+accessScopeName ptr scp = do
   mp <- readSelector scopenames ptr
+  currscp <- readSelector origScope ptr
   accessLazyNameMap
     (MV.read mp)
     (MV.read mp)
@@ -247,10 +248,11 @@ instance (Dep m v
     s <- MV.read (unpkSP (head sp))
     accessLazyNameMap' (createdPointers s) (createTopCellPtr @m' sp) name
 
-  newRelative :: (Identifier n a, Value a, Std n) => CellPtr m' v b -> n -> m (CellPtr m' v a)
+  newRelative :: (Identifier n a, Value b, Value a, Std n) => CellPtr m' v b -> n -> m (CellPtr m' v a)
   newRelative ptr name = do
+    ptr' <- getScopeRef ptr
     s <- reader scopePath
-    rn <- readSelector relnames ptr
+    rn <- readSelector relnames ptr'
     accessLazyNameMap' rn (createTopCellPtr @m' s) name
 
   currScopePtr :: (Value a) => CellPtr m' v a -> m (CellPtr m' v a)
@@ -305,7 +307,7 @@ writeEngine ptr val = do
 
 writeEngineCurrPtr :: forall (m' :: * -> *) m v a. (Monad m, MonadAtomic v m' m, MonadReader (PropArgs m m' v) m, Typeable v, forall b. Show (v b), forall b. Ord (v b), MonadFork m, Typeable m', Typeable m, Value a, HasCallStack) => CellPtr m' v a -> a -> m ()
 writeEngineCurrPtr ptr val = do
-  --traceM $ "writing "++show val++" into " ++ show ptr
+  --unless (isTop val) $ traceM $ "writing "++show val++" into " ++ show ptr
   cp <- readCP ptr
   old <- MV.read (value cp)
   hasChanged <- writeLattPtr (value cp) val
@@ -353,11 +355,13 @@ getScopeRef ptr = do
               "\nptrScp: "++show s++
               "\ndeduced path: "++show (down,up,c)
               -}
+    tc' <- readCP res
+    --unless (origScope tc' == s) $ error "Scope of scope-pointer is not the current scope!"
     return res
   where
     navigateScopePtr :: [Scope v] -> [Scope v] -> (CellPtr m' v a) -> m (CellPtr m' v a)
     navigateScopePtr (_:s') up ptr' = accessLazyParent ptr' >>= (\p -> {-trace ("parent of "++show ptr++" is "++show p) $-} navigateScopePtr s' up p)
-    navigateScopePtr [] (s:s') ptr' = accessScopeName s' ptr' s >>=(\p ->  {-trace ("child of "++show ptr++" is "++show p) $-} navigateScopePtr [] s' p)
+    navigateScopePtr [] (s:s') ptr' = accessScopeName ptr' s >>=(\p ->  {-trace ("child of "++show ptr++" is "++show p) $-} navigateScopePtr [] s' p)
     navigateScopePtr [] [] ptr' = return ptr'
 
 
@@ -396,12 +400,15 @@ notify :: forall (m' :: * -> *) m v a.
   ( MonadAtomic v m' m
   , MonadFork m
   , MonadScope m v
+  , MonadReader (PropArgs m m' v) m
   , forall b. Show (v b)
   , Typeable m', Typeable m, Typeable v) => CellPtr m' v a -> m ()
 notify ptr = do
+  --traceM $ "notifying ptr "++show ptr
   s <- readSelector origScope ptr
+  when (null s) $ error "origScope of pointer null in notify"
   propset <- getPropset s ptr >>= readValue
-  forkF (Map.elems propset)
+  local (\p -> p{scopePath = s}) $ forkF (Map.elems propset)
 
 getPropset :: forall (m' :: * -> *) m v a.
   ( Typeable m', Typeable m, Typeable v

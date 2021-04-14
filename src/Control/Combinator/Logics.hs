@@ -55,10 +55,10 @@ determineWinner finDestr lst = do
     if isBot r
     then return Nothing
     else return $ Just (s,p,m)
-  traceM $ "Succeeded pointers: "++(show $ map (\(_,p,_) -> p) succeeded)
+  --traceM $ "Succeeded pointers: "++(show $ map (\(_,p,_) -> p) succeeded)
   case succeeded of
-    [(s,_,m)] -> traceM "\n>>> Promoting winner!\n" >> scoped s m
-    [] -> traceM "\n>>> no winner...\n" >> finDestr
+    [(s,_,m)] -> {-traceM "\n>>> Promoting winner!\n" >> -}scoped s m
+    [] -> {-traceM "\n>>> no winner...\n" >>-} finDestr
     _ -> return ()
 
 

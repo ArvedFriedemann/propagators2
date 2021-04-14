@@ -142,8 +142,8 @@ test6 = do
 
 test7 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
 test7 = do
-  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) (var $ GenTId @v (1::Int))--["c", var $ GenTId @v (1::Int), var $ GenTId @v (2::Int)]
-  (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t2"::String)) (var $ GenTId @v (2::Int))
+  (TSP t1) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t1"::String)) []--(var $ GenTId @v (1::Int))--["c", var $ GenTId @v (1::Int), var $ GenTId @v (2::Int)]
+  (TSP t2) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("t2"::String)) []--(var $ GenTId @v (2::Int))
 
   s1 <- newScope ("djf1" :: String)
   s2 <- newScope ("djf2" :: String)
@@ -152,7 +152,7 @@ test7 = do
 
   scoped s1 $ do
     eq t1 t2 --TODO: this is the bad one
-    write t1 bot
+    --write t1 bot
     t1' <- currScopePtr t1
     t2' <- currScopePtr t2
     traceM $ "Scope s1 pointers: ("++show t1++", "++show t1'++"),("++show t2++", "++show t2'++")"
@@ -163,7 +163,7 @@ test7 = do
     promoteTerm (TSP t1)
     t1' <- currScopePtr t1
     t2' <- currScopePtr t2
-    traceM $ "Scope s1 pointers: ("++show t1++", "++show t1'++"),("++show t2++", "++show t2'++")"
+    traceM $ "Scope s2 pointers: ("++show t1++", "++show t1'++"),("++show t2++", "++show t2'++")"
     return ()
     {-}
     watchFixpoint ("tmp"::String) $ do
