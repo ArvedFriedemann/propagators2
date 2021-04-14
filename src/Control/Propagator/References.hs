@@ -181,9 +181,10 @@ accessScopeName :: forall m' m (v :: * -> *) a.
   , MonadAtomic v m' m
   , MonadReader (PropArgs m m' v) m
   , MonadFork m
-  , Typeable m, Typeable m', forall b. Show (v b), forall b. Ord (v b) ) => [Scope v] -> CellPtr m' v a -> Scope v -> m (CellPtr m' v a)
-accessScopeName currscp ptr scp = do
+  , Typeable m, Typeable m', forall b. Show (v b), forall b. Ord (v b) ) => CellPtr m' v a -> Scope v -> m (CellPtr m' v a)
+accessScopeName ptr scp = do
   mp <- readSelector scopenames ptr
+  currscp <- readSelector origScope ptr
   accessLazyNameMap
     (MV.read mp)
     (MV.read mp)
@@ -354,11 +355,13 @@ getScopeRef ptr = do
               "\nptrScp: "++show s++
               "\ndeduced path: "++show (down,up,c)
               -}
+    tc' <- readCP res
+    unless (origScope tc' == s) $ error "Scope of scope-pointer is not the current scope!"
     return res
   where
     navigateScopePtr :: [Scope v] -> [Scope v] -> (CellPtr m' v a) -> m (CellPtr m' v a)
     navigateScopePtr (_:s') up ptr' = accessLazyParent ptr' >>= (\p -> {-trace ("parent of "++show ptr++" is "++show p) $-} navigateScopePtr s' up p)
-    navigateScopePtr [] (s:s') ptr' = accessScopeName s' ptr' s >>=(\p ->  {-trace ("child of "++show ptr++" is "++show p) $-} navigateScopePtr [] s' p)
+    navigateScopePtr [] (s:s') ptr' = accessScopeName ptr' s >>=(\p ->  {-trace ("child of "++show ptr++" is "++show p) $-} navigateScopePtr [] s' p)
     navigateScopePtr [] [] ptr' = return ptr'
 
 
