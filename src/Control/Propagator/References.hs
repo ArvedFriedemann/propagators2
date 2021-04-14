@@ -247,10 +247,11 @@ instance (Dep m v
     s <- MV.read (unpkSP (head sp))
     accessLazyNameMap' (createdPointers s) (createTopCellPtr @m' sp) name
 
-  newRelative :: (Identifier n a, Value a, Std n) => CellPtr m' v b -> n -> m (CellPtr m' v a)
+  newRelative :: (Identifier n a, Value b, Value a, Std n) => CellPtr m' v b -> n -> m (CellPtr m' v a)
   newRelative ptr name = do
+    ptr' <- getScopeRef ptr
     s <- reader scopePath
-    rn <- readSelector relnames ptr
+    rn <- readSelector relnames ptr'
     accessLazyNameMap' rn (createTopCellPtr @m' s) name
 
   currScopePtr :: (Value a) => CellPtr m' v a -> m (CellPtr m' v a)
@@ -404,7 +405,7 @@ notify ptr = do
   s <- readSelector origScope ptr
   when (null s) $ error "origScope of pointer null in notify"
   propset <- getPropset s ptr >>= readValue
-  forkF (Map.elems propset)
+  local (\p -> p{scopePath = s}) $ forkF (Map.elems propset)
 
 getPropset :: forall (m' :: * -> *) m v a.
   ( Typeable m', Typeable m, Typeable v

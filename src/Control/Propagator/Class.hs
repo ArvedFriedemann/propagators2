@@ -49,7 +49,7 @@ class (Show scope, Monad m) => MonadProp m v scope | m -> v, m -> scope where
   watch' ptr name fkt = watch ptr name (read ptr >>= fkt)
 
   new :: (Identifier n a, Value a, Std n) => n -> m (v a)
-  newRelative :: (Identifier n a, Value a, Std n) => v b -> n -> m (v a)
+  newRelative :: (Identifier n a, Value b, Value a, Std n) => v b -> n -> m (v a)
   currScopePtr :: (Value a) => v a -> m (v a)
 
   newScope :: (Std n) => n -> m scope
