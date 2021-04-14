@@ -15,9 +15,9 @@ data DirEq v = DirEq v
 
 dirEq :: (MonadProp m v scope, Value a, StdPtr v) => v a -> v a -> m ()
 dirEq p1 p2 = do
-  p1' <- currScopePtr p1
-  p2' <- currScopePtr p2
-  traceM $ "("++show p1++", "++show p1'++") ~> ("++show p2++", "++show p2'++")"
+  --p1' <- currScopePtr p1
+  --p2' <- currScopePtr p2
+  --traceM $ "("++show p1++", "++show p1'++") ~> ("++show p2++", "++show p2'++")"
   watch' p1 (DirEq p2) (\v -> write p2 v)
 
 eqAll :: forall m v scope a t. (MonadProp m v scope, Value a, StdPtr v, Foldable t) => t (v a) -> m ()

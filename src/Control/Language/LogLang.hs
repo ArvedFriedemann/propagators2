@@ -56,9 +56,9 @@ simpleKBNetwork' :: (MonadProp m v scope, Std n, StdPtr v) => Int -> n -> KB (Te
 simpleKBNetwork' 0 _ _ _ = return ()
 simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ do
   currg <- read goal
-  cgt <- fromCellSize 100 (TSP goal)
-  cgp <- currScopePtr goal
-  traceM $ "currgoal "++show cgp++" is "++show cgt
+  --cgt <- fromCellSize 100 (TSP goal)
+  --cgp <- currScopePtr goal
+  --traceM $ "currgoal "++show cgp++" is "++show cgt
   unless (isBot currg) $ do
     disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) ([0..] :: [Int]) $ --(if fuel == (-1) then drop 1 else take 1) $ --safeHead $  --WARNING!
       [\i -> do
@@ -71,11 +71,11 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
         --recursive call. Wait for the posterior equality before continuing
         watchFixpoint (SimpleKBNetwork ("checkGoal"::String,ctx,i)) $ do
           g' <- read goal
-          cgt' <- fromCellSize 100 (TSP goal)
+          {-cgt' <- fromCellSize 100 (TSP goal)
           cspg <- currScopePtr goal
           pcgt' <- fromCellSize 100 (TSP post)
           cpost <- fromCellSize 100 (TSP post')
-          traceM $ "\nsubgoal "++show cspg++"("++show goal++") is\n                "++show cgt' ++ "\nwith post:      "++show pcgt'++"\nand clean post: "++show cpost++"\n"
+          traceM $ "\nsubgoal "++show cspg++"("++show goal++") is\n                "++show cgt' ++ "\nwith post:      "++show pcgt'++"\nand clean post: "++show cpost++"\n"-}
           unless (isBot g') $ do
             forM_ pres $ \(TSP pre) -> do
               simpleKBNetwork' (fuel - 1) (SimpleKBNetwork (ctx,i)) kb (TSP pre)
