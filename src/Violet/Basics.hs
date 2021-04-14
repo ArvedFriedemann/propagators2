@@ -77,14 +77,13 @@ op f a b res = do
 
 data Op1Id = Op1Id
   deriving (Show, Eq, Ord)
---op1 :: (MonadProp m v scope, StdPtr v) => (RangeType -> RangeType -> RangeType) -> v RangeL -> RangeType-> v RangeL -> m ()
-op1 f a c res = do
-  watch a (Op1Id,a) helper
+op1 :: (MonadProp m v scope, StdPtr v, Std n) => n -> (RangeType -> RangeType -> RangeType) -> v RangeL -> RangeType-> v RangeL -> m ()
+op1 fname f a c res = do
+  watch a (Op1Id,fname,a) helper
   where
     helper = do
       aval <- read a
-      when (not (isTop aval)) $ do --das sollte keinen Unterschied machen...hast du mal ein f einfach so ausprobiert, ob das funktioniert?
-        write res (f <$> aval <*> (Val c))
+      write res (f <$> aval <*> (Val c))
 
 prop_test' :: (MonadProp m v scope, StdPtr v) => m [v RangeL]
 prop_test' = do
@@ -112,10 +111,10 @@ sqrt_test = do
 
   write term1 (Val (singleton 1.0))
 
-  op1 (*) x (singleton 0.5) term2
-  op1 (*) x (singleton 0.125) term3
-  op1 (*) x (singleton 0.0625) term4
-  op1 (*) x (singleton 0.0390625) term5
+  op1 ("t2"::String) (*) x (singleton 0.5) term2
+  op1 ("t3"::String) (*) x (singleton 0.125) term3
+  op1 ("t4"::String) (*) x (singleton 0.0625) term4
+  op1 ("t5"::String) (*) x (singleton 0.0390625) term5
 
 
   result <- new (RID ("sqrt(x)"::String))
