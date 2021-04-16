@@ -124,6 +124,10 @@ termPromoter this@(TSP this') (TS _ _ applications _) = do
 instance (MonadProp m v scope, StdPtr v) => Promoter (v (TermSet (TermSetPtr v))) m where
   promoteAction p = promoteTerm (TSP p)
 
+-------------------------------------------
+--decidable equality
+-------------------------------------------
+--checking whether two terms are structurally equivalent doesn't do much. You need to check whether two terms do not UNIFY. Problem here: When checking whether two terms unify, it heavily depends on whether some information will still travel in the future. Checking for nonunification is slightly easier as just one conflict is needed. It just needs to be made sure that all needed information will be available when watching on the fixpoint. 
 
 -------------------------------------------
 --Watch Term (should not need to be made explicit...)

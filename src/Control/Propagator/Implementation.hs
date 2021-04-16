@@ -125,11 +125,11 @@ runMonadPropIO act = runMonadPropIOFin act (const $ return ())
 runMonadPropIOFin:: forall a b. IOSTMProp a -> (a -> IOSTMProp b) -> IO a
 runMonadPropIOFin act fin = do
   initPtrs <- MV.new @_ @Ref Map.empty
-  root <- MV.new $ ScopeT{createdPointers = initPtrs}
-  creatScopes <- MV.new Map.empty
+  initCreatScopes <- MV.new Map.empty
+  root <- MV.new $ ScopeT{createdPointers = initPtrs, createdScopes = initCreatScopes}
   fixActs <- MV.new Map.empty
   fixSema <- MV.new 1
-  let state = PropArgs{scopePath=[SP root], createdScopes=creatScopes, fixpointActions=fixActs, fixpointSemaphore=fixSema} in do
+  let state = PropArgs{scopePath=[SP root], fixpointActions=fixActs, fixpointSemaphore=fixSema} in do
     res <- runMonadPropIOState state act
     busyFixpointWaiter (-1) fixSema fixActs (void $ runMonadPropIOState state (fin res))
     decreaseSema fixSema

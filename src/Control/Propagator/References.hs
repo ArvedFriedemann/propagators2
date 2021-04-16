@@ -201,13 +201,13 @@ writeLattPtr ptr val = MV.mutate ptr (\old -> meetDiff val old)
 --TODO: Just make new namespaces for each scope. It's the simplest solution for now.
 data PropArgs m m' v = PropArgs {
   scopePath :: [Scope v]
-, createdScopes :: v SEBIdMap
 , fixpointActions :: v (Map (Some Std) (PropArgs m m' v, m ()))
 , fixpointSemaphore :: v Int
 }
 
 data ScopeT v = ScopeT {
   createdPointers :: v SEBIdMap
+, createdScopes :: v SEBIdMap
 }
 
 newtype Scope (v :: * -> *) = SP (v (ScopeT v))
@@ -260,10 +260,12 @@ instance (Dep m v
 
   newScope :: (Std n) => n -> m (Scope v)
   newScope name = do
-    mp <- reader createdScopes
+    s <- scope
+    mp <- createdScopes <$> (MV.read (unpkSP s))
     res <- accessLazyNameMap' mp (do
       pts <- MV.new Map.empty
-      sp <- MV.new $ ScopeT{createdPointers = pts}
+      sps <- MV.new Map.empty
+      sp <- MV.new $ ScopeT{createdPointers = pts, createdScopes = sps}
       --traceM $ "created new scope map " ++ show sp
       return $ SP sp) name
     --traceM $ "created scope "++show res

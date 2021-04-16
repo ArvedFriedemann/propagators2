@@ -52,7 +52,7 @@ data SimpleKBNetwork i = SimpleKBNetwork i
 simpleKBNetwork :: (MonadProp m v scope, Std n, StdPtr v) => n -> KB (TermSetPtr v) -> TermSetPtr v -> m ()
 simpleKBNetwork = simpleKBNetwork' (-1) --WARNING
 
-simpleKBNetwork' :: (MonadProp m v scope, Std n, StdPtr v) => Int -> n -> KB (TermSetPtr v) -> TermSetPtr v -> m ()
+simpleKBNetwork' :: forall m v scope n. (MonadProp m v scope, Std n, StdPtr v) => Int -> n -> KB (TermSetPtr v) -> TermSetPtr v -> m ()
 simpleKBNetwork' 0 _ _ _ = return ()
 simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ do
   currg <- read goal
@@ -80,8 +80,42 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
             forM_ pres $ \(TSP pre) -> do
               simpleKBNetwork' (fuel - 1) (SimpleKBNetwork (ctx,i)) kb (TSP pre)
               propBot pre goal
-      | cls <- kb]
+      | cls <- kb] ++ [\i -> do
+        let x = var (TSID @v "eql")
+        let y = var (TSID @v "eqr")
+        (TSP eqstruc) <- fromVarsAsCells (TSID @v "eqt") [x,"/=",y]
+        eq goal eqstruc --This creates a weird nondeterministic error...
+        write goal bot
+        {-}
+        watchFixpoint ("tmp"::String) $ do
+          eqs <- fromCellSize @m @v 100 (TSP eqstruc)
+          gl <- fromCellSize @m @v 100 (TSP goal)
+          traceM $ "Eq match term: "++show eqs++"\nwith goal:     "++show gl-}
+          {-}
+        watchFixpoint (EqScope, 0::Int) $ do
+          g' <- read goal
+          when (isBot g') $ do
+            traceM "equality structure disproven"
+          unless (isBot g') $ do
+            traceM "equality structure confirmed"
+            s <- newScope EqScope
+            scoped s $ do
+              let a = var (TSID @v "eqv")
+              (TSP eqt) <- fromVarsAsCells (TSID @v "eqt") [a,"/=",a]
+              eq goal eqt
+              watchFixpoint (EqScope, 1::Int) $ do
+                g <- read goal
+                if isBot g
+                then return ()
+                else parScoped $ write goal bot-}
+      ]
 
+data EqScope = EqScope
+  deriving (Show, Eq, Ord)
+
+data TSID v = TSID String
+  deriving (Show, Eq, Ord)
+instance Identifier (TSID v) (TermSet (TermSetPtr v))
 
 safeHead :: [a] -> [a]
 safeHead [] = []
