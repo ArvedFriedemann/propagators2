@@ -84,12 +84,14 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
         let x = var (TSID @v "eql")
         let y = var (TSID @v "eqr")
         (TSP eqstruc) <- fromVarsAsCells (TSID @v "eqt") [x,"/=",y]
-        eq goal eqstruc
+        eq goal eqstruc --This creates a weird nondeterministic error...
         write goal bot
+        {-}
         watchFixpoint ("tmp"::String) $ do
           eqs <- fromCellSize @m @v 100 (TSP eqstruc)
           gl <- fromCellSize @m @v 100 (TSP goal)
-          traceM $ "Eq match term: "++show eqs++"\nwith goal:     "++show gl
+          traceM $ "Eq match term: "++show eqs++"\nwith goal:     "++show gl-}
+          {-}
         watchFixpoint (EqScope, 0::Int) $ do
           g' <- read goal
           when (isBot g') $ do
@@ -105,7 +107,7 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
                 g <- read goal
                 if isBot g
                 then return ()
-                else parScoped $ write goal bot
+                else parScoped $ write goal bot-}
       ]
 
 data EqScope = EqScope
