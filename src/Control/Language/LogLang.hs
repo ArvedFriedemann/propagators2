@@ -70,41 +70,26 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
 
         eq post goal
         --recursive call. Wait for the posterior equality before continuing
+
         watchFixpoint (SimpleKBNetwork ("checkGoal"::String,ctx,i)) $ do
           g' <- read goal
-          {-cgt' <- fromCellSize 100 (TSP goal)
-          cspg <- currScopePtr goal
-          pcgt' <- fromCellSize 100 (TSP post)
-          cpost <- fromCellSize 100 (TSP post')
-          traceM $ "\nsubgoal "++show cspg++"("++show goal++") is\n                "++show cgt' ++ "\nwith post:      "++show pcgt'++"\nand clean post: "++show cpost++"\n"-}
           unless (isBot g') $ do
             forM_ pres $ \(TSP pre) -> do
               simpleKBNetwork' (fuel - 1) (SimpleKBNetwork (ctx,i)) kb (TSP pre)
               propBot pre goal
+              --watch' pre ("tracer"::String) $ \v -> do
+                --traceM $ "precondition: "++show v
       | cls <- kb] ++ [\i -> do
-        --let x = var (TSID @v "eql")
-        --let y = var (TSID @v "eqr")
-        --(TSP eqstruc) <- fromVarsAsCells (TSID @v "eqt") [x,"/=",y]
-        eqstruc <- new (TSID @v $ "eqt"++show (ctx,i))
-        --write eqstruc bot
-        watch' eqstruc ("tmp"::String) $ \v -> do
-          traceM $ "eqstruc in "++show ctx++" value: "++show v
-        --eq goal eqstruc --TODO,WARNING: This creates a weird nondeterministic error...seems to be caused by the fromVarsAsCells function...error also occurs when using plain new in a scope...
-        --eq goal goal
-        watchFixpoint ("tmp2"::String) $ do
-          traceM $ "\nwriting bot into "++show goal++"\n"
-          write goal bot
-          watch' goal ("tmp3"::String) (\v -> do
-            traceM $ "goal "++show goal++" is "++show v
-            )
-        --write goal bot
-        --write eqstruc bot
+        let x = var (TSID @v "eql")
+        let y = var (TSID @v "eqr")
+        (TSP eqstruc) <- fromVarsAsCells (TSID @v "eqt") [x,["/=",y]]
         {-}
         watchFixpoint ("tmp"::String) $ do
           eqs <- fromCellSize @m @v 100 (TSP eqstruc)
           gl <- fromCellSize @m @v 100 (TSP goal)
           traceM $ "Eq match term: "++show eqs++"\nwith goal:     "++show gl-}
-          {-}
+        eq goal eqstruc
+
         watchFixpoint (EqScope, 0::Int) $ do
           g' <- read goal
           when (isBot g') $ do
@@ -114,14 +99,14 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
             s <- newScope EqScope
             scoped s $ do
               let a = var (TSID @v "eqv")
-              (TSP eqt) <- fromVarsAsCells (TSID @v "eqt2") [a,"/=",a]
+              (TSP eqt) <- fromVarsAsCells (TSID @v "eqt2") [a,["/=",a]]
               eq goal eqt
               watchFixpoint (EqScope, 1::Int) $ do
                 g <- read goal
                 if isBot g
                 then return ()
                 else parScoped $ write goal bot
-                -}
+
       ]
 
 data EqScope = EqScope
