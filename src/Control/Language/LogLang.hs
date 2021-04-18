@@ -90,7 +90,7 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
           traceM $ "Eq match term: "++show eqs++"\nwith goal:     "++show gl-}
         eq goal eqstruc
 
-        watchFixpoint (EqScope, 0::Int) $ do
+        watchFixpoint (EqScope, ctx, 0::Int) $ do
           g' <- read goal
           when (isBot g') $ do
             traceM "equality structure disproven"
@@ -101,7 +101,7 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
               let a = var (TSID @v "eqv")
               (TSP eqt) <- fromVarsAsCells (TSID @v "eqt2") [a,["/=",a]]
               eq goal eqt
-              watchFixpoint (EqScope, 1::Int) $ do
+              watchFixpoint (EqScope, ctx, 1::Int) $ do
                 g <- read goal
                 if isBot g
                 then return ()
