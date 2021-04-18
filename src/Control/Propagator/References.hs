@@ -122,7 +122,6 @@ accessLazyParent (CP p) = do
         watchEngineCurrPtr par (ScopeEq topScp) (readEngineCurrPtr par >>= \b -> writeEngineCurrPtr (CP p) b)
       return par
 
---TODO: When using a shared namespace for the scopes, there should be a mechanic where one can see the old value here. If a variable is created on a lower scope, it should be put in this place and be pumped up.
 accessLazyNameMap :: (Ord i, MonadAtomic v m' m) => m (Map i b) -> m' (Map i b) -> (i -> b -> m' ()) -> m' b -> (b -> m ()) -> i -> m b
 accessLazyNameMap getMap getMap' putMap con destr adr = do
   mabVal <- Map.lookup adr <$> getMap
@@ -357,7 +356,7 @@ getScopeRef ptr = do
               "\nptrScp: "++show s++
               "\ndeduced path: "++show (down,up,c)
               -}
-    tc' <- readCP res
+    --tc' <- readCP res
     --unless (origScope tc' == s) $ error "Scope of scope-pointer is not the current scope!"
     return res
   where

@@ -36,14 +36,19 @@ disjunctForkPromoterDestr ctx succPtr finDestr ms = do
     scoped tmpScp $ do
       push succPtr tmpPtr
       act
-  --two watched literal scheme
+  --two watched literal scheme--TODO: does not work! when the two turn bot it stops fireing, even when others turn top!
   case scopeVars of
+    {-}
     ((_,p1,_):(_,p2,_):_) -> do
       watch p1 (DetermineWinner ctx) (determineWinner finDestr scopeVars)
       watch p2 (DetermineWinner ctx) (determineWinner finDestr scopeVars)
     [(_,p,_)] -> do
       watch p (DetermineWinner ctx) (determineWinner finDestr scopeVars)
+      -}
     [] -> finDestr
+    lst -> forM_ lst (\(_,p,_) -> do
+      watch p (DetermineWinner ctx) (determineWinner finDestr scopeVars)
+      )
 
 data DetermineWinner i = DetermineWinner i
   deriving (Show, Eq, Ord)
@@ -57,7 +62,7 @@ determineWinner finDestr lst = do
     else return $ Just (s,p,m)
   traceM $ "Succeeded pointers: "++(show $ map (\(_,p,_) -> p) succeeded)
   case succeeded of
-    [(s,_,m)] -> {-traceM "\n>>> Promoting winner!\n" >> -}scoped s m
+    [(s,_,m)] -> traceM "\n>>> Promoting winner!\n" >> scoped s m
     [] -> {-traceM "\n>>> no winner...\n" >>-} finDestr
     _ -> return ()
 

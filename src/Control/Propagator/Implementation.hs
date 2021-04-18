@@ -32,7 +32,7 @@ import qualified "containers" Data.Set as Set
 
 --IOSTMProp STM Ref
 newtype IOSTMProp a = ISP (ReaderT (PropArgs IOSTMProp STM Ref) IO a)
-  --deriving (Typeable)
+  --deriving (Show,Eq,Ord)
 
 
 data Ref a = Ref Unique (TVar a)
@@ -138,7 +138,7 @@ runMonadPropIOFin act fin = do
 runMonadPropIOState :: forall a. PropArgs IOSTMProp STM Ref -> IOSTMProp a -> IO a
 runMonadPropIOState state (ISP act) = runReaderT (act) state
 
-busyFixpointWaiter :: (Show a) => Int -> Ref Int -> Ref (Map a (PropArgs IOSTMProp STM Ref,IOSTMProp ())) -> IO () -> IO ()
+busyFixpointWaiter :: (Show a, Eq a) => Int -> Ref Int -> Ref (Map a (PropArgs IOSTMProp STM Ref,IOSTMProp ())) -> IO () -> IO ()
 busyFixpointWaiter j sema fixActs fin = fork (act j)
   where
     act 0 = putStrLn "Waiter Timeout..."
@@ -151,12 +151,19 @@ busyFixpointWaiter j sema fixActs fin = fork (act j)
                   if Map.null acts
                   then do
                     traceM "No more Fixpoint Actions!"
+                    --wait 1000
+                    --acts' <- MV.read fixActs
+                    --unless (null acts') $ error "Fix acts not null after wait!"
                     fin
                   else do
+                    --STM.atomically $ do
+                      --acts'<- MV.read fixActs
+                      --unless (length acts'== length acts) $ error "fixActs changed when they should not!"
+                      --MV.write fixActs Map.empty
                     MV.write fixActs Map.empty
                     forM_ (Map.elems acts) (\(state, m) -> do
                       increaseSema sema
-                      fork $ runMonadPropIOState state m >> decreaseSema sema)
+                      fork $ (runMonadPropIOState state m >> decreaseSema sema) <|> (traceM "\nan error occurred!\n" >> decreaseSema sema))
                     act (i-1)
 
                 else do
