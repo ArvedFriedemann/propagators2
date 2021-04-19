@@ -77,36 +77,43 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
             forM_ pres $ \(TSP pre) -> do
               simpleKBNetwork' (fuel - 1) (SimpleKBNetwork (ctx,i)) kb (TSP pre)
               propBot pre goal
-              --watch' pre ("tracer"::String) $ \v -> do
-                --traceM $ "precondition: "++show v
+              watch' pre ("tracer"::String) $ \v -> do
+                traceM $ "precondition: "++show v
       | cls <- kb] ++ [\i -> do
-        let x = var (TSID @v "eql")
-        let y = var (TSID @v "eqr")
-        (TSP eqstruc) <- fromVarsAsCells (TSID @v "eqt") [x,["/=",y]]
-        {-}
-        watchFixpoint ("tmp"::String) $ do
-          eqs <- fromCellSize @m @v 100 (TSP eqstruc)
-          gl <- fromCellSize @m @v 100 (TSP goal)
-          traceM $ "Eq match term: "++show eqs++"\nwith goal:     "++show gl-}
-        eq goal eqstruc
-
         watchFixpoint (EqScope, ctx, 0::Int) $ do
           g' <- read goal
-          when (isBot g') $ do
-            traceM "equality structure disproven"
-          unless (isBot g') $ do
-            traceM "equality structure confirmed"
-            s <- newScope EqScope
-            scoped s $ do
-              let a = var (TSID @v "eqv")
-              (TSP eqt) <- fromVarsAsCells (TSID @v "eqt2") [a,["/=",a]]
-              eq goal eqt
-              watchFixpoint (EqScope, ctx, 1::Int) $ do
-                g <- read goal
-                if isBot g
-                then return ()
-                else parScoped $ write goal bot
-
+          case applications g' of
+            (Set.lookupMin -> Just (_,TSP b)) -> do
+              b' <- read b
+              case applications b' of
+                (Set.lookupMin -> Just (TSP c,_)) -> do
+                  c' <- read c
+                  let isEq = Set.member "/=" (constants c')
+                  when (not isEq) $ do
+                    write goal bot
+                    traceM "equality structure disproven"
+                  when isEq $ do
+                    traceM "equality structure confirmed"
+                    s <- newScope EqScope
+                    scoped s $ do
+                      let a = var (TSID @v "eqv")
+                      (TSP eqt) <- fromVarsAsCells (TSID @v "eqt2") [a,["/=",a]]
+                      eq goal eqt
+                      watchFixpoint (EqScope, ctx, 1::Int) $ do
+                        g <- read goal
+                        if isBot g
+                        then do
+                          traceM "inequality succeeded!"
+                          return ()
+                        else do
+                          traceM "Inequality failed"
+                          parScoped $ write goal bot
+                (Set.lookupMin -> Nothing) -> do
+                  write goal bot
+                  traceM "equality structure disproven"
+            (Set.lookupMin -> Nothing) -> do
+              write goal bot
+              traceM "equality structure disproven"
       ]
 
 data EqScope = EqScope
