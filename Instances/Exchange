@@ -21,4 +21,4 @@ exchange x with y in x to y ;
 
 (e /= x) -> (e /= (e1 e2)) -> exchange x with y in e to e ;
 
-exchange ca with cb in (ca ca cc) to P
+exchange ca with cb in (ca ca cb) to P
