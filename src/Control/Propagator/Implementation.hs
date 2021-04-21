@@ -129,32 +129,40 @@ runMonadPropIOFin act fin = do
   root <- MV.new $ ScopeT{createdPointers = initPtrs, createdScopes = initCreatScopes}
   fixActs <- MV.new Map.empty
   fixSema <- MV.new 1
+  finalSema <- MV.new 1
   let state = PropArgs{scopePath=[SP root], fixpointActions=fixActs, fixpointSemaphore=fixSema} in do
     res <- runMonadPropIOState state act
-    busyFixpointWaiter (-1) fixSema fixActs (void $ runMonadPropIOState state (fin res))
+    busyFixpointWaiter (-1) finalSema fixSema fixActs (void $ runMonadPropIOState state (fin res))
     decreaseSema fixSema
+    let waitFinal = (do
+          s <- MV.read finalSema
+          if s == 0
+          then return ()
+          else wait 100 >> waitFinal)
+    waitFinal
     return res
 
 runMonadPropIOState :: forall a. PropArgs IOSTMProp STM Ref -> IOSTMProp a -> IO a
 runMonadPropIOState state (ISP act) = runReaderT (act) state
 
-busyFixpointWaiter :: (Show a, Eq a) => Int -> Ref Int -> Ref (Map a (PropArgs IOSTMProp STM Ref,IOSTMProp ())) -> IO () -> IO ()
-busyFixpointWaiter j sema fixActs fin = fork (act j)
+busyFixpointWaiter :: (Show a, Eq a) => Int -> Ref Int -> Ref Int -> Ref (Map a (PropArgs IOSTMProp STM Ref,IOSTMProp ())) -> IO () -> IO ()
+busyFixpointWaiter j finSema sema fixActs fin = fork (act j)
   where
     act 0 = putStrLn "Waiter Timeout..."
     act i = do
                 val <- MV.read sema
                 if val <= 0
                 then do
-                  traceM "Reached Fixpoint!"
+                  putStrLn $ "Reached Fixpoint!"
                   acts <- MV.read fixActs
                   if Map.null acts
                   then do
-                    traceM "No more Fixpoint Actions!"
+                    putStrLn "No more Fixpoint Actions!"
                     --wait 1000
                     --acts' <- MV.read fixActs
                     --unless (null acts') $ error "Fix acts not null after wait!"
                     fin
+                    decreaseSema finSema
                   else do
                     --STM.atomically $ do
                       --acts'<- MV.read fixActs
@@ -167,7 +175,7 @@ busyFixpointWaiter j sema fixActs fin = fork (act j)
                     act (i-1)
 
                 else do
-                  when (i `mod` 100 == 0) $ traceM "Waiting..."
+                  when (i `mod` 100 == 0) $ putStrLn $ "Waiting..."
                   wait 100
                   act (i-1)
 

@@ -13,7 +13,7 @@ ghc-options:
   - -Wwarn=type-defaults
   - -XBangPatterns
   - -fno-warn-orphans
-  - -rtsopts -threaded -O #-O2
+  - -rtsopts -threaded -O2 #-O
 
 executable:
   source-dirs: src
