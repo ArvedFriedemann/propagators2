@@ -77,9 +77,8 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
             forM_ (zip pres ([0..]::[Int])) $ \(TSP pre, j) -> do
               simpleKBNetwork' (fuel - 1) (SimpleKBNetwork (ctx,i,j)) kb (TSP pre)
               propBot pre goal
-              watch' pre ("tracer"::String) $ \v -> do
-                traceM $ "precondition: "++show v++" "++show pre
       | cls <- kb] ++ [\i -> do
+        readTermRec (TSP goal)
         watchFixpoint (EqScope, ctx, 0::Int) $ do
           g' <- read goal
           case applications g' of

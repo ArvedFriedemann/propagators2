@@ -30,10 +30,11 @@ exchange x with y in x to y ;
 
 
 a is in (a :: xs) ;
-a is in xs -> a is in (b :: xs) ;
+(a is in xs) -> (a is in (b :: xs)) ;
 
 --inference from aim
 prove B with B from K ;
+
 
 --modus ponens
 (exchange p' with p in (f : (p' : P') ~> Q')
@@ -42,12 +43,15 @@ prove B with B from K ;
   (prove (b : B) with (f p : Q) from K) ->
   (prove (b : B) with (f : (p' : P') ~> Q') from K) ;
 
+
 --proving implication
-prove B from (A :: K) -> prove (b : (A ~> B)) from K ;
+(prove B from (A :: K)) -> (prove (b : (A ~> B)) from K) ;
 --(the second rule is just so in a chain of functions, not every subpart of the function needs to be named with a proof)
-prove B from (A :: K) -> prove (A ~> B) from K ;
+(prove B from (A :: K)) -> (prove (A ~> B) from K) ;
+
 
 --inference from context
-P is in K -> (prove B with P from K) -> prove B from K ;
+(P is in K) -> (prove B with P from K) -> (prove B from K) ;
 
 prove (cp : (ca : cA) ~> (q : cA)) from []
+--prove (q : cA) from ((ca : cA) :: [])
