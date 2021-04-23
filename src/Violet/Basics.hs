@@ -44,18 +44,6 @@ data RangeID = RID String
 
 instance Identifier RangeID RangeL
 
-data PlusId = PlusId
-  deriving (Show, Eq, Ord)
-
-plus :: (MonadProp m v scope, StdPtr v) => v RangeL -> v RangeL -> v RangeL -> m ()
-plus a b res = do
-  watch a (PlusId,a,b) helper
-  watch b (PlusId,a,b) helper
-  where
-    helper = do
-      aval <- read a
-      bval <- read b
-      write res ((+) <$> aval <*> bval)
 
 
 data OpId = OpId
@@ -64,7 +52,7 @@ data OpId = OpId
 op :: (MonadProp m v scope, StdPtr v) => (RangeType -> RangeType -> RangeType) -> v RangeL -> v RangeL -> v RangeL -> m ()
 op f a b res = do
   watch a (OpId,a,b,res) helper
-  watch b (OpId,a,b, res) helper
+  watch b (OpId,a,b,res) helper
   where
     helper = do
       aval <- read a
@@ -85,19 +73,11 @@ op1 fname f a c res = do
       aval <- read a
       write res (f <$> aval <*> (Val c))
 
-prop_test' :: (MonadProp m v scope, StdPtr v) => m [v RangeL]
-prop_test' = do
-  a <- new (RID ("a"::String))
-  b <- new (RID ("b"::String))
-  c <- new (RID ("c"::String))
-  result <- new (RID ("res"::String))
-  output <- new (RID ("output"::String))
-  plus a b result
-  op (+) result c output
-  write a (Val (2 <=..<= 4))
-  write b (Val (3 <=..<= 6))
-  write c (Val (0 <=..<= 20))
-  return [a,b,c, result, output]
+naive_pow :: (MonadProp m v scope, StdPtr v) => v RangeL -> Int -> v RangeL -> m (v RangeL)
+naive_pow x n res
+  | n == 1 = return x
+  | n == 2 = op (*) x x res >> return res
+  | otherwise = return x
 
 
 sqrt_test :: (MonadProp m v scope, StdPtr v) => m [v RangeL]

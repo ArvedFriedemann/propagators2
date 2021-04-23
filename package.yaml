@@ -43,6 +43,8 @@ dependencies:
   - template-haskell
   # parser combinators
   - parsec
+  - megaparsec
+  - parser-combinators
   # others
   - primitive
   - hashable
