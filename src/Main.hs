@@ -4,6 +4,8 @@ import "this" Control.Language.PipelineExec
 import "this" Tests.TestsExec
 import "this" Tests.CircuitExec
 --import "this" Tests.SimpleTests
+import "this" Violet.Basics
+import "this" Violet.Parser
 
 main :: IO ()
 main = do

@@ -6,8 +6,9 @@ module Violet.Parser where
 import Control.Monad.Identity
 import Control.Monad.Combinators.Expr
 import Control.Monad.Trans.State.Strict
-import Data.Text (Text)
+import Data.Text (Text, pack)
 import Data.Void
+import Data.Either
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Text.Megaparsec hiding (State)
@@ -153,8 +154,16 @@ clearNames (a@(Assign varName sth) : xs) = do
   rest <- clearNames xs
   return $ (Assign new_name sth) : rest
 
+--evalState (clearNames res) Map.empty
 
+parseString :: String -> [Assign]
+parseString s = fromRight [] (runParser pAssignments "" (pack s))
 
+parseFromFile :: String -> IO [Assign]
+parseFromFile filename = do
+  expr <- parseString <$> (readFile filename)
+  return $ evalState (clearNames expr) Map.empty
 
+-- runParser pAssignments "console input" "x=4 x=2*3"
 pAssignments :: Parser [Assign]
 pAssignments = some pAssign
