@@ -63,7 +63,7 @@ determineWinner finDestr lst = do
   traceM $ "Succeeded pointers: "++(show $ map (\(_,p,_) -> p) succeeded)
   case succeeded of
     [(s,_,m)] -> traceM "\n>>> Promoting winner!\n" >> scoped s m
-    [] -> {-traceM "\n>>> no winner...\n" >>-} finDestr
+    [] -> traceM "\n>>> no winner...\n" >> finDestr
     _ -> return ()
 
 

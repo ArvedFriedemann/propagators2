@@ -19,7 +19,7 @@ expression nassoc 8 cb ;
 expression nassoc 8 cc ;
 expression nassoc 8 cp ;
 
-
+{-}
 exchange x with y in x to y ;
 
 (exchange x with y in e1 to e1') ->
@@ -27,7 +27,7 @@ exchange x with y in x to y ;
   (exchange x with y in (e1 e2) to (e1' e2')) ;
 
 (e /= x) -> (e /= (e1 e2)) -> exchange x with y in e to e ;
-
+-}
 
 a is in (a :: xs) ;
 (a is in xs) -> (a is in (b :: xs)) ;
