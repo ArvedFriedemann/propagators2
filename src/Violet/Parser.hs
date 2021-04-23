@@ -157,12 +157,10 @@ clearNames (a@(Assign varName sth) : xs) = do
 --evalState (clearNames res) Map.empty
 
 parseString :: String -> [Assign]
-parseString s = fromRight [] (runParser pAssignments "" (pack s))
+parseString s = evalState (clearNames $ fromRight [] (runParser pAssignments "" (pack s))) Map.empty
 
 parseFromFile :: String -> IO [Assign]
-parseFromFile filename = do
-  expr <- parseString <$> (readFile filename)
-  return $ evalState (clearNames expr) Map.empty
+parseFromFile filename = parseString <$> (readFile filename)
 
 -- runParser pAssignments "console input" "x=4 x=2*3"
 pAssignments :: Parser [Assign]
