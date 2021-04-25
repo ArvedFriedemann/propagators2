@@ -146,6 +146,71 @@ updateName name = do
       put $ Map.insert name (i+1) mp
       return i
 
+getNameCount :: String -> State (Map String Int) Int
+getNameCount name = do
+  mp <- get
+  case Map.lookup name mp of
+    Nothing -> do
+      put $ Map.insert name 1 mp
+      return 0
+    Just i -> do
+      put $ Map.insert name (i+1) mp
+      return i
+
+
+ssaVarName :: String -> Int -> String
+ssaVarName n i = '_' : n ++ (show i)
+
+--data Expr
+--  = Var String
+--  | Int Int
+--  | Negation Expr
+--  | Sum      Expr Expr
+--  | Subtr    Expr Expr
+--  | Product  Expr Expr
+--  | Division Expr Expr
+--  deriving (Eq, Ord, Show)
+
+
+ssaExpr :: Expr -> State (Map String Int) Expr
+ssaExpr (Var name) = do
+  mp <- get
+  let i = Map.findWithDefault 0 name mp
+  if (i <= 0) then do error $ "Trying to assign to non initialized variable \"" ++ name ++ "\""
+    else do return (Var (ssaVarName name (i-1)))
+ssaExpr (Negation e) = do
+  e' <- ssaExpr e
+  return $ Negation e'
+ssaExpr (Sum lhs rhs) = do
+  lhs' <- ssaExpr lhs
+  rhs' <- ssaExpr rhs
+  return $ Sum lhs' rhs'
+ssaExpr (Subtr lhs rhs) = do
+  lhs' <- ssaExpr lhs
+  rhs' <- ssaExpr rhs
+  return $ Subtr lhs' rhs'
+ssaExpr (Product lhs rhs) = do
+  lhs' <- ssaExpr lhs
+  rhs' <- ssaExpr rhs
+  return $ Product lhs' rhs'
+ssaExpr (Division lhs rhs) = do
+  lhs' <- ssaExpr lhs
+  rhs' <- ssaExpr rhs
+  return $ Division lhs' rhs'
+ssaExpr e = return e
+
+
+uN :: [Assign] -> State (Map String Int) [Assign]
+uN [] = return []
+uN (a@(Assign varName expr) : as) = do
+  mp <- get
+  let varNumbering = Map.findWithDefault 0 varName mp
+  let newName = ssaVarName varName varNumbering
+  expr' <- ssaExpr expr
+  put $ Map.insert varName (varNumbering + 1) mp
+  rest <- uN as
+  return $ (Assign newName expr') : rest
+
 clearNames :: [Assign] -> State (Map String Int) [Assign]
 clearNames [] = return []
 clearNames (a@(Assign varName sth) : xs) = do
@@ -156,8 +221,20 @@ clearNames (a@(Assign varName sth) : xs) = do
 
 --evalState (clearNames res) Map.empty
 
+
 parseString :: String -> [Assign]
-parseString s = evalState (clearNames $ fromRight [] (runParser pAssignments "" (pack s))) Map.empty
+parseString = parseString' "console input"
+
+parseString' :: String -> String -> [Assign]
+parseString' fileName s = fromRight [] (runParser pAssignments fileName (pack s))
+
+--tr :: String -> [Assign]
+tr t s = evalState (t $ parseString s) Map.empty
+
+arved :: String -> [Assign]
+arved = tr clearNames
+
+res = parseString "x = 4 x = 3 * x"
 
 parseFromFile :: String -> IO [Assign]
 parseFromFile filename = parseString <$> (readFile filename)
