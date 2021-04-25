@@ -15,10 +15,10 @@ data DirEq v = DirEq v
 
 dirEq :: (MonadProp m v scope, Value a, StdPtr v) => v a -> v a -> m ()
 dirEq p1 p2 = do
-  --p1' <- currScopePtr p1
-  --p2' <- currScopePtr p2
+  p1' <- currScopePtr p1
+  p2' <- currScopePtr p2
   --traceM $ "("++show p1++", "++show p1'++") ~> ("++show p2++", "++show p2'++")"
-  watch' p1 (DirEq p2) (\v -> write p2 v)
+  watch' p1' (DirEq p2') (\v -> write p2' v)
 
 eqAll :: forall m v scope a t. (MonadProp m v scope, Value a, StdPtr v, Foldable t) => t (v a) -> m ()
 eqAll t = maybe (pure ()) void $ foldr eqAll' Nothing t
@@ -26,12 +26,14 @@ eqAll t = maybe (pure ()) void $ foldr eqAll' Nothing t
     eqAll' i Nothing  = Just (pure i)
     eqAll' i (Just j) = Just (j >>= eq @_ @v i >> pure i)
 
-data PropBot = PropBot
+data PropBot v = PropBot v
   deriving (Show, Eq, Ord)
 
-propBot :: (MonadProp m v scope, Value a, Value b, HasBot a, HasBot b) =>
+propBot :: (MonadProp m v scope, StdPtr v, Value a, Value b, HasBot a, HasBot b) =>
   v a -> v b -> m ()
-propBot p1 p2 = watch' p1 PropBot (\v -> when (isBot v) $ write p2 bot)
+propBot p1 p2 = do
+  p2' <- currScopePtr p2
+  watch' p1 (PropBot p2') (\v -> when (isBot v) $ write p2' bot)
 
 data PromoteTo v = PromoteTo v
   deriving (Show, Eq, Ord)

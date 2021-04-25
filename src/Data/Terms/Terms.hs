@@ -1,5 +1,7 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 module Data.Terms.Terms where
 
+import "base" Prelude hiding ( read )
 import "base" GHC.Exts
 import "base" Control.Monad
 
@@ -92,16 +94,17 @@ watchTerm :: (MonadProp m v scope, StdPtr v) => TermSetPtr v -> m ()
 watchTerm (TSP ptr) = watch' ptr TermListener (termListener (TSP ptr))
 
 termListener :: (MonadProp m v scope, StdPtr v) => TermSetPtr v -> TermSet (TermSetPtr v) -> m ()
-termListener this@(TSP this') (TS _ variables applications _) = do
-  eqAll (Set.map unpkTSP $ setAppend this variables)
-  eqAll (Set.map unpkTSP $ Set.map fst applications)
-  eqAll (Set.map unpkTSP $ Set.map snd applications)
-  forM_ applications $ \((TSP a),(TSP b)) -> do
-    propBot a this'
-    propBot b this'
-    propBot this' a
-    propBot this' b
-    --bots need to be propagated both ways, otherwise prefixes of unsuccessful matches can still be read without failure
+termListener this@(TSP this') val@(TS _ variables applications _) =
+  do
+    eqAll (Set.map unpkTSP $ setAppend this variables)
+    eqAll (Set.map unpkTSP $ Set.map fst applications)
+    eqAll (Set.map unpkTSP $ Set.map snd applications)
+    forM_ applications $ \((TSP a),(TSP b)) -> do
+      propBot a this'
+      propBot b this'
+      propBot this' a
+      propBot this' b
+      --bots need to be propagated both ways, otherwise prefixes of unsuccessful matches can still be read without failure
 
 
 -------------------------------------------
@@ -125,9 +128,9 @@ instance (MonadProp m v scope, StdPtr v) => Promoter (v (TermSet (TermSetPtr v))
   promoteAction p = promoteTerm (TSP p)
 
 -------------------------------------------
---decidable equality
+--subsumption
 -------------------------------------------
---checking whether two terms are structurally equivalent doesn't do much. You need to check whether two terms do not UNIFY. Problem here: When checking whether two terms unify, it heavily depends on whether some information will still travel in the future. Checking for nonunification is slightly easier as just one conflict is needed. It just needs to be made sure that all needed information will be available when watching on the fixpoint. 
+
 
 -------------------------------------------
 --Watch Term (should not need to be made explicit...)
@@ -145,6 +148,23 @@ termWatcher this@(TSP this') (TS _ _ applications _) = do
   forM_ applications $ \(a,b) -> do
     watchTermRec a
     watchTermRec b
+
+-------------------------------------------
+--Read Term (to request a term for fixpoint listening)
+-------------------------------------------
+
+data TermReaderRec = TermReaderRec
+  deriving (Show, Eq, Ord)
+
+readTermRec :: (MonadProp m v scope, StdPtr v) => TermSetPtr v -> m ()
+readTermRec (TSP p) = watch' p TermReaderRec (termReader (TSP p))
+
+termReader :: (MonadProp m v scope, StdPtr v) => TermSetPtr v -> TermSet (TermSetPtr v) -> m ()
+termReader this@(TSP this') (TS _ _ applications _) = do
+  read this'
+  forM_ applications $ \(a,b) -> do
+    readTermRec a
+    readTermRec b
 
 -------------------------------------------
 --Variable Refreshing

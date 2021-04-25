@@ -56,4 +56,13 @@ test7' = stdTest test7
 
 test8' :: IO ()
 test8' = stdTest test8
+
+test9' :: IO ()
+test9' = stdTest test9
+
+
+
+
+
+
 --

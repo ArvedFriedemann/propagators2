@@ -9,6 +9,7 @@ import "base" Control.Monad
 
 import "this" Control.Propagator.Class
 import "this" Control.Combinator
+import "this" Control.Combinator.DisjunctFork
 import "this" Data.Lattice
 import "this" Data.Some
 import "this" Data.Util
@@ -203,5 +204,30 @@ test8 = do
     watch' t1 ("show_s3t1" :: String) (\v -> traceM $ "t1 in s3 is "++show v)-}
 
   return [TSP t2]
+
+data BoolId = BID String
+  deriving (Show, Eq, Ord)
+instance Identifier BoolId Bool
+
+test9 :: forall m v scope. (MonadProp m v scope, StdPtr v) => m [TermSetPtr v]
+test9 = do
+  (TSP v) <- fromVarsAsCells @_ @_ @_ @_ @(GenTId v Int) (GenTId @v ("v"::String)) ["a","b","c","d","e","f","g"]
+  v'' <- new (GenTId @v ("v''"::String))
+
+  disjunctForkPromote ("djf"::String) v'' [do
+    watchFixpoint ("temp"::String) $ disjunctForkPromote ("djf"::String) v'' [do
+      watchFixpoint ("temp1"::String) $ disjunctForkPromote ("djf"::String) v'' [do
+        watchFixpoint ("temp2"::String) $ disjunctForkPromote ("djf"::String) v'' [do
+          watchFixpoint ("temp3"::String) $ disjunctForkPromote ("djf"::String) v'' [do
+            v' <- new (GenTId @v ("v'"::String))
+            watchFixpoint ("tmp"::String) $ do
+              eq v' v
+              eq v' v''
+            --write v bot
+            return ()
+            ]]]]]
+
+  return [(TSP v), (TSP v'')]
+
 
 --

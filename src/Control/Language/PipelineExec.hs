@@ -1,5 +1,7 @@
 module Control.Language.PipelineExec where
 
+import "base" Debug.Trace
+
 import "this" Control.Language.Pipeline
 import "this" Control.Propagator.Implementation
 import "this" Control.Propagator.References
