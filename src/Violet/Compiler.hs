@@ -61,6 +61,46 @@ ssaExpr (Division lhs rhs) = do
 ssaExpr e = return e
 
 
+
+bar :: String -> AssignExpr -> State (Map String Int) [Assign]
+bar n (Var name) = do
+  mp <- get
+  let i = Map.findWithDefault 0 name mp
+  if (i <= 0) then do error $ "Trying to assign to uninitialized variable \"" ++ name ++ "\""
+    else do return [(Assign n (Var (ssaVarName name (i-1))))]
+bar n (Negation e) = do
+  prevAssignments <- bar n e
+  let a'@(Assign lastName _) = last prevAssignments
+  let minusOne = Constant (-1)
+  let prevVar = Var lastName
+  let negation = Product minusOne prevVar
+  let newAssignment = Assign n negation
+  return $ prevAssignments ++ [newAssignment]
+bar n (Product lhs rhs)  = do
+  prevAssignmentsLHS <- bar n lhs
+  prevAssignmentsRHS <- bar n rhs
+  let a'@(Assign lastNameLHS _) = last prevAssignmentsLHS
+  let b'@(Assign lastNameRHS _) = last prevAssignmentsRHS
+
+  let prevVarLHS = Var lastNameLHS
+  let prevVarRHS = Var lastNameRHS
+  let product = Product prevVarLHS prevVarRHS
+  let newAssignment = Assign n product
+  return $ prevAssignmentsLHS ++ prevAssignmentsRHS ++ [newAssignment]
+bar n e = return [Assign n e]
+
+ssA :: [Assign] -> State (Map String Int) [Assign]
+ssA [] = return []
+ssA (a@(Assign varName expr) : as) = do
+  mp <- get
+  let i = Map.findWithDefault 0 varName mp
+  let newName = ssaVarName varName i
+  assignments' <- bar newName expr
+  put $ Map.insert varName (i + 1) mp
+  rest <- ssA as
+  return $ assignments' ++ rest
+
+
 ssaAssignments :: [Assign] -> State (Map String Int) [Assign]
 ssaAssignments [] = return []
 ssaAssignments (a@(Assign varName expr) : as) = do
