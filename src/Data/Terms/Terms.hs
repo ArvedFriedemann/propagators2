@@ -94,16 +94,17 @@ watchTerm :: (MonadProp m v scope, StdPtr v) => TermSetPtr v -> m ()
 watchTerm (TSP ptr) = watch' ptr TermListener (termListener (TSP ptr))
 
 termListener :: (MonadProp m v scope, StdPtr v) => TermSetPtr v -> TermSet (TermSetPtr v) -> m ()
-termListener this@(TSP this') (TS _ variables applications _) = do
-  eqAll (Set.map unpkTSP $ setAppend this variables)
-  eqAll (Set.map unpkTSP $ Set.map fst applications)
-  eqAll (Set.map unpkTSP $ Set.map snd applications)
-  forM_ applications $ \((TSP a),(TSP b)) -> do
-    propBot a this'
-    propBot b this'
-    propBot this' a
-    propBot this' b
-    --bots need to be propagated both ways, otherwise prefixes of unsuccessful matches can still be read without failure
+termListener this@(TSP this') val@(TS _ variables applications _) =
+  do
+    eqAll (Set.map unpkTSP $ setAppend this variables)
+    eqAll (Set.map unpkTSP $ Set.map fst applications)
+    eqAll (Set.map unpkTSP $ Set.map snd applications)
+    forM_ applications $ \((TSP a),(TSP b)) -> do
+      propBot a this'
+      propBot b this'
+      propBot this' a
+      propBot this' b
+      --bots need to be propagated both ways, otherwise prefixes of unsuccessful matches can still be read without failure
 
 
 -------------------------------------------

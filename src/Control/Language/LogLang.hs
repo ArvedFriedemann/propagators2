@@ -16,6 +16,7 @@ import "this" Data.Terms.Terms
 import "this" Data.Terms.TermFunctions
 import "this" Control.Propagator.Class
 import "this" Control.Combinator
+import "this" Control.Combinator.DisjunctFork
 import "this" Data.Lattice
 
 type Clause = []

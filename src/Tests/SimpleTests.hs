@@ -9,6 +9,7 @@ import "base" Control.Monad
 
 import "this" Control.Propagator.Class
 import "this" Control.Combinator
+import "this" Control.Combinator.DisjunctFork
 import "this" Data.Lattice
 import "this" Data.Some
 import "this" Data.Util
