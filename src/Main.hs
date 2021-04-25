@@ -6,6 +6,7 @@ import "this" Tests.CircuitExec
 --import "this" Tests.SimpleTests
 import "this" Violet.Basics
 import "this" Violet.Parser
+import "this" Violet.Compiler
 
 main :: IO ()
 main = do
