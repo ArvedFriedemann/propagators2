@@ -84,7 +84,7 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
 
 
     disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) ([0..] :: [Int]) $ --(if fuel == (-1) then drop 1 else take 1) $ --safeHead $  --WARNING!
-      [\i -> do
+      (if isEq then [] else [\i -> do
         (fromJust . splitClause -> (pres, (TSP post))) <- refreshClause ("refresh"::String, i, ctx) cls
         --(fromJust . splitClause -> (pres', (TSP post'))) <- refreshClause ("refresh2"::String, i, ctx) cls
 
@@ -99,7 +99,7 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
             forM_ (zip pres ([0..]::[Int])) $ \(TSP pre, j) -> do
               simpleKBNetwork' (fuel - 1) (SimpleKBNetwork (ctx,i,j)) kb (TSP pre)
               propBot pre goal
-      | cls <- kb] ++ (if not isEq then [] else [\i -> do
+      | cls <- kb]) ++ (if not isEq then [] else [\i -> do
           s <- newScope EqScope
           scoped s $ do
             let a = var (TSID @v "eqv")
