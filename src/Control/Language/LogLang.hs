@@ -62,8 +62,29 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
   --traceM $ "currgoal "++show cgp++" is "++show cgt
   traceM $ "curr network call "++show ctx++ " at fuel "++show fuel
   unless (isBot currg) $ do
+
+    isEq <- case applications currg of
+      (Set.lookupMin -> Just (_,TSP b)) -> do
+        b' <- read b
+        case applications b' of
+          (Set.lookupMin -> Just (TSP c,_)) -> do
+            c' <- read c
+            let isEq = Set.member "/=" (constants c')
+            when (not isEq) $ do
+              traceM "equality structure disproven"
+            when isEq $ do
+              traceM "equality structure confirmed"
+            return isEq
+          (Set.lookupMin -> Nothing) -> do
+            traceM "equality structure disproven"
+            return False
+      (Set.lookupMin -> Nothing) -> do
+        traceM "equality structure disproven"
+        return False
+
+
     disjunctForkPromote ("djf"::String, ctx) goal $ (flip (zipWith ($))) ([0..] :: [Int]) $ --(if fuel == (-1) then drop 1 else take 1) $ --safeHead $  --WARNING!
-      [\i -> do
+      (if isEq then [] else [\i -> do
         (fromJust . splitClause -> (pres, (TSP post))) <- refreshClause ("refresh"::String, i, ctx) cls
         --(fromJust . splitClause -> (pres', (TSP post'))) <- refreshClause ("refresh2"::String, i, ctx) cls
 
@@ -78,43 +99,22 @@ simpleKBNetwork' fuel ctx kb (TSP goal) = watchFixpoint (SimpleKBNetwork ctx) $ 
             forM_ (zip pres ([0..]::[Int])) $ \(TSP pre, j) -> do
               simpleKBNetwork' (fuel - 1) (SimpleKBNetwork (ctx,i,j)) kb (TSP pre)
               propBot pre goal
-      | cls <- kb] ++ [\i -> do
-        readTermRec (TSP goal)
-        watchFixpoint (EqScope, ctx, 0::Int) $ do
-          g' <- read goal
-          case applications g' of
-            (Set.lookupMin -> Just (_,TSP b)) -> do
-              b' <- read b
-              case applications b' of
-                (Set.lookupMin -> Just (TSP c,_)) -> do
-                  c' <- read c
-                  let isEq = Set.member "/=" (constants c')
-                  when (not isEq) $ do
-                    write goal bot
-                    traceM "equality structure disproven"
-                  when isEq $ do
-                    traceM "equality structure confirmed"
-                    s <- newScope EqScope
-                    scoped s $ do
-                      let a = var (TSID @v "eqv")
-                      (TSP eqt) <- fromVarsAsCells (TSID @v "eqt2") [a,["/=",a]]
-                      eq goal eqt
-                      watchFixpoint (EqScope, ctx, 1::Int) $ do
-                        g <- read goal
-                        if isBot g
-                        then do
-                          traceM "inequality succeeded!"
-                          return ()
-                        else do
-                          traceM "Inequality failed"
-                          parScoped $ write goal bot
-                (Set.lookupMin -> Nothing) -> do
-                  write goal bot
-                  traceM "equality structure disproven"
-            (Set.lookupMin -> Nothing) -> do
-              write goal bot
-              traceM "equality structure disproven"
-      ]
+      | cls <- kb]) ++ (if not isEq then [] else [\i -> do
+          s <- newScope EqScope
+          scoped s $ do
+            let a = var (TSID @v "eqv")
+            (TSP eqt) <- fromVarsAsCells (TSID @v "eqt2") [a,["/=",a]]
+            eq goal eqt
+            watchFixpoint (EqScope, ctx, 1::Int) $ do
+              g <- read goal
+              if isBot g
+              then do
+                traceM "inequality succeeded!"
+                return ()
+              else do
+                traceM "Inequality failed"
+                parScoped $ write goal bot
+      ])
 
 data EqScope = EqScope
   deriving (Show, Eq, Ord)
