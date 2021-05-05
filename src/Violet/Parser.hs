@@ -6,7 +6,6 @@ module Violet.Parser where
 import Control.Monad.Identity
 import Control.Monad.Combinators.Expr
 
-import Data.Bifunctor
 import Data.Either
 import Data.Text (Text, pack)
 import Data.Void

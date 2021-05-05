@@ -67,7 +67,8 @@ bar n (Var name) = do
   mp <- get
   let i = Map.findWithDefault 0 name mp
   if (i <= 0) then do error $ "Trying to assign to uninitialized variable \"" ++ name ++ "\""
-    else do return [(Assign n (Var (ssaVarName name (i-1))))]
+    else do  
+      return [(Assign n (Var (ssaVarName name (i-1))))]
 bar n (Negation e) = do
   prevAssignments <- bar n e
   let a'@(Assign lastName _) = last prevAssignments
@@ -80,12 +81,11 @@ bar n (Product lhs rhs)  = do
   prevAssignmentsLHS <- bar n lhs
   prevAssignmentsRHS <- bar n rhs
   let a'@(Assign lastNameLHS _) = last prevAssignmentsLHS
-  let b'@(Assign lastNameRHS _) = last prevAssignmentsRHS
-
-  let prevVarLHS = Var lastNameLHS
-  let prevVarRHS = Var lastNameRHS
-  let product = Product prevVarLHS prevVarRHS
-  let newAssignment = Assign n product
+      b'@(Assign lastNameRHS _) = last prevAssignmentsRHS
+      prevVarLHS = Var lastNameLHS
+      prevVarRHS = Var lastNameRHS
+      product = Product prevVarLHS prevVarRHS
+      newAssignment = Assign n product
   return $ prevAssignmentsLHS ++ prevAssignmentsRHS ++ [newAssignment]
 bar n e = return [Assign n e]
 
