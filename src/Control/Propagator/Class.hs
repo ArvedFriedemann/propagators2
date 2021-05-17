@@ -3,6 +3,7 @@ module Control.Propagator.Class where
 
 import "base" Prelude hiding ( read )
 import "base" Data.Typeable
+import "base" Control.Monad
 
 import "this" Control.MonadVar.MonadVar (MonadNew, MonadMutate, MonadRead)
 
@@ -62,6 +63,15 @@ class (Show scope, Monad m) => MonadProp m v scope | m -> v, m -> scope where
   read :: (Value a) => v a -> m a
   write :: (Value a) => v a -> a -> m ()
   watch :: (Value a, Std n) => v a -> n -> m () -> m ()
+  watchl :: (Value a, Std n) => [v a] -> n -> m () -> m ()
+  watchl ptrs name fkt = mapM (\(i,p) -> watch p (show name ++ show i) helper_fun) aptrs
+    where
+      helper_fun :: m ()
+      helper_fun = do
+        vls <- mapM read ptrs
+        when (all (not . isTop) vls) fkt
+      aptrs = zip [0..] ptrs
+
   watch' :: (Value a, Std n) => v a -> n -> (a -> m ()) -> m ()
   watch' ptr name fkt = watch ptr name (read ptr >>= fkt)
 

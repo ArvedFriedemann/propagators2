@@ -22,11 +22,14 @@ data Expr v c
   | Subtr    (Expr v c) (Expr v c)
   | Product  (Expr v c) (Expr v c)
   | Division (Expr v c) (Expr v c)
+  | FunCall [Expr v c]
   deriving (Eq, Ord, Show)
 
 type AssignExpr = Expr String Int
 data Assign = Assign String AssignExpr
   deriving (Eq, Ord, Show)
+
+data FunDef = FunDef String [String] [Assign] [String] -- Name, Parameternamen, Funktionalität, Rückgabe
 
 operatorTable :: [[Operator Parser AssignExpr]]
 operatorTable =

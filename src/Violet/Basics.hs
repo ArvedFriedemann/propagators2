@@ -73,6 +73,8 @@ op1 fname f a c res = do
       aval <- read a
       write res (f <$> aval <*> (Val c))
 
+
+-- kann nur bis ^2
 naive_pow :: (MonadProp m v scope, StdPtr v) => v RangeL -> Int -> v RangeL -> m (v RangeL)
 naive_pow x n res
   | n == 1 = return x
