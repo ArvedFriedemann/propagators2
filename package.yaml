@@ -52,6 +52,8 @@ dependencies:
   - semigroupoids
   - criterion
   - stm
+  - formatting
+  - clock
 
 # enable modern Haskell
 default-extensions:
