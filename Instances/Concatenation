@@ -15,4 +15,5 @@ concat xs y zs -> concat (x : xs) y (x : zs) ;
 --concat (A : []) (A : A : []) y ;
 --concat y (A : []) (A : A : []) ;
 --concat (A : A : A : []) (A : []) y;
-concat (A : A : A : A : A : []) (A : []) y;
+--concat (A : A : A : A : A : []) (A : []) y;
+concat (A : A : A : A : A : A : A : A : A : A : A : A : A : A : A : []) (A : []) y;
