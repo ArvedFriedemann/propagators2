@@ -15,3 +15,5 @@ main = do
   putStrLn "file name:"
   filename <- getLine
   parseFileAndPerformProofSearch filename
+  getLine
+  main

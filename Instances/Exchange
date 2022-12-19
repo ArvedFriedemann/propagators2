@@ -3,14 +3,9 @@ expression nassoc 13 exchange_with_in_to_ ;
 expression rassoc 13 _ = _ ;
 expression rassoc 13 _ /= _ ;
 expression rassoc 15 _ -> _ ;
-expression rassoc 14 _ : _ ;
 expression lassoc 9 _ _ ;
-expression nassoc 8 [] ;
 expression nassoc 8 cA ;
 expression nassoc 8 cB ;
-expression nassoc 8 ca ;
-expression nassoc 8 cb ;
-expression nassoc 8 cc ;
 
 exchange x with y in x to y ;
 
@@ -21,4 +16,4 @@ exchange x with y in x to y ;
 
 (e /= x) -> (e /= (e1 e2)) -> exchange x with y in e to e ;
 
-exchange ca with cb in (ca ca cb) to P
+exchange cA with cB in (cA cA cB) to P
