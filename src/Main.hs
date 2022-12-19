@@ -5,6 +5,9 @@ import "this" Tests.TestsExec
 --import "this" Tests.SimpleTests
 
 import "base" Control.Concurrent
+import "base" Control.Monad
+import "timeit" System.TimeIt
+import "dsp" Numeric.Statistics.Moment
 
 main :: IO ()
 main = do
@@ -14,6 +17,8 @@ main = do
   putStrLn "Instances/Concatenation"
   putStrLn "file name:"
   filename <- getLine
-  parseFileAndPerformProofSearch filename
+  times <- forM [1..10] $ const $ fst <$> timeItT (parseFileAndPerformProofSearch filename)
+  --parseFileAndPerformProofSearch filename
+  putStrLn $ "Mean time: "++(show $ mean times)++"s"
   getLine
   main
