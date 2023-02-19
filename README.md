@@ -1,6 +1,6 @@
 # Propagators2
 
-Terribly sorry that the system is still under maintenance! The time between the ICFP and the Symposium deadline was shorter than anticipated. We still hope you can get some interesting insides into our implementation!
+Welcome to the second iteration of our propagator based logical language! Here, we built a framework for concurrent constraint solving that is based on the theory of propagators by Radul and LVars by Kuper. To test it, we built a Prolog-like logical language for it.
 
 A few important files:
 
@@ -12,6 +12,7 @@ Control.Language.LogLang.hs                 contains the proof search
 
 Data.Terms.Terms.hs                         contains the unification algorithm formulated with our interface
 
+Input instances can be found in the ./Instances folder. Running instances include "Concatenation" and "Exchange"
 
 ## Setup
 
@@ -19,10 +20,11 @@ Data.Terms.Terms.hs                         contains the unification algorithm f
 
 ## run
 - run `./run`
+- follow instructions
 
 ## develop
 
-Use any editor you like, I recommend vs-code or vim.
+Use any editor you like, I recommend vs-code.
 
 Have a terminal open where `./watch` is running.
 If you are only working on files in `./src/` this is sufficient.
