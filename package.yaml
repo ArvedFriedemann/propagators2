@@ -54,6 +54,8 @@ dependencies:
   - stm
   - formatting
   - clock
+  - timeit
+  - dsp
 
 # enable modern Haskell
 default-extensions:

@@ -1,0 +1,19 @@
+expression nassoc 7 ( _ ) ;
+expression rassoc 13 _ /=/ _ ;
+expression rassoc 11 _ -> _ ;
+expression lassoc 9 _ _ ;
+expression nassoc 8 alldiff ;
+expression nassoc 8 choose ;
+expression nassoc 8 cA ;
+expression nassoc 8 cB ;
+expression nassoc 8 cC ;
+
+(X /=/ Y) -> (Y /=/ Z) -> (Z /=/ W) -> (W /=/ X) -> alldiff X Y Z W ;
+cA /=/ cB ;
+cA /=/ cC ;
+cB /=/ cA ;
+cB /=/ cC ;
+cC /=/ cA ;
+cC /=/ cB ;
+
+alldiff X Y Z W
