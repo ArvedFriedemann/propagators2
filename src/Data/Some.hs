@@ -7,6 +7,8 @@ import "hashable" Data.Hashable
 
 import "this" Data.Typed
 
+import "ghc-prim" GHC.Types
+
 
 data Some c where
     Some :: (Typeable a, c a) => a -> Some c

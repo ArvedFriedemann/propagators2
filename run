@@ -1,2 +1,0 @@
-#! /bin/sh
-nix-build && ./result/bin/my-propagators +RTS -N4 # -qa

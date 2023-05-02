@@ -1,4 +1,4 @@
-name: my-propagators
+name: propagators2
 version: 0.1.0
 
 ghc-options:
@@ -56,6 +56,7 @@ dependencies:
   - clock
   - timeit
   - dsp
+  - ghc-prim
 
 # enable modern Haskell
 default-extensions:

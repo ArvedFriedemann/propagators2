@@ -1,0 +1,102 @@
+/home/arved/.ghcup/ghc/9.2.7/lib/ghc-9.2.7/include/ghcversion.h:
+  hash: d590b76d2d5f98f01894882dc106d920a101f52edb6a09b9a7f8dc701b075565
+? /home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/.stack-work/dist/x86_64-linux/Cabal-3.6.3.0/build/propagators2/autogen/Paths_propagators2.hs
+: hash: fe2366a31a28026f48024461ef5217e9275fe3d6159d9863be8f2820bccdc952
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/package.yaml:
+  hash: 9426ce1c6f7229ee5e007574f72447fc5ab36f644e9b5059e838095f6e7515ef
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/propagators2.cabal:
+  hash: 1aeb2881e096ded20a13f64f2eac4c0246b5b2226c52ee40578a30ba7b7cba3e
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/Combinator.hs:
+  hash: 3b8c1e7daae4f6963616f1d2ee4955d14623ab27c0c04116a5af1e0dc9b4f424
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/Combinator/Combinators.hs:
+  hash: 60d26307a7ff1feb0ea7a53d9158378b6375296a7c58cad8f076eaa0c7be0eaf
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/Combinator/DFS.hs:
+  hash: 5e0664c433529f6bce441546d6533e5de0be6091aaacd2ce59b3119498edaf2e
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/Combinator/DisjunctFork.hs:
+  hash: 9deff4d55daa23ce53ca5e1f8bdc824017760df10263f81227beca39fa83f208
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/Combinator/Logics.hs:
+  hash: a137a44b9ac6156acbc2e72178dea140563cabcf240ac71a372bb8b7d73f391d
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/Language/LogLang.hs:
+  hash: 4b2d38e15b9302a3d5e838b5ea3a61fc728dfcd954755447bd3f20c8318d9698
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/Language/Pipeline.hs:
+  hash: b8b632bbe84cd2b29562a643a40f79954979ade2f6660d273daa276d7270ef1a
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/Language/PipelineExec.hs:
+  hash: a0cf92e318f4b24e5cb8210494e60c59e2f9cb13e50dcac06d858623e48c9992
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/Language/TermTransformations.hs:
+  hash: f25c372ad908e0b37f38e65685ab3033e0eee1acdae15aa7f84206c0606c4c93
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/MonadVar/MonadVar.hs:
+  hash: 8231158dbd28e883fb35864ef5fd4e1513174244fceee09125d1db00d928d284
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/MonadVar/MonadVar/Classes.hs:
+  hash: 272b70bc958c1cb2081a1ba3712ba72e258e8eb3f0c637ea8665b7a24a0ef6c8
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/MonadVar/MonadVar/Combinators.hs:
+  hash: 11e369b36304480b239c5162a9b7011c6987268f3d312c4f8db07817fc4804b7
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/MonadVar/MonadVar/Compat.hs:
+  hash: 1e9ccbf32b3eb73e15eef8509d70bff33f0aa3f91146cb126f60bfb8f189b6a5
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/MonadVar/MonadVar/Default.hs:
+  hash: 1d7839ec2e636537cc7266aad3865ca44c0c510c27540196c2137253c0658cb5
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/MonadVar/MonadVar/Instances/IORef.hs:
+  hash: 71b060789605b9f7396798c75dc52ac4cbebfdf1dd3586e396e8b03a0fab10a8
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/MonadVar/MonadVar/Instances/MVar.hs:
+  hash: 2c2fd6000cc9e757e530557543f0a275ab02722aa3dab8274e38cedf5be6c8ee
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/MonadVar/MonadVar/Instances/STRef.hs:
+  hash: 16cf83c2ea38a96c2731d0e45742a9db7653b1241ec6d839941e32ffbb188e1d
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/MonadVar/MonadVar/Instances/TMVar.hs:
+  hash: 261e5ff2a529615a06e38838e0645265ae0fa0b58d5bb1a03c80ba9086b4f4d3
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/MonadVar/MonadVar/Instances/TVar.hs:
+  hash: 58d64cf1422b6718d073521be10ebf6dc6f6bdfc2129755e6601dee0e1d4ae74
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/MonadVar/MonadVar/Lens.hs:
+  hash: e58e164d5e42c480f62254dbea6cd29436819564c026ec8b1d9239d3064a1617
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/MonadVar/MonadVar/Prelude.hs:
+  hash: 3faa43c00b2af8e10dd7e293ed9d2be78658454dcb190ee18c7d2d67d115546c
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/Propagator.hs:
+  hash: e8734021da72052753397ea9a8dc60a2bf378c99be40bb99b3a12855218fb9c8
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/Propagator/Class.hs:
+  hash: a843655416cc870eeed113752f074225998e2b75bba60f737d007db1528b39c7
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/Propagator/Implementation.hs:
+  hash: af1e15ef971fdb7f2c63af52ee837327b71075abca52425d078f249d363fcc2e
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/Propagator/References.hs:
+  hash: 9467491e70238044037be864c52bfd6c41e7ee441ab264129290f65923cd0511
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Control/Propagator/SimpleProp.hs:
+  hash: ed685df9cbefe50d51c5416103edc10b1b6fca174632a65fa65ef2a25771bfed
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Iso.hs:
+  hash: 7a7009803d2a180cd25b6cdd13beed21b31142b9990536776fd3586da42c2576
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Lattice.hs:
+  hash: dfab7e1d458c7dd4c16aa7b04d62ce8df8773f359a3c2cc32f462c84986f48b9
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Lattice/Class.hs:
+  hash: 15888e77948641adfd4ec72ed341dbcc288e0a671275af379fd779d25d67047e
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Lattice/Domain.hs:
+  hash: e048fd83fba375e3597f19e13f333ac61f640be49101ce9d7e58043cd0f91c3b
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Lattice/Facts.hs:
+  hash: 7f7d2f18acbbcc887c17a4af2111c84d931bad82904f9d1327e914c8dead4142
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Lattice/HasValue.hs:
+  hash: d865620267948486e36c9741a40651a2a00d7ffc7882795520b7f93a28f37585
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Lattice/Util.hs:
+  hash: ceb82dbde27a5d548cd0ed6d61bfbfb6118e086e772c31a9d14ca9d16bf33f08
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Lattice/WithBot.hs:
+  hash: 3d33101fda66c469ec1ec5cbde1b94d9a9035f7cd8a332f2b9a4c0c30e0859e2
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Lattice/WithBounds.hs:
+  hash: 3724239f270d4d9a0d293fefbc39bb88e157c765d7abfd7ed2648a6ee6f383c1
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Lattice/WithTop.hs:
+  hash: bc385191926eafdfacf683ad30cb381dcbde90b33be1edbafc15653021704e7c
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/NaturalTransformation.hs:
+  hash: 061a708639ce3d3f2e66556df55f5f21b12b172ff90d580e212e445377a45047
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Some.hs:
+  hash: dfcae028ee5593629b932b86d47fa1d127a6074d9bc8e9ef070451e7f8fc84ed
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Terms/TermFunctions.hs:
+  hash: 1ac1cad608e4cb5fa7b5481e36ac45ece8481bf5d2f0c94501b5f0629607f5c1
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Terms/Terms.hs:
+  hash: 12a452e687bc54df9dcc2a60d51f96e1971b8902f67c3b08b6db8c1ea3187a5a
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Typed.hs:
+  hash: 3927ff8a08523a3adc7244b16cb239261ba4894c3bc57b1da9ffee126b4dc569
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Data/Util.hs:
+  hash: 289e164c7cd2bf76192a92b0ba7ddc7d8185a53c73dd2f348de83140864eca69
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Main.hs:
+  hash: cd0aa2429c9ab6c34f3104b6c970ad1807e86c8a1b8051bbd7d51e10913c0b4f
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Parsing/Parser.hs:
+  hash: 0a46472ccf2b21d3d6f440aac9eef6bd256ad1a5a5cd6dc74b0509bc729e0c00
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Tests/SimpleTests.hs:
+  hash: 08c256aa9a4d70e120561edc3be4486871669fd3e3149546dce04d558866fc8c
+/home/arved/Documents/Swansea Experiments/propagators2/stack/propagators2/src/Tests/TestsExec.hs:
+  hash: 04381e20e57067dd6ff89349054140674f5d616741d19036c32934af3afb50ad
+/usr/include/stdc-predef.h:
+  hash: cb08cd5d4cc059a90833ac48a284d25016e8d56ded8ad4cd98d8ac59cc5053f3
